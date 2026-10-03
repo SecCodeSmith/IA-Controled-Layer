@@ -21,13 +21,13 @@ models:
       output_per_1k_usd: 0.0004
 roles:
   developer:
-    mcp_servers: [github, ci, logs-db, jira]
+    mcp_servers: [github, ci, logs-db, jira, mail]
   hr:
     mcp_servers: [hr-db, calendar, mail]
   finance:
     mcp_servers: [payments, calendar]
     transaction_limit: 5000
-    beneficiary_allowlist: []
+    beneficiary_allowlist: [PL61109010140000071219812874, DE89370400440532013000]
 locations:
   eu_customers:
     allowed_regions: [PL, DE, FR]
@@ -73,14 +73,16 @@ Each role gets a list of `mcp_servers` it can access. Tool calls to unprovioned 
 ```yaml
 roles:
   developer:
-    mcp_servers: [github, ci, logs-db, jira]
+    mcp_servers: [github, ci, logs-db, jira, mail]
   hr:
     mcp_servers: [hr-db, calendar, mail]
   finance:
     mcp_servers: [payments, calendar]
+    transaction_limit: 5000
+    beneficiary_allowlist: [PL61109010140000071219812874, DE89370400440532013000]
 ```
 
-Additional role-specific limits (e.g., `transaction_limit`, `beneficiary_allowlist`) are enforced at the Policy stage.
+Additional role-specific limits (e.g., `transaction_limit`, `beneficiary_allowlist`) are enforced at the Policy stage. Developer role can now use `mail` for sending messages.
 
 ## Locations and Data Residency
 
@@ -128,12 +130,23 @@ Matches text against a set of regex patterns from a feed file.
   on: [prompt, tool_result]
   type: signatures
   feed: attack_signatures
+  categories: [prompt_injection, jailbreak, system_prompt_exfiltration, exfiltration]
   action: block
   owasp: [LLM01, ASI01]
+
+- id: historical_exploits
+  on: [prompt, tool_call, tool_result, response]
+  type: signatures
+  feed: attack_signatures
+  categories: [code_exec, deserialization, supply_chain, destructive]
+  action: block
+  owasp: [ASI05, LLM03, ASI04]
 ```
 
 - **`feed`**: Local file key (e.g., `attack_signatures` → `config/attack_signatures.yaml`), or HTTP URL via `CTRL_SIGNATURE_FEED_URL` (P1)
-- **`categories`** (optional): Filter signatures by category (e.g., `[code_exec, deserialization]`)
+- **`categories`** (optional): Filter signatures by category. Common categories:
+  - `prompt_injection`, `jailbreak`, `system_prompt_exfiltration`, `exfiltration` (injection tier)
+  - `code_exec`, `deserialization`, `supply_chain`, `destructive` (exploit tier)
 
 #### 2. `ml_classifier` (ML First-Pass Detection)
 
@@ -155,10 +168,11 @@ Runs text through the Scikit-learn prompt injection classifier. Inconclusive sco
 
 #### 3. `llm_judge` (LLM-Driven Safety Assessment)
 
-Runs inconclusive or escalated text through an LLM judge (default: Ollama). Timeout → FLAG.
+Runs inconclusive or escalated text through an LLM judge (default: Ollama). Timeout → FLAG. Note: `on: []` means this rule runs only when escalated by another rule (e.g., `prompt_injection_ml`), not automatically at any interception point.
 
 ```yaml
 - id: llm_judge
+  on: []
   type: llm_judge
   model: qwen2.5:7b
   timeout_s: 20
@@ -166,6 +180,7 @@ Runs inconclusive or escalated text through an LLM judge (default: Ollama). Time
   owasp: [ASI01]
 ```
 
+- **`on`**: Empty list `[]` means this rule is only invoked via escalation from another rule
 - **`model`**: Override default judge model (defaults to `CTRL_JUDGE_MODEL`)
 - **`timeout_s`**: Hard timeout in seconds
 - **`on_timeout`**: Action on timeout: `flag`, `block`, or `allow` (default: `flag`)
@@ -240,27 +255,62 @@ Enforced at Authorization stage; tool access checked against role provisioning.
 Matches tool calls by name or action and enforces custom rules.
 
 ```yaml
+- id: direct_push_to_main
+  on: tool_call
+  match:
+    action: [push_main]
+  action: block
+  owasp: [ASI02, LLM06]
+  severity: high
+
 - id: destructive_requires_approval
   on: tool_call
   match:
-    action: [delete_*, push_main, drop_*]
+    action: [delete_*, drop_*]
   action: require_approval
   owasp: [ASI02, ASI09]
-
-- id: transaction_limit
-  on: tool_call
-  match:
-    tool: [payments.transfer]
-    action: [transfer]
-  limit: 5000
-  owasp: [ASI02, LLM06]
 ```
 
 - **`match.action`**: Glob patterns for tool action names (e.g., `delete_*`)
 - **`match.tool`**: Specific tool names (e.g., `payments.transfer`)
-- **`limit`** (optional): Numeric limit for transactions (amount or count)
+- **`severity`** (optional): `info`, `warning`, `high`, `critical`
 
-#### 9. `rate_limit` (Per-Minute Throttle)
+#### 8a. `transaction_limit` (Financial Transaction Control)
+
+Limits financial transactions per user and enforces beneficiary allowlists.
+
+```yaml
+- id: transaction_limit
+  on: tool_call
+  type: transaction_limit
+  tool: payments.transfer
+  action: block
+  owasp: [ASI02, LLM06]
+  severity: critical
+```
+
+- Limit and beneficiary list are enforced per role (defined in `roles.finance`):
+  - **`transaction_limit`**: Max transaction amount (e.g., 5000 in role config)
+  - **`beneficiary_allowlist`**: List of allowed recipient IBANs
+- Exceeding either triggers a block with 403 `Policy · transaction_limit`
+
+#### 9. `model_allowlist` (Model Authorization)
+
+Restricts which models the user may invoke (enforced at Authorization stage).
+
+```yaml
+- id: model_allowlist
+  on: prompt
+  type: model_allowlist
+  action: block
+  owasp: [LLM03, ASI04]
+  severity: medium
+```
+
+- Model list comes from `models.allowed` in policy root (e.g., `["qwen2.5:7b", "qwen2.5:3b", "mock"]`)
+- Block if user requests a model not in the list with 403 `Authorization · model_allowlist`
+
+#### 11. `rate_limit` (Per-Minute Throttle)
 
 Blocks user if they exceed calls per minute.
 
@@ -274,7 +324,7 @@ Blocks user if they exceed calls per minute.
 
 - **`per_minute`**: Max calls per user per minute (default per profile: strict 30, balanced 60, permissive 120)
 
-#### 10. `loop_guard` (Repetition Detection)
+#### 12. `loop_guard` (Repetition Detection)
 
 Blocks user if identical calls repeat too often.
 
@@ -290,30 +340,48 @@ Blocks user if identical calls repeat too often.
 - **`identical_calls`**: Threshold (default per profile: strict 3, balanced 5, permissive 10)
 - **`window_s`**: Time window in seconds (default: 60)
 
-#### 11. `circuit_breaker` (Quarantine on Block Burst)
+#### 13. `circuit_breaker` (Quarantine on Block Burst)
 
-Quarantines user after N blocks in a time window.
+Quarantines user after N blocks in a time window. Enforced at Authorization stage to prevent cascading blocks.
 
 ```yaml
 - id: circuit_breaker
+  stage: authorization
   blocks: 5
   window_s: 300
   action: quarantine
+  owasp: [ASI10, ASI08]
+```
+
+- **`blocks`**: Number of blocks to trigger quarantine (e.g., 5)
+- **`window_s`**: Time window in seconds (e.g., 300 seconds = 5 minutes)
+- **`stage: authorization`**: Explicit stage to ensure early evaluation (prevents rule cascade)
+
+#### 14. `anomaly` (First-Time Destructive Use)
+
+Flags when a user makes a destructive tool call they have never made before (first use anomaly detection).
+
+```yaml
+- id: anomaly_first_destructive_use
+  type: anomaly
+  on: tool_call
+  action: flag
   owasp: [ASI10]
 ```
 
-- **`blocks`**: Number of blocks to trigger quarantine
-- **`window_s`**: Time window (5 blocks in 5 minutes → quarantine)
+- Tracks user's first destructive action (delete, drop, push_main, etc.) per session
+- Does not block, only flags for audit and escalation
+- Paired with behavioral monitoring (circuit_breaker) to prevent abuse
 
-#### 12. `restricted_topics` (Financial/Sensitive Topics)
+#### 15. `restricted_topics` (Financial/Sensitive Topics)
 
 (P1) Restricts discussion of sensitive topics (e.g., financial advice for HR role).
 
-#### 13. `unsafe_output` (Output Validation)
+#### 16. `unsafe_output` (Output Validation)
 
 (P1) Detects unsafe patterns in model output (e.g., code execution, system prompt leakage).
 
-#### 14. `canary_token` (Honeypot Tokens)
+#### 17. `canary_token` (Honeypot Tokens)
 
 (P1) Embeds fake tokens in responses to detect exfiltration.
 
@@ -382,12 +450,25 @@ budgets:
 Rules are evaluated in **pipeline order** (fixed, not YAML order):
 
 1. **Identity** (no rules)
-2. **Authorization** (rbac, residency, model_allowlist, approval_gate)
-3. **DLP** (detectors, sequence, canary)
-4. **Policy** (signatures, ml_classifier, llm_judge, restricted_topics, unsafe_output, tool_match [non-approval], transaction_limit)
-5. **Behavior** (rate_limit, loop_guard, circuit_breaker, anomaly)
+2. **Authorization** (rbac: role_provisioning, residency: data_residency, model_allowlist, circuit_breaker)
+3. **DLP** (detectors: pii_masking + secrets_detection, sequence: external_send_after_untrusted_read, canary_token [P1])
+4. **Policy** (signatures: prompt_injection_signatures + historical_exploits, ml_classifier: prompt_injection_ml, llm_judge, restricted_topics [P1], unsafe_output [P1], tool_match: direct_push_to_main + destructive_requires_approval, transaction_limit, anomaly: anomaly_first_destructive_use)
+5. **Behavior** (rate_limit, loop_guard)
 6. **Resource** (budgets)
 7. **Audit** (no rules)
+
+**Complete Rule List (17 total):**
+- `direct_push_to_main`, `destructive_requires_approval` (Policy, tool_match)
+- `pii_masking`, `external_send_after_untrusted_read` (DLP)
+- `prompt_injection_signatures`, `prompt_injection_ml`, `llm_judge`, `historical_exploits` (Policy, injection detection)
+- `transaction_limit` (Policy, financial control)
+- `secrets_detection` (DLP)
+- `model_allowlist` (Authorization)
+- `data_residency` (Authorization)
+- `role_provisioning` (Authorization)
+- `rate_limit`, `loop_guard` (Behavior)
+- `circuit_breaker` (Authorization, early evaluation)
+- `anomaly_first_destructive_use` (Policy, behavior anomaly)
 
 **Decision Caching:** DLP and Policy stages are cacheable via decision cache. Key: `sha256(role | point | normalized_text) | policy_version`. Cache is cleared on any policy reload (version bump).
 

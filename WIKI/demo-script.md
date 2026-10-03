@@ -189,7 +189,7 @@ Show:
 
 ---
 
-## Segment 7: Attack Suite (30 sec, optional if time allows)
+## Segment 7: Attack Suite (1 min, optional if time allows)
 
 **If time is tight, skip this.** If time permits:
 
@@ -201,9 +201,9 @@ python attack_suite.py --target http://localhost:8080
 
 **Say:**
 
-> "We also have a self-testing suite that runs 30+ attack scenarios—prompt injection, exfiltration, privilege escalation, budget overrun—and validates that each is blocked at the right stage. All green means the system is robust."
+> "We also have a comprehensive self-testing suite with 24 attack scenarios—5 positive cases (should be allowed), 19 negative cases (should be blocked at the right stage). Scenarios cover prompt injection, exfiltration, privilege escalation, budget overrun, and behavioral anomalies. Scripted tier runs in ~30 seconds with no model dependency. All green means the system is robust."
 
-**Or:** If dashboard panel is visible, click **Run (Scripted)** and watch scenarios execute in real time.
+**Or:** If dashboard panel is visible, click **Run (Scripted)** and watch scenarios execute in real time (all 24 complete in under 1 minute).
 
 ---
 

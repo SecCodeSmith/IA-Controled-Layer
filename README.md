@@ -77,7 +77,7 @@ Watch:
 python attack_suite.py --target http://localhost:8080
 ```
 
-30+ scenarios pass → exit 0.
+24 scenarios (5 positive, 19 negative) pass → exit 0.
 
 ### Option 2: Run with Docker
 
