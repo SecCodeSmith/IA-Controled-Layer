@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,13 @@ def build_tool_descriptor(
     )
 
 
+_PYTHON_ALIASES = {"python", "python3", "py"}
+
+
+def _resolve_command(command: str) -> str:
+    return sys.executable if command in _PYTHON_ALIASES else command
+
+
 class _ServerHandle:
     def __init__(self, name: str) -> None:
         self.name = name
@@ -75,7 +83,7 @@ class McpServerRegistry:
             resolved_cwd = str((self._base_dir / cwd_cfg).resolve()) if cwd_cfg else None
 
             params = StdioServerParameters(
-                command=server_cfg["command"],
+                command=_resolve_command(server_cfg["command"]),
                 args=server_cfg.get("args", []),
                 env=env,
                 cwd=resolved_cwd,

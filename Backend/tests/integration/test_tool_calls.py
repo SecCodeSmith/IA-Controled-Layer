@@ -5,7 +5,7 @@ import pytest
 
 from tests.conftest import bearer, call_tool, get_token
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
 
 async def test_allowed_tool_call(api: httpx.AsyncClient) -> None:

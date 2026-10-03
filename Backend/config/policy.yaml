@@ -41,10 +41,10 @@ rules:
   - { id: destructive_requires_approval, on: tool_call, match: { action: [delete_*, drop_*] }, action: require_approval, owasp: [ASI02, ASI09] }
   - { id: pii_masking, on: [response, tool_result], detect: [email, phone, pesel, iban, pan], action: mask, owasp: [LLM02] }
   - { id: external_send_after_untrusted_read, on: tool_call, match: { sequence: [read_external, send_external] }, action: block, owasp: [ASI01, LLM02] }
-  - { id: prompt_injection_signatures, on: [prompt, tool_result], type: signatures, feed: attack_signatures, action: block, owasp: [LLM01, ASI01] }
+  - { id: prompt_injection_signatures, on: [prompt, tool_result], type: signatures, feed: attack_signatures, categories: [prompt_injection, jailbreak, system_prompt_exfiltration, exfiltration], action: block, owasp: [LLM01, ASI01] }
   - { id: prompt_injection_ml, on: [prompt, tool_result], type: ml_classifier, block_at: 0.85, escalate_at: 0.5, escalate_to: llm_judge, owasp: [LLM01, ASI01] }
   - { id: llm_judge, on: [], type: llm_judge, model: "qwen2.5:7b", timeout_s: 20, on_timeout: flag, owasp: [ASI01] }
-  - { id: historical_exploits, on: [prompt, tool_call, tool_result, response], type: signatures, feed: attack_signatures, categories: [code_exec, deserialization, supply_chain], action: block, owasp: [ASI05, LLM03, ASI04] }
+  - { id: historical_exploits, on: [prompt, tool_call, tool_result, response], type: signatures, feed: attack_signatures, categories: [code_exec, deserialization, supply_chain, destructive], action: block, owasp: [ASI05, LLM03, ASI04] }
   - { id: transaction_limit, on: tool_call, type: transaction_limit, tool: payments.transfer, action: block, owasp: [ASI02, LLM06], severity: critical }
   - { id: secrets_detection, on: [prompt, response, tool_result], detect: [api_key, private_key, jwt], action: mask, owasp: [LLM02] }
   - { id: model_allowlist, on: prompt, type: model_allowlist, action: block, owasp: [LLM03, ASI04], severity: medium }

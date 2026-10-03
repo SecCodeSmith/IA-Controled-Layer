@@ -42,4 +42,5 @@ async def export_audit(
 @router.get("/{call_id}", response_model=AuditDetailResponse)
 async def call_detail(call_id: str, container: ContainerDep) -> AuditDetailResponse:
     record = await container.call_detail.execute(call_id)
-    return AuditDetailResponse.model_validate(record.model_dump())
+    data = record.model_dump() if hasattr(record, "model_dump") else record
+    return AuditDetailResponse.model_validate(data)

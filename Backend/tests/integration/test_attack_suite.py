@@ -9,20 +9,9 @@ from control_layer.application.selftest.scenario_executor import ScenarioExecuto
 from control_layer.selftest.scenarios import SCENARIOS
 from tests.conftest import ADMIN_HEADERS, read_sse
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
-KNOWN_ISSUES: dict[str, str] = {
-    "forbidden_model": "policy.yaml has no model_allowlist rule (WS3 config)",
-    "pesel_in_hr_report": "catalogue uses employee emp-0231 but demo data only has E-1042",
-    "secret_in_prompt": "api_key detector misses sk_live_ keys (WS3)",
-    "exfiltration_to_external_email": "no role has both github and mail; HR actor cannot read github",
-    "prompt_injection_via_readme": "catalogue repo legacy-service is benign; injected README is vendor-sdk",
-    "historical_exploit_payload": "exploit signatures are not scoped to the prompt point (WS3)",
-    "over_limit_transfer": "policy.yaml has no transaction_limit rule (WS3 config)",
-    "rate_limit_burst": "quarantine takes over from rate_limit after 5 blocks; last observation differs",
-    "block_burst_quarantine": "Authorization short-circuits before the Behavior quarantine check",
-    "token_budget_overrun": "mock usage is too small to exhaust per_user_tokens in 20 calls",
-}
+KNOWN_ISSUES: dict[str, str] = {}
 
 
 def _params() -> list:
@@ -113,10 +102,6 @@ async def test_run_endpoint_completes_and_streams(shared_app, api: httpx.AsyncCl
     assert bad_agent.status_code == 422
 
 
-@pytest.mark.xfail(
-    reason="catalogue/config defects listed in KNOWN_ISSUES still make some scenarios fail",
-    strict=False,
-)
 async def test_scripted_run_all_negatives_stopped_all_positives_passed(
     api: httpx.AsyncClient, shared_app
 ) -> None:

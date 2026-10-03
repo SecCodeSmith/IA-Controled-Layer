@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import uuid
-from dataclasses import dataclass
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
+from control_layer.application.audit.rule_yaml import rule_to_yaml
 from control_layer.application.auth.identity_service import IdentityService
 from control_layer.application.evaluators import build_evaluators
 from control_layer.application.evaluators.dependencies import EvaluatorDependencies
@@ -90,6 +91,7 @@ from control_layer.infrastructure.settings import Settings
 from control_layer.infrastructure.signatures.yaml_signature_feed import YamlSignatureFeed
 from control_layer.infrastructure.users.yaml_user_repository import YamlUserRepository
 from control_layer.ml.classifier import NullPromptClassifier, SklearnPromptClassifier
+from control_layer.presentation.policy_alerts import PolicyReloadNotifier
 from control_layer.presentation.selftest.executor_factory import build_executor_factory
 
 logger = logging.getLogger(__name__)
@@ -101,11 +103,28 @@ _RUNTIME_STATE_PREFIXES = (
 
 
 class MeteredAuditRepository:
-    def __init__(self, inner: JsonlAuditRepository, metrics: MetricsCollector) -> None:
+    def __init__(
+        self,
+        inner: JsonlAuditRepository,
+        metrics: MetricsCollector,
+        policy_repository: YamlPolicyRepository,
+    ) -> None:
         self._inner = inner
         self._metrics = metrics
+        self._policy_repository = policy_repository
+
+    async def _with_rule_yaml(self, record: CallRecord) -> CallRecord:
+        rule_id = record.decision.rule_id
+        if record.matched_rule_yaml is not None or rule_id is None:
+            return record
+        policy = await self._policy_repository.current()
+        rule = next((r for r in policy.rules if r.id == rule_id), None)
+        if rule is None:
+            return record
+        return record.model_copy(update={"matched_rule_yaml": rule_to_yaml(rule)})
 
     async def append(self, record: CallRecord) -> None:
+        record = await self._with_rule_yaml(record)
         await self._inner.append(record)
         self._metrics.record(record)
 
@@ -129,7 +148,9 @@ class MeteredPipeline(ProcessingPipeline):
 
     async def run(self, ctx: Any) -> Any:
         decision = await super().run(ctx)
-        cacheable = [r for r in decision.stage_results if r.stage in (StageName.dlp, StageName.policy)]
+        cacheable = [
+            r for r in decision.stage_results if r.stage in (StageName.dlp, StageName.policy)
+        ]
         if cacheable:
             self._metrics.record_cache(all(r.cache_hit for r in cacheable))
         return decision
@@ -142,6 +163,8 @@ class Container:
     cache_mode: str
     policy_repository: YamlPolicyRepository
     policy_watcher: PolicyFileWatcher
+    policy_notifier: PolicyReloadNotifier
+    call_ids: CallIdGenerator
     signature_watcher: PolicyFileWatcher
     signature_feed: YamlSignatureFeed
     user_repository: YamlUserRepository
@@ -231,7 +254,9 @@ async def build_container(settings: Settings) -> Container:
 
     alert_store = InMemoryAlertStore()
     alert_sink = CompositeAlertSink([ExcelAlertSink(settings.alerts_xlsx_path)])
-    audit_repository = MeteredAuditRepository(JsonlAuditRepository(settings.audit_jsonl_path), metrics)
+    audit_repository = MeteredAuditRepository(
+        JsonlAuditRepository(settings.audit_jsonl_path), metrics, policy_repository
+    )
 
     stages = [
         IdentityStage(token_verifier, user_repository),
@@ -302,6 +327,10 @@ async def build_container(settings: Settings) -> Container:
     )
     policy_view = GetPolicyViewUseCase(policy_repository)
 
+    policy_notifier = PolicyReloadNotifier(
+        policy_repository, alert_sink, alert_store, feed_broadcaster.publish
+    )
+
     async def reload_signatures() -> None:
         await signature_feed.reload()
 
@@ -325,7 +354,9 @@ async def build_container(settings: Settings) -> Container:
         cache=cache,
         cache_mode=cache_result.mode,
         policy_repository=policy_repository,
-        policy_watcher=PolicyFileWatcher(settings.policy_file_path, policy_repository.reload),
+        policy_watcher=PolicyFileWatcher(settings.policy_file_path, policy_notifier.reload),
+        policy_notifier=policy_notifier,
+        call_ids=call_ids,
         signature_watcher=PolicyFileWatcher(settings.signatures_file_path, reload_signatures),
         signature_feed=signature_feed,
         user_repository=user_repository,
@@ -380,7 +411,24 @@ async def build_container(settings: Settings) -> Container:
     )
 
 
+async def _seed_call_ids(container: Container) -> None:
+    rows = await container.audit_repository.export_rows()
+    highest = 0
+    for row in rows:
+        call_id = str(row.get("call_id", ""))
+        if call_id.startswith("c_") and call_id[2:].isdigit():
+            highest = max(highest, int(call_id[2:]))
+    seed = getattr(container.call_ids, "seed", None)
+    if seed is not None:
+        await seed(highest)
+        return
+    current = await container.cache.get("calls:seq")
+    if highest and (current is None or int(current) < highest):
+        await container.cache.set("calls:seq", str(highest))
+
+
 async def start(container: Container) -> None:
+    await _seed_call_ids(container)
     await container.mcp_registry.start()
     container.policy_watcher.start()
     container.signature_watcher.start()
@@ -401,7 +449,9 @@ async def collect_health(container: Container) -> HealthView:
     return container.health.execute(
         cache_mode=container.cache_mode,
         mcp_servers=[
-            McpServerStatus(name=name, status=info["status"], tools=info["tools"])
+            McpServerStatus(
+                name=name, status=info["status"], tools=info["tools"], error=info.get("error")
+            )
             for name, info in container.mcp_registry.status().items()
         ],
         classifier=ClassifierStatus(

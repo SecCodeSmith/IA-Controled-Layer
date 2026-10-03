@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Judge-facing self-test: runs every scenario of the shared catalogue against a live control layer."""
+"""Judge-facing self-test: runs the shared scenario catalogue against a live control layer."""
 
 from __future__ import annotations
 
@@ -192,7 +192,9 @@ class HttpScenarioClient:
                 timeout=180.0,
             )
         except httpx.HTTPError as exc:
-            raise AgentUnavailableError(f"demo agent unreachable at {self._agent_url}: {exc}") from exc
+            raise AgentUnavailableError(
+                f"demo agent unreachable at {self._agent_url}: {exc}"
+            ) from exc
         if response.status_code >= 400:
             raise AgentUnavailableError(f"demo agent returned {response.status_code}")
         return observations_from_events(response.json().get("events", []))
@@ -275,7 +277,8 @@ async def run_suite(args: argparse.Namespace) -> int:
                 )
                 if reset.status_code != 200 and not warned:
                     print(
-                        f"warning: could not isolate scenarios (reset returned {reset.status_code}); "
+                        "warning: could not isolate scenarios "
+                        f"(reset returned {reset.status_code}); "
                         "pass --admin-token or --no-reset",
                         file=sys.stderr,
                     )
@@ -323,7 +326,9 @@ def main() -> None:
     parser.add_argument("--agent-url", default="http://localhost:8090")
     parser.add_argument("--json", metavar="PATH", help="write a JSON report")
     parser.add_argument("--only", metavar="SCENARIO_ID")
-    parser.add_argument("--admin-token", default=os.environ.get("CTRL_ADMIN_TOKEN", "admin-dev-token"))
+    parser.add_argument(
+        "--admin-token", default=os.environ.get("CTRL_ADMIN_TOKEN", "admin-dev-token")
+    )
     parser.add_argument(
         "--no-reset",
         action="store_true",

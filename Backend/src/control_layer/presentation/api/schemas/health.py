@@ -11,6 +11,7 @@ class McpServerHealth(BaseModel):
     name: str
     status: str
     tools: int
+    error: str | None = None
 
 
 class McpHealth(BaseModel):

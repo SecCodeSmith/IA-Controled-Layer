@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     admin_token: str = "admin-dev-token"
 
     cors_origins: str = "http://localhost:5173"
+    cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
     port: int = 8080
 
     @property

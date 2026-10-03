@@ -34,13 +34,12 @@ def _ollama_available() -> bool:
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     ollama_ok: bool | None = None
     for item in items:
-        if "tests/integration" in item.nodeid.replace("\\", "/"):
-            item.add_marker(pytest.mark.asyncio(loop_scope="session"))
         if item.get_closest_marker("ollama"):
             if ollama_ok is None:
                 ollama_ok = _ollama_available()
             if not ollama_ok:
-                item.add_marker(pytest.mark.skip(reason=f"Ollama model {OLLAMA_MODEL} not available"))
+                reason = f"Ollama model {OLLAMA_MODEL} not available"
+                item.add_marker(pytest.mark.skip(reason=reason))
 
 
 @dataclass

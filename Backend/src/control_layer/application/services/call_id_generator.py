@@ -12,3 +12,8 @@ class CallIdGenerator:
     async def next(self) -> str:
         sequence = await self._cache.incr(_SEQUENCE_KEY)
         return f"c_{sequence:06d}"
+
+    async def seed(self, minimum: int) -> None:
+        current = await self._cache.get(_SEQUENCE_KEY)
+        if current is None or int(current) < minimum:
+            await self._cache.set(_SEQUENCE_KEY, str(minimum))

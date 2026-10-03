@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from control_layer.application.selftest.scenario_executor import ScenarioExecutor, ScenarioResult
 from control_layer.application.use_cases.execute_approval import ExecuteApprovalUseCase

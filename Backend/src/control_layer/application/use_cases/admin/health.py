@@ -8,6 +8,7 @@ from control_layer.domain.models.provider import ProviderInfo
 
 class McpServerStatus(BaseModel):
     model_config = ConfigDict(frozen=True)
+    error: str | None = None
 
     name: str
     status: str

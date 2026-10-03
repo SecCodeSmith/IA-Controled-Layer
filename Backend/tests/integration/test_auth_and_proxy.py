@@ -6,7 +6,7 @@ import pytest
 from control_layer.presentation.selftest.in_process_client import tamper_token
 from tests.conftest import bearer, call_tool, chat, get_token
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
 
 async def test_auth_users_lists_demo_users(api: httpx.AsyncClient) -> None:
@@ -102,10 +102,6 @@ async def test_direct_prompt_injection_is_blocked(api: httpx.AsyncClient) -> Non
     assert error["call_id"]
 
 
-@pytest.mark.xfail(
-    reason="policy.yaml has no model_allowlist rule yet (WS3 config); models.allowed is not enforced",
-    strict=False,
-)
 async def test_forbidden_model_is_blocked(api: httpx.AsyncClient) -> None:
     token = await get_token(api, "anna.kowalska")
     response = await chat(api, token, "Hello", model="gpt-4-turbo")

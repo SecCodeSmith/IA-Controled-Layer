@@ -9,7 +9,7 @@ import yaml
 
 from tests.conftest import ADMIN_HEADERS, call_tool, chat, get_token, read_sse
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
 
 async def _generate_traffic(api: httpx.AsyncClient) -> dict[str, str]:
