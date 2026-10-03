@@ -174,13 +174,17 @@ class ScenarioExecutor:
         if matches:
             return matches[-1], False
 
+        # An observation with no stage/rule attached is a trivial ALLOWED turn (plain assistant
+        # text or an untouched call) and is not evidence that the risky action was attempted.
+        meaningful = [o for o in observations if o.stage is not None or o.rule_id is not None]
+
         if scenario.kind == "negative" and scenario.expected.status in _ATTACK_EXPECTED_STATUSES:
-            got_through = [o for o in observations if o.status in _ATTACK_THROUGH_STATUSES]
+            got_through = [o for o in meaningful if o.status in _ATTACK_THROUGH_STATUSES]
             if got_through:
                 return got_through[-1], False
-            return observations[-1], True
+            return (meaningful[-1] if meaningful else None), True
 
         if scenario.kind == "negative":
-            return observations[-1], True
+            return (meaningful[-1] if meaningful else None), True
 
         return observations[-1], False
