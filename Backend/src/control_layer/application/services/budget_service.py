@@ -22,4 +22,6 @@ class BudgetService:
                 usage.prompt_tokens / 1000 * pricing.input_per_1k_usd
                 + usage.completion_tokens / 1000 * pricing.output_per_1k_usd
             )
-        return await self._budget_repository.record_usage(identity.sub, usage.total_tokens, cost_usd)
+        return await self._budget_repository.record_usage(
+            identity.sub, usage.total_tokens, cost_usd
+        )

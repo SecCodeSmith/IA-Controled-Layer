@@ -38,7 +38,9 @@ class PolicyStage(BaseStage):
         target_rule = self._enabled_escalation_target(rule, policy)
         if target_rule is None:
             forced = outcome.model_copy(update={"matched": True})
-            return RuleEvaluation(rule=rule.model_copy(update={"action": RuleAction.flag}), outcome=forced)
+            return RuleEvaluation(
+                rule=rule.model_copy(update={"action": RuleAction.flag}), outcome=forced
+            )
 
         evaluator = self._registry.get(target_rule.type)
         judge_outcome = await evaluator.evaluate(target_rule, ctx, policy)

@@ -155,9 +155,7 @@ async def test_different_tool_is_not_matched() -> None:
 async def test_custom_tool_param_is_respected() -> None:
     evaluator = TransactionLimitEvaluator()
     rule = make_rule(params={"tool": "hr-db.payout"})
-    policy = make_policy(
-        roles={"finance": {"mcp_servers": ["payments"], "transaction_limit": 100}}
-    )
+    policy = make_policy(roles={"finance": {"mcp_servers": ["payments"], "transaction_limit": 100}})
     ctx = make_context(
         identity=make_identity(role=Role.finance),
         point=InterceptionPoint.tool_call,

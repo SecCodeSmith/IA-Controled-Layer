@@ -77,7 +77,9 @@ def _tool_call() -> ToolCallRequest:
 
 async def test_create_assigns_ap_prefixed_id_with_12_hex_chars() -> None:
     service = ApprovalService(_FakeApprovalRepository(), _FakeCache())
-    approval = await service.create(_identity(), _tool_call(), "destructive_requires_approval", "reason")
+    approval = await service.create(
+        _identity(), _tool_call(), "destructive_requires_approval", "reason"
+    )
     assert approval.id.startswith("ap_")
     assert len(approval.id) == len("ap_") + 12
 
@@ -130,3 +132,20 @@ async def test_mark_updates_status_via_repository() -> None:
     await service.mark(created.id, ApprovalStatus.executed)
     stored = await repo.get(created.id)
     assert stored.status == ApprovalStatus.executed
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ApprovalStatus.approved,
+        ApprovalStatus.executed,
+        ApprovalStatus.rejected,
+        ApprovalStatus.expired,
+    ],
+)
+async def test_get_for_rejects_any_non_pending_status(status: ApprovalStatus) -> None:
+    service = ApprovalService(_FakeApprovalRepository(), _FakeCache())
+    created = await service.create(_identity(), _tool_call(), "rule", "reason")
+    await service.mark(created.id, status)
+    with pytest.raises(ApprovalNotFoundError):
+        await service.get_for(_identity(), created.id)

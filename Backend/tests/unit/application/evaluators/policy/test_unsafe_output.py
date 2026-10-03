@@ -67,9 +67,7 @@ async def test_markdown_link_within_allowed_domains_is_not_matched() -> None:
     evaluator = UnsafeOutputEvaluator()
     rule = make_rule(rule_type="unsafe_output", params={"allowed_domains": ["bank.pl"]})
     policy = make_policy()
-    ctx = make_context(
-        point=InterceptionPoint.response, text="see [details](https://bank.pl/help)"
-    )
+    ctx = make_context(point=InterceptionPoint.response, text="see [details](https://bank.pl/help)")
 
     outcome = await evaluator.evaluate(rule, ctx, policy)
 

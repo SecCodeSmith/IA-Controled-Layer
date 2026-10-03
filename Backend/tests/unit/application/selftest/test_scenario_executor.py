@@ -31,7 +31,10 @@ class _Scenario(BaseModel):
 
 
 _FIND_APPROVER_STEP = {
-    "action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {},
+    "action": "tool_call",
+    "server": "hr-db",
+    "tool": "find_approver",
+    "arguments": {},
 }
 
 
@@ -44,7 +47,10 @@ def _obs(
     http_status: int = 200,
 ) -> StepObservation:
     return StepObservation(
-        http_status=http_status, status=status, stage=stage, rule_id=rule_id,
+        http_status=http_status,
+        status=status,
+        stage=stage,
+        rule_id=rule_id,
         approval_id=approval_id,
     )
 
@@ -96,9 +102,7 @@ class FakeScenarioClient:
         self.approvals.append((token, approval_id))
         return self.approve_result or _obs(CallStatus.ALLOWED)
 
-    async def agent_chat(
-        self, token: str, session_id: str, prompt: str
-    ) -> list[StepObservation]:
+    async def agent_chat(self, token: str, session_id: str, prompt: str) -> list[StepObservation]:
         return self.agent_chat_result
 
 
@@ -108,7 +112,8 @@ async def test_negative_scenario_is_stopped_when_status_and_rule_match() -> None
         _obs(CallStatus.BLOCKED, stage=StageName.authorization, rule_id="role_provisioning")
     ]
     scenario = _Scenario(
-        id="s1", kind="negative",
+        id="s1",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )
@@ -126,7 +131,8 @@ async def test_negative_scenario_stopped_when_expected_rule_is_none() -> None:
     client = FakeScenarioClient()
     client.chat_result = _obs(CallStatus.BLOCKED, rule_id="model_allowlist")
     scenario = _Scenario(
-        id="s2", kind="negative",
+        id="s2",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id=None),
         steps=[{"action": "chat", "message": "hello", "model": "gpt-4"}],
     )
@@ -141,7 +147,8 @@ async def test_negative_scenario_is_succeeded_when_attack_got_through() -> None:
     client = FakeScenarioClient()
     client.tool_call_results = [_obs(CallStatus.ALLOWED)]
     scenario = _Scenario(
-        id="s3", kind="negative",
+        id="s3",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )
@@ -156,7 +163,8 @@ async def test_negative_scenario_mismatch_without_bypass_is_error() -> None:
     client = FakeScenarioClient()
     client.tool_call_results = [_obs(CallStatus.ESCALATED, rule_id="other_rule")]
     scenario = _Scenario(
-        id="s4", kind="negative",
+        id="s4",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )
@@ -171,7 +179,8 @@ async def test_positive_scenario_is_passed_when_matching() -> None:
     client = FakeScenarioClient()
     client.tool_call_results = [_obs(CallStatus.ALLOWED)]
     scenario = _Scenario(
-        id="s5", kind="positive",
+        id="s5",
+        kind="positive",
         expected=_Expectation(status=CallStatus.ALLOWED),
         steps=[{"action": "tool_call", "server": "ci", "tool": "get_run", "arguments": {}}],
     )
@@ -186,7 +195,8 @@ async def test_positive_scenario_mismatch_is_error() -> None:
     client = FakeScenarioClient()
     client.tool_call_results = [_obs(CallStatus.BLOCKED, rule_id="role_provisioning")]
     scenario = _Scenario(
-        id="s6", kind="positive",
+        id="s6",
+        kind="positive",
         expected=_Expectation(status=CallStatus.ALLOWED),
         steps=[{"action": "tool_call", "server": "ci", "tool": "get_run", "arguments": {}}],
     )
@@ -201,7 +211,8 @@ async def test_exception_from_client_is_reported_as_error() -> None:
     client = FakeScenarioClient()
     client.raise_on = "tool_call"
     scenario = _Scenario(
-        id="s7", kind="negative",
+        id="s7",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED),
         steps=[{"action": "tool_call", "server": "ci", "tool": "get_run", "arguments": {}}],
     )
@@ -222,7 +233,8 @@ async def test_repeat_runs_the_inner_step_n_times_and_uses_last_observation() ->
         _obs(CallStatus.BLOCKED, rule_id="loop_guard"),
     ]
     scenario = _Scenario(
-        id="s8", kind="negative",
+        id="s8",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="loop_guard"),
         steps=[
             {
@@ -254,7 +266,8 @@ async def test_approve_step_uses_approval_id_from_previous_observation() -> None
     ]
     client.approve_result = _obs(CallStatus.ESCALATED, rule_id="destructive_requires_approval")
     scenario = _Scenario(
-        id="s9", kind="positive",
+        id="s9",
+        kind="positive",
         expected=_Expectation(status=CallStatus.ESCALATED, rule_id="destructive_requires_approval"),
         steps=[
             {"action": "tool_call", "server": "github", "tool": "delete_branch", "arguments": {}},
@@ -273,7 +286,8 @@ async def test_tamper_token_changes_the_token_used_by_the_next_step() -> None:
     client = FakeScenarioClient()
     client.tool_call_results = [_obs(CallStatus.BLOCKED)]
     scenario = _Scenario(
-        id="s10", kind="negative",
+        id="s10",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED),
         steps=[
             {"action": "tamper_token", "claim": "role", "value": "finance"},
@@ -292,7 +306,8 @@ async def test_use_expired_token_changes_the_token_used_by_the_next_step() -> No
     client = FakeScenarioClient()
     client.tool_call_results = [_obs(CallStatus.BLOCKED)]
     scenario = _Scenario(
-        id="s11", kind="negative",
+        id="s11",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED),
         steps=[
             {"action": "use_expired_token"},
@@ -311,7 +326,8 @@ async def test_ollama_tier_not_attempted_when_no_observations() -> None:
     client = FakeScenarioClient()
     client.agent_chat_result = []
     scenario = _Scenario(
-        id="s12", kind="negative",
+        id="s12",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )
@@ -326,7 +342,8 @@ async def test_ollama_tier_not_attempted_when_model_never_tries_the_risky_action
     client = FakeScenarioClient()
     client.agent_chat_result = [_obs(CallStatus.ALLOWED, stage=None, rule_id=None)]
     scenario = _Scenario(
-        id="s13", kind="negative",
+        id="s13",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )
@@ -343,7 +360,8 @@ async def test_ollama_tier_succeeded_when_attack_got_through() -> None:
         _obs(CallStatus.ALLOWED, stage=StageName.authorization, rule_id="role_provisioning")
     ]
     scenario = _Scenario(
-        id="s14", kind="negative",
+        id="s14",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )
@@ -361,7 +379,8 @@ async def test_ollama_tier_stopped_when_a_matching_observation_exists() -> None:
         _obs(CallStatus.BLOCKED, stage=StageName.authorization, rule_id="role_provisioning"),
     ]
     scenario = _Scenario(
-        id="s15", kind="negative",
+        id="s15",
+        kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
         steps=[_FIND_APPROVER_STEP],
     )

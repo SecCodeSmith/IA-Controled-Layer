@@ -58,9 +58,7 @@ def _record(
         identity=_identity(sub, role),
         kind=CallKind.chat,
         target="llm.complete",
-        decision=CallDecisionInfo(
-            status=status, stage=stage, rule_id=rule_id, owasp=owasp or []
-        ),
+        decision=CallDecisionInfo(status=status, stage=stage, rule_id=rule_id, owasp=owasp or []),
         request=CallRequestInfo(summary="prompt"),
         response=CallResponseInfo(raw="hi", delivered="hi"),
         tokens=TokensInfo(prompt=1, completion=1, total=2),
@@ -85,7 +83,10 @@ class FakeBudgetRepository:
         return self._usage.get(
             sub,
             BudgetUsage(
-                tokens_used=0, tokens_limit=10000, cost_used_usd=0.0, cost_limit_usd=1.0,
+                tokens_used=0,
+                tokens_limit=10000,
+                cost_used_usd=0.0,
+                cost_limit_usd=1.0,
                 resets_at=datetime.now(UTC),
             ),
         )
@@ -171,12 +172,19 @@ async def test_counts_by_status() -> None:
 async def test_by_stage_rule_owasp_and_role() -> None:
     records = [
         _record(
-            "c_1", status=CallStatus.MASKED, stage=StageName.dlp, rule_id="pii_masking",
+            "c_1",
+            status=CallStatus.MASKED,
+            stage=StageName.dlp,
+            rule_id="pii_masking",
             owasp=["LLM02"],
         ),
         _record(
-            "c_2", status=CallStatus.BLOCKED, stage=StageName.authorization,
-            rule_id="role_provisioning", owasp=["ASI03", "LLM06"], role=Role.hr,
+            "c_2",
+            status=CallStatus.BLOCKED,
+            stage=StageName.authorization,
+            rule_id="role_provisioning",
+            owasp=["ASI03", "LLM06"],
+            role=Role.hr,
         ),
     ]
     calculator = _calculator(records)
@@ -245,7 +253,10 @@ async def test_budget_users_resolve_names_from_user_repository() -> None:
     users = [_User("anna.kowalska", "Anna Kowalska")]
     budgets = {
         "anna.kowalska": BudgetUsage(
-            tokens_used=3420, tokens_limit=10000, cost_used_usd=0.0012, cost_limit_usd=1.0,
+            tokens_used=3420,
+            tokens_limit=10000,
+            cost_used_usd=0.0012,
+            cost_limit_usd=1.0,
             resets_at=datetime.now(UTC),
         )
     }

@@ -48,7 +48,10 @@ async def test_publishes_stage_trace_event_and_allows() -> None:
     result = await stage.process(ctx, _policy())
     assert result.action == RuleAction.allow
     assert publisher.published == [
-        ("stage_trace", {"call_id": "c_000042", "point": "prompt", "stages": {"identity": 0.1, "dlp": 1.2}})
+        (
+            "stage_trace",
+            {"call_id": "c_000042", "point": "prompt", "stages": {"identity": 0.1, "dlp": 1.2}},
+        )
     ]
 
 

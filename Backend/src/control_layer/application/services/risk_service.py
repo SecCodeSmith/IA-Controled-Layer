@@ -41,6 +41,8 @@ class RiskService:
             signals.append(primary.rule_id)
         signals = signals[-_MAX_SIGNALS:]
 
-        updated = RiskProfile(sub=identity.sub, score=score, level=_level_for(score), signals=signals)
+        updated = RiskProfile(
+            sub=identity.sub, score=score, level=_level_for(score), signals=signals
+        )
         await self._risk_repository.update(updated)
         return updated

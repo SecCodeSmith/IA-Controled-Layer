@@ -72,8 +72,11 @@ class _FakeBudgetService:
     async def record(self, identity, usage, model, policy) -> BudgetUsage:  # noqa: ANN001
         self.calls.append((identity, usage, model))
         return BudgetUsage(
-            tokens_used=usage.total_tokens, tokens_limit=10000, cost_used_usd=0.0,
-            cost_limit_usd=1.0, resets_at=datetime(2026, 10, 5, tzinfo=UTC),
+            tokens_used=usage.total_tokens,
+            tokens_limit=10000,
+            cost_used_usd=0.0,
+            cost_limit_usd=1.0,
+            resets_at=datetime(2026, 10, 5, tzinfo=UTC),
         )
 
 
@@ -151,8 +154,12 @@ def _policy(upstream_timeout_s: float = 30, canary_rule: bool = False):
         "locations": {},
         "rules": rules,
         "budgets": {
-            "per_user_tokens": 10000, "per_user_cost_usd": 1.0, "max_tokens_per_request": 2048,
-            "upstream_timeout_s": upstream_timeout_s, "warn_at_percent": 80, "on_exceeded": "block",
+            "per_user_tokens": 10000,
+            "per_user_cost_usd": 1.0,
+            "max_tokens_per_request": 2048,
+            "upstream_timeout_s": upstream_timeout_s,
+            "warn_at_percent": 80,
+            "on_exceeded": "block",
         },
     }
     return parse_policy_document(data, source_hash="h")
@@ -160,8 +167,12 @@ def _policy(upstream_timeout_s: float = 30, canary_rule: bool = False):
 
 def _identity() -> Identity:
     return Identity(
-        sub="anna.kowalska", name="Anna Kowalska", role=Role.developer, location="Krakow, PL",
-        region="PL", agent_id="agent-anna-dev-7f3a",
+        sub="anna.kowalska",
+        name="Anna Kowalska",
+        role=Role.developer,
+        location="Krakow, PL",
+        region="PL",
+        agent_id="agent-anna-dev-7f3a",
     )
 
 
@@ -175,16 +186,26 @@ def _request(message: str = "hello", system: str | None = None) -> ChatCompletio
 
 def _response(content: str = "hi there") -> ChatCompletionResponse:
     return ChatCompletionResponse(
-        id="resp1", created=1, model="mock-model",
-        choices=[ChatCompletionChoice(index=0, message=ChatMessage(role="assistant", content=content))],
+        id="resp1",
+        created=1,
+        model="mock-model",
+        choices=[
+            ChatCompletionChoice(index=0, message=ChatMessage(role="assistant", content=content))
+        ],
         usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
 def _violation(action: RuleAction, rule_id: str, stage: StageName = StageName.dlp) -> Violation:
     return Violation(
-        stage=stage, rule_id=rule_id, action=action, severity=Severity.medium, owasp=[],
-        evidence=[], confidence=1.0, reason=f"{rule_id} fired",
+        stage=stage,
+        rule_id=rule_id,
+        action=action,
+        severity=Severity.medium,
+        owasp=[],
+        evidence=[],
+        confidence=1.0,
+        reason=f"{rule_id} fired",
     )
 
 
@@ -208,7 +229,16 @@ def _build_use_case(pipeline, policy=None, model_provider=None, budget_service=N
 
 async def test_blocked_prompt_never_calls_provider_and_still_audits() -> None:
     violation = _violation(RuleAction.block, "role_provisioning", StageName.authorization)
-    pipeline = _ScriptedPipeline([(Decision(status=CallStatus.BLOCKED, action=RuleAction.block, violations=[violation]), None)])
+    pipeline = _ScriptedPipeline(
+        [
+            (
+                Decision(
+                    status=CallStatus.BLOCKED, action=RuleAction.block, violations=[violation]
+                ),
+                None,
+            )
+        ]
+    )
     provider = _FakeModelProvider(response=_response())
     use_case = _build_use_case(pipeline, model_provider=provider)
 
@@ -224,7 +254,10 @@ async def test_masked_prompt_is_forwarded_to_provider() -> None:
     violation = _violation(RuleAction.mask, "secrets_detection")
     pipeline = _ScriptedPipeline(
         [
-            (Decision(status=CallStatus.MASKED, action=RuleAction.mask, violations=[violation]), "[API_KEY_1] please redeploy"),
+            (
+                Decision(status=CallStatus.MASKED, action=RuleAction.mask, violations=[violation]),
+                "[API_KEY_1] please redeploy",
+            ),
             (Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None),
         ]
     )
@@ -270,9 +303,13 @@ async def test_canary_not_appended_when_rule_disabled() -> None:
 
 
 async def test_upstream_timeout_raises_upstream_provider_error_and_audits() -> None:
-    pipeline = _ScriptedPipeline([(Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None)])
+    pipeline = _ScriptedPipeline(
+        [(Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None)]
+    )
     provider = _FakeModelProvider(response=_response(), delay=0.2)
-    use_case = _build_use_case(pipeline, policy=_policy(upstream_timeout_s=0), model_provider=provider)
+    use_case = _build_use_case(
+        pipeline, policy=_policy(upstream_timeout_s=0), model_provider=provider
+    )
 
     with pytest.raises(UpstreamProviderError):
         await use_case.execute("token", "s1", _request())
@@ -286,7 +323,12 @@ async def test_blocked_response_raises_after_audit() -> None:
     pipeline = _ScriptedPipeline(
         [
             (Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None),
-            (Decision(status=CallStatus.BLOCKED, action=RuleAction.block, violations=[violation]), None),
+            (
+                Decision(
+                    status=CallStatus.BLOCKED, action=RuleAction.block, violations=[violation]
+                ),
+                None,
+            ),
         ]
     )
     use_case = _build_use_case(pipeline)
@@ -303,7 +345,10 @@ async def test_masked_response_delivered_with_items_masked() -> None:
     pipeline = _ScriptedPipeline(
         [
             (Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None),
-            (Decision(status=CallStatus.MASKED, action=RuleAction.mask, violations=[violation]), "[EMAIL_1] said hi"),
+            (
+                Decision(status=CallStatus.MASKED, action=RuleAction.mask, violations=[violation]),
+                "[EMAIL_1] said hi",
+            ),
         ]
     )
     use_case = _build_use_case(pipeline)

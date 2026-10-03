@@ -28,7 +28,11 @@ NOW = datetime(2026, 10, 3, 12, 0, 0, tzinfo=UTC)
 
 def _identity(sub: str, name: str) -> Identity:
     return Identity(
-        sub=sub, name=name, role=Role.developer, location="Krakow, PL", region="PL",
+        sub=sub,
+        name=name,
+        role=Role.developer,
+        location="Krakow, PL",
+        region="PL",
         agent_id="agent-1",
     )
 
@@ -224,9 +228,7 @@ async def test_owasp_coverage_has_twenty_rows_in_catalog_order() -> None:
 
 
 async def test_recommendation_for_a_user_with_three_or_more_blocks() -> None:
-    alerts = [
-        _alert(f"a{i}", sub="anna.kowalska", status=CallStatus.BLOCKED) for i in range(3)
-    ]
+    alerts = [_alert(f"a{i}", sub="anna.kowalska", status=CallStatus.BLOCKED) for i in range(3)]
     use_case = _use_case(alerts=alerts)
 
     report = await use_case.execute("all")
@@ -246,7 +248,10 @@ async def test_recommendation_for_a_rule_firing_ten_or_more_times() -> None:
 async def test_recommendation_for_a_user_near_their_budget() -> None:
     budget_users = [
         BudgetUserStat(
-            sub="anna.kowalska", name="Anna Kowalska", tokens_used=8500, tokens_limit=10000,
+            sub="anna.kowalska",
+            name="Anna Kowalska",
+            tokens_used=8500,
+            tokens_limit=10000,
             cost_used_usd=0.5,
         )
     ]
@@ -284,6 +289,10 @@ async def test_markdown_contains_the_expected_headings() -> None:
 
     assert report.markdown.startswith("# Security report")
     for heading in (
-        "## Summary", "## Top rules", "## Top users", "## OWASP coverage", "## Recommendations",
+        "## Summary",
+        "## Top rules",
+        "## Top users",
+        "## OWASP coverage",
+        "## Recommendations",
     ):
         assert heading in report.markdown

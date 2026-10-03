@@ -4,8 +4,8 @@ import asyncio
 import re
 import time
 
-from control_layer.application.auth.identity_service import IdentityService
 from control_layer.application.audit.call_record_builder import CallRecordBuilder
+from control_layer.application.auth.identity_service import IdentityService
 from control_layer.application.pipeline.processing_pipeline import ProcessingPipeline
 from control_layer.application.services.audit_service import AuditService
 from control_layer.application.services.budget_service import BudgetService
@@ -54,7 +54,9 @@ def _combine(decision1: Decision, decision2: Decision | None) -> Decision:
     )
 
 
-def _outcome_fields(decision: Decision) -> tuple[StageName | None, str | None, str | None, list[str]]:
+def _outcome_fields(
+    decision: Decision,
+) -> tuple[StageName | None, str | None, str | None, list[str]]:
     primary = decision.primary_violation
     if primary is not None:
         return primary.stage, primary.rule_id, primary.reason, primary.owasp
@@ -143,7 +145,8 @@ class HandleChatCompletionUseCase:
         upstream_start = time.perf_counter()
         try:
             response = await asyncio.wait_for(
-                self._model_provider.complete(forward_request), timeout=policy.budgets.upstream_timeout_s
+                self._model_provider.complete(forward_request),
+                timeout=policy.budgets.upstream_timeout_s,
             )
         except TimeoutError as exc:
             upstream_latency_ms = (time.perf_counter() - upstream_start) * 1000
@@ -217,7 +220,11 @@ class HandleChatCompletionUseCase:
         delivered_response = response
         if ctx2.masked_text is not None:
             delivered_choice = response.choices[0].model_copy(
-                update={"message": response.choices[0].message.model_copy(update={"content": delivered_text})}
+                update={
+                    "message": response.choices[0].message.model_copy(
+                        update={"content": delivered_text}
+                    )
+                }
             )
             delivered_response = response.model_copy(update={"choices": [delivered_choice]})
 
@@ -314,7 +321,9 @@ class HandleChatCompletionUseCase:
         )
         primary = decision.primary_violation
         if resource_block is not None:
-            error: ControlLayerError = BudgetExceededError(resource_block.reason or "Budget exceeded")
+            error: ControlLayerError = BudgetExceededError(
+                resource_block.reason or "Budget exceeded"
+            )
         elif decision.action == RuleAction.quarantine:
             fallback = primary.reason if primary is not None else None
             error = QuarantinedError(fallback or "User is quarantined")
@@ -328,7 +337,9 @@ class HandleChatCompletionUseCase:
         return error
 
 
-def _apply_masked_prompt(request: ChatCompletionRequest, masked_text: str | None) -> ChatCompletionRequest:
+def _apply_masked_prompt(
+    request: ChatCompletionRequest, masked_text: str | None
+) -> ChatCompletionRequest:
     if masked_text is None:
         return request
     messages = list(request.messages)

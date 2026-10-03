@@ -20,7 +20,9 @@ class ResourceStage(BaseStage):
             return self._check_tool_quota(ctx, policy)
         return self.allow(0.0)
 
-    async def _check_prompt_budget(self, ctx: ProcessingContext, policy: PolicyDocument) -> StageResult:
+    async def _check_prompt_budget(
+        self, ctx: ProcessingContext, policy: PolicyDocument
+    ) -> StageResult:
         if ctx.identity is None:
             return self.allow(0.0)
 
@@ -36,7 +38,10 @@ class ResourceStage(BaseStage):
             return self.result(action, 0.0, reason="Token budget overrun")
 
         requested_max_tokens = ctx.metadata.get("max_tokens")
-        if requested_max_tokens is not None and requested_max_tokens > budgets.max_tokens_per_request:
+        if (
+            requested_max_tokens is not None
+            and requested_max_tokens > budgets.max_tokens_per_request
+        ):
             ctx.metadata["max_tokens"] = budgets.max_tokens_per_request
             return self.result(
                 RuleAction.flag,

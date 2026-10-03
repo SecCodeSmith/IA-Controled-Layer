@@ -68,7 +68,7 @@ def test_sample_policy_rules_have_the_intended_on_points_not_all_four() -> None:
     document = parse_policy_document(data, source_hash="abc123")
     on_by_id = {rule.id: rule.on for rule in document.rules}
 
-    assert on_by_id["pii_masking"] == [InterceptionPoint.response]
+    assert on_by_id["pii_masking"] == [InterceptionPoint.response, InterceptionPoint.tool_result]
     assert on_by_id["external_send_after_untrusted_read"] == [InterceptionPoint.tool_call]
     assert on_by_id["rate_limit"] == [InterceptionPoint.prompt, InterceptionPoint.tool_call]
     assert on_by_id["llm_judge"] == []
@@ -147,18 +147,14 @@ def test_on_accepts_single_string() -> None:
 
 def test_on_accepts_list() -> None:
     data = _minimal_document(
-        rules=[
-            {"id": "r1", "on": ["prompt", "tool_result"], "detect": ["email"], "action": "mask"}
-        ]
+        rules=[{"id": "r1", "on": ["prompt", "tool_result"], "detect": ["email"], "action": "mask"}]
     )
     document = parse_policy_document(data, source_hash="h")
     assert document.rules[0].on == [InterceptionPoint.prompt, InterceptionPoint.tool_result]
 
 
 def test_on_defaults_to_all_points_when_omitted() -> None:
-    data = _minimal_document(
-        rules=[{"id": "r1", "detect": ["email"], "action": "mask"}]
-    )
+    data = _minimal_document(rules=[{"id": "r1", "detect": ["email"], "action": "mask"}])
     document = parse_policy_document(data, source_hash="h")
     assert document.rules[0].on == InterceptionPoint.all()
 
@@ -188,9 +184,7 @@ def test_missing_version_raises() -> None:
 
 
 def test_unknown_action_raises() -> None:
-    data = _minimal_document(
-        rules=[{"id": "r1", "detect": ["email"], "action": "nonsense"}]
-    )
+    data = _minimal_document(rules=[{"id": "r1", "detect": ["email"], "action": "nonsense"}])
     with pytest.raises(PolicyValidationError):
         parse_policy_document(data, source_hash="h")
 
@@ -215,8 +209,17 @@ def test_duplicate_rule_ids_raise() -> None:
 
 
 def test_rule_action_default_is_flag_when_action_omitted() -> None:
-    data = _minimal_document(
-        rules=[{"id": "llm_judge", "type": "llm_judge"}]
-    )
+    data = _minimal_document(rules=[{"id": "llm_judge", "type": "llm_judge"}])
     document = parse_policy_document(data, source_hash="h")
     assert document.rules[0].action == RuleAction.flag
+
+
+@pytest.mark.parametrize("key", ["on", "'on'"])
+def test_bare_and_quoted_on_key_in_yaml_text_are_honoured(key: str) -> None:
+    text = (
+        "version: 1\nbudgets: {per_user_tokens: 1, per_user_cost_usd: 1.0, "
+        "max_tokens_per_request: 1, upstream_timeout_s: 1, warn_at_percent: 80}\n"
+        f"rules:\n  - {{ id: r1, {key}: response, detect: [email], action: mask }}\n"
+    )
+    document = parse_policy_document(yaml.safe_load(text), source_hash="h")
+    assert document.rules[0].on == [InterceptionPoint.response]

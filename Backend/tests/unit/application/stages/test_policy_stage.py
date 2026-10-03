@@ -46,7 +46,9 @@ def _ctx() -> ProcessingContext:
 
 async def test_inconclusive_ml_classifier_escalates_to_judge_rule() -> None:
     registry = EvaluatorRegistry()
-    ml_evaluator = _ScriptedEvaluator(RuleOutcome(matched=False, inconclusive=True, reason="unsure"))
+    ml_evaluator = _ScriptedEvaluator(
+        RuleOutcome(matched=False, inconclusive=True, reason="unsure")
+    )
     judge_evaluator = _ScriptedEvaluator(RuleOutcome(matched=True, reason="judged block"))
     registry.register("ml_classifier", ml_evaluator)
     registry.register("llm_judge", judge_evaluator)
@@ -70,7 +72,9 @@ async def test_inconclusive_ml_classifier_escalates_to_judge_rule() -> None:
 
 async def test_inconclusive_without_escalation_target_becomes_flag_violation() -> None:
     registry = EvaluatorRegistry()
-    ml_evaluator = _ScriptedEvaluator(RuleOutcome(matched=False, inconclusive=True, reason="unsure"))
+    ml_evaluator = _ScriptedEvaluator(
+        RuleOutcome(matched=False, inconclusive=True, reason="unsure")
+    )
     registry.register("ml_classifier", ml_evaluator)
     rules = [{"id": "prompt_injection_ml", "type": "ml_classifier", "action": "block"}]
     stage = PolicyStage(registry)
@@ -84,7 +88,9 @@ async def test_inconclusive_without_escalation_target_becomes_flag_violation() -
 
 async def test_inconclusive_escalation_target_disabled_falls_back_to_flag() -> None:
     registry = EvaluatorRegistry()
-    ml_evaluator = _ScriptedEvaluator(RuleOutcome(matched=False, inconclusive=True, reason="unsure"))
+    ml_evaluator = _ScriptedEvaluator(
+        RuleOutcome(matched=False, inconclusive=True, reason="unsure")
+    )
     registry.register("ml_classifier", ml_evaluator)
     rules = [
         {
@@ -103,7 +109,9 @@ async def test_inconclusive_escalation_target_disabled_falls_back_to_flag() -> N
 
 async def test_non_injection_matched_rule_does_not_set_injection_flag() -> None:
     registry = EvaluatorRegistry()
-    registry.register("transaction_limit", _ScriptedEvaluator(RuleOutcome(matched=True, reason="over limit")))
+    registry.register(
+        "transaction_limit", _ScriptedEvaluator(RuleOutcome(matched=True, reason="over limit"))
+    )
     rules = [{"id": "over_limit", "type": "transaction_limit", "action": "block"}]
     stage = PolicyStage(registry)
     ctx = _ctx()

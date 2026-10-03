@@ -57,7 +57,13 @@ async def test_masked_text_accumulates_across_two_detectors() -> None:
     stage = DlpStage(registry)
     rules = [
         {"id": "pii_masking", "on": "response", "type": "pii", "stage": "dlp", "action": "mask"},
-        {"id": "secrets_detection", "on": "response", "type": "secrets", "stage": "dlp", "action": "mask"},
+        {
+            "id": "secrets_detection",
+            "on": "response",
+            "type": "secrets",
+            "stage": "dlp",
+            "action": "mask",
+        },
     ]
     ctx = _ctx()
     result = await stage.process(ctx, _policy(rules))

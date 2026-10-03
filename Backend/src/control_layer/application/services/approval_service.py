@@ -51,6 +51,9 @@ class ApprovalService:
         if approval is None or approval.identity.sub != identity.sub:
             raise ApprovalNotFoundError(approval_id)
 
+        if approval.status != ApprovalStatus.pending:
+            raise ApprovalNotFoundError(approval_id)
+
         alive = await self._cache.get(self._alive_key(approval_id))
         if alive is None:
             if approval.status == ApprovalStatus.pending:

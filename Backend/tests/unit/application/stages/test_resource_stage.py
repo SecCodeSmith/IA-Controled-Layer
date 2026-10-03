@@ -70,7 +70,11 @@ def _identity() -> Identity:
 
 def _ctx(point: InterceptionPoint, metadata: dict | None = None) -> ProcessingContext:
     return ProcessingContext(
-        identity=_identity(), point=point, text="hi", session_id="s1", call_id="c1",
+        identity=_identity(),
+        point=point,
+        text="hi",
+        session_id="s1",
+        call_id="c1",
         metadata=metadata or {},
     )
 

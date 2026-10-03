@@ -51,7 +51,12 @@ def _policy():
 
 def _ctx(point: InterceptionPoint, metadata: dict | None = None) -> ProcessingContext:
     return ProcessingContext(
-        identity=None, point=point, text="hi", session_id="s1", call_id="c1", metadata=metadata or {}
+        identity=None,
+        point=point,
+        text="hi",
+        session_id="s1",
+        call_id="c1",
+        metadata=metadata or {},
     )
 
 

@@ -7,7 +7,14 @@ from control_layer.domain.exceptions import PolicyViolationError, UnknownToolErr
 from control_layer.domain.models.audit import CallRecord
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import Decision, Violation
-from control_layer.domain.models.enums import CallStatus, InterceptionPoint, Role, RuleAction, Severity, StageName
+from control_layer.domain.models.enums import (
+    CallStatus,
+    InterceptionPoint,
+    Role,
+    RuleAction,
+    Severity,
+    StageName,
+)
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.models.session import SessionState
@@ -72,9 +79,13 @@ class _FakeApprovalService:
         from control_layer.domain.models.enums import ApprovalStatus
 
         return PendingApproval(
-            id="ap_abc123abc123", identity=identity, tool_call=tool_call,
-            created_at=datetime(2026, 10, 3, tzinfo=UTC), rule_id=rule_id,
-            status=ApprovalStatus.pending, reason=reason,
+            id="ap_abc123abc123",
+            identity=identity,
+            tool_call=tool_call,
+            created_at=datetime(2026, 10, 3, tzinfo=UTC),
+            rule_id=rule_id,
+            status=ApprovalStatus.pending,
+            reason=reason,
         )
 
     async def get_for(self, identity, approval_id):  # noqa: ANN001, ANN201
@@ -153,22 +164,37 @@ class _FakeModelProvider:
 
 def _identity() -> Identity:
     return Identity(
-        sub="anna.kowalska", name="Anna Kowalska", role=Role.developer, location="Krakow, PL",
-        region="PL", agent_id="agent-anna-dev-7f3a",
+        sub="anna.kowalska",
+        name="Anna Kowalska",
+        role=Role.developer,
+        location="Krakow, PL",
+        region="PL",
+        agent_id="agent-anna-dev-7f3a",
     )
 
 
 def _descriptor() -> ToolDescriptor:
     return ToolDescriptor(
-        server="logs-db", name="query", qualified_name="logs-db.query", description="",
-        input_schema={}, tags=[], scope="read",
+        server="logs-db",
+        name="query",
+        qualified_name="logs-db.query",
+        description="",
+        input_schema={},
+        tags=[],
+        scope="read",
     )
 
 
 def _violation(action: RuleAction, rule_id: str, stage: StageName) -> Violation:
     return Violation(
-        stage=stage, rule_id=rule_id, action=action, severity=Severity.medium, owasp=[],
-        evidence=[], confidence=1.0, reason=f"{rule_id} fired",
+        stage=stage,
+        rule_id=rule_id,
+        action=action,
+        severity=Severity.medium,
+        owasp=[],
+        evidence=[],
+        confidence=1.0,
+        reason=f"{rule_id} fired",
     )
 
 
@@ -195,7 +221,14 @@ def _request() -> ToolCallRequest:
 async def test_blocked_tool_call_never_reaches_gateway() -> None:
     violation = _violation(RuleAction.block, "role_provisioning", StageName.authorization)
     pipeline = _ScriptedPipeline(
-        [(Decision(status=CallStatus.BLOCKED, action=RuleAction.block, violations=[violation]), None)],
+        [
+            (
+                Decision(
+                    status=CallStatus.BLOCKED, action=RuleAction.block, violations=[violation]
+                ),
+                None,
+            )
+        ],
         _identity(),
     )
     gateway = _FakeMcpGateway(ToolCallResult(content_text="should never be called"))
@@ -210,9 +243,20 @@ async def test_blocked_tool_call_never_reaches_gateway() -> None:
 
 
 async def test_escalation_creates_approval_and_audits_escalated() -> None:
-    violation = _violation(RuleAction.require_approval, "destructive_requires_approval", StageName.authorization)
+    violation = _violation(
+        RuleAction.require_approval, "destructive_requires_approval", StageName.authorization
+    )
     pipeline = _ScriptedPipeline(
-        [(Decision(status=CallStatus.ESCALATED, action=RuleAction.require_approval, violations=[violation]), None)],
+        [
+            (
+                Decision(
+                    status=CallStatus.ESCALATED,
+                    action=RuleAction.require_approval,
+                    violations=[violation],
+                ),
+                None,
+            )
+        ],
         _identity(),
     )
     approval_service = _FakeApprovalService()
@@ -233,7 +277,10 @@ async def test_masked_tool_result_is_delivered() -> None:
     pipeline = _ScriptedPipeline(
         [
             (Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None),
-            (Decision(status=CallStatus.MASKED, action=RuleAction.mask, violations=[violation]), "[EMAIL_1] seen"),
+            (
+                Decision(status=CallStatus.MASKED, action=RuleAction.mask, violations=[violation]),
+                "[EMAIL_1] seen",
+            ),
         ],
         _identity(),
     )
@@ -248,9 +295,13 @@ async def test_masked_tool_result_is_delivered() -> None:
 
 
 async def test_taint_flag_set_when_tool_call_pass_had_policy_violation() -> None:
-    injection_violation = _violation(RuleAction.block, "prompt_injection_signatures", StageName.policy)
+    injection_violation = _violation(
+        RuleAction.block, "prompt_injection_signatures", StageName.policy
+    )
     # tool_call pass is "allowed" overall (flag only) but still carries a policy-stage violation
-    decision1 = Decision(status=CallStatus.FLAGGED, action=RuleAction.flag, violations=[injection_violation])
+    decision1 = Decision(
+        status=CallStatus.FLAGGED, action=RuleAction.flag, violations=[injection_violation]
+    )
     decision2 = Decision(status=CallStatus.ALLOWED, action=RuleAction.allow)
     pipeline = _ScriptedPipeline([(decision1, None), (decision2, None)], _identity())
     state = SessionState(session_id="s1")

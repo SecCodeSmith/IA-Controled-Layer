@@ -13,7 +13,14 @@ from control_layer.domain.models.audit import (
     TokensInfo,
 )
 from control_layer.domain.models.decision import Decision, Violation
-from control_layer.domain.models.enums import CallKind, CallStatus, Role, RuleAction, Severity, StageName
+from control_layer.domain.models.enums import (
+    CallKind,
+    CallStatus,
+    Role,
+    RuleAction,
+    Severity,
+    StageName,
+)
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.provider import ProviderInfo
 
@@ -110,7 +117,9 @@ def _call_record(status: CallStatus) -> CallRecord:
 
 
 def _service(audit_repo, alert_sink, alert_store, publisher):  # noqa: ANN001
-    return AuditService(audit_repo, alert_sink, alert_store, publisher, AlertFactory(), _FakePolicyRepository())
+    return AuditService(
+        audit_repo, alert_sink, alert_store, publisher, AlertFactory(), _FakePolicyRepository()
+    )
 
 
 async def test_record_appends_call_record() -> None:
@@ -125,7 +134,8 @@ async def test_record_returns_none_and_skips_alert_for_allowed() -> None:
     alert_sink, alert_store = _FakeAlertSink(), _FakeAlertStore()
     service = _service(_FakeAuditRepository(), alert_sink, alert_store, _FakeEventPublisher())
     alert = await service.record(
-        _call_record(CallStatus.ALLOWED), Decision(status=CallStatus.ALLOWED, action=RuleAction.allow)
+        _call_record(CallStatus.ALLOWED),
+        Decision(status=CallStatus.ALLOWED, action=RuleAction.allow),
     )
     assert alert is None
     assert alert_sink.emitted == []
@@ -173,7 +183,8 @@ async def test_record_skips_alert_event_when_allowed() -> None:
     publisher = _FakeEventPublisher()
     service = _service(_FakeAuditRepository(), _FakeAlertSink(), _FakeAlertStore(), publisher)
     await service.record(
-        _call_record(CallStatus.ALLOWED), Decision(status=CallStatus.ALLOWED, action=RuleAction.allow)
+        _call_record(CallStatus.ALLOWED),
+        Decision(status=CallStatus.ALLOWED, action=RuleAction.allow),
     )
     events = [name for name, _ in publisher.published]
     assert events == ["feed", "stats_dirty"]
@@ -183,11 +194,16 @@ async def test_feed_event_payload_shape() -> None:
     publisher = _FakeEventPublisher()
     service = _service(_FakeAuditRepository(), _FakeAlertSink(), _FakeAlertStore(), publisher)
     await service.record(
-        _call_record(CallStatus.ALLOWED), Decision(status=CallStatus.ALLOWED, action=RuleAction.allow)
+        _call_record(CallStatus.ALLOWED),
+        Decision(status=CallStatus.ALLOWED, action=RuleAction.allow),
     )
     _, feed_payload = publisher.published[0]
     assert feed_payload["call_id"] == "c_000001"
-    assert feed_payload["user"] == {"sub": "anna.kowalska", "name": "Anna Kowalska", "role": "developer"}
+    assert feed_payload["user"] == {
+        "sub": "anna.kowalska",
+        "name": "Anna Kowalska",
+        "role": "developer",
+    }
     assert feed_payload["kind"] == "tool_call"
     assert feed_payload["target"] == "logs-db.query"
     assert feed_payload["status"] == "ALLOWED"

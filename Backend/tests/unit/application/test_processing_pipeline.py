@@ -126,10 +126,7 @@ def _full_stage_set(
     calls: list[StageName], text_log: dict[StageName, list[str]] | None = None
 ) -> list[ScriptedStage]:
     text_log = text_log or {}
-    return [
-        ScriptedStage(name, calls, text_log=text_log.get(name))
-        for name in StageName.ordered()
-    ]
+    return [ScriptedStage(name, calls, text_log=text_log.get(name)) for name in StageName.ordered()]
 
 
 def test_constructor_rejects_duplicate_stage_names() -> None:
@@ -163,9 +160,7 @@ def test_constructor_accepts_correctly_ordered_subset() -> None:
         ScriptedStage(StageName.dlp, calls),
         ScriptedStage(StageName.audit, calls),
     ]
-    ProcessingPipeline(
-        stages=stages, cache=None, policy_repository=FakePolicyRepository(_policy())
-    )
+    ProcessingPipeline(stages=stages, cache=None, policy_repository=FakePolicyRepository(_policy()))
 
 
 @pytest.mark.asyncio

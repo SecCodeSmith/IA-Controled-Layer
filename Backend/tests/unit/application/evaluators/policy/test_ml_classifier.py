@@ -48,9 +48,7 @@ async def test_score_below_escalation_band_is_not_matched_and_conclusive() -> No
 
 async def test_rule_params_override_profile_defaults() -> None:
     evaluator = MlClassifierEvaluator(FakePromptClassifier(0.6))
-    rule = make_rule(
-        rule_type="ml_classifier", params={"block_at": 0.5, "escalate_at": 0.3}
-    )
+    rule = make_rule(rule_type="ml_classifier", params={"block_at": 0.5, "escalate_at": 0.3})
     policy = make_policy(profile="balanced")
     ctx = make_context(text="text")
 

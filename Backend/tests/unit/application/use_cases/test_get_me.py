@@ -22,7 +22,10 @@ class _FakeToolCatalog:
 class _FakeBudgetRepository:
     async def get_usage(self, sub: str) -> BudgetUsage:
         return BudgetUsage(
-            tokens_used=3420, tokens_limit=10000, cost_used_usd=0.0012, cost_limit_usd=1.0,
+            tokens_used=3420,
+            tokens_limit=10000,
+            cost_used_usd=0.0012,
+            cost_limit_usd=1.0,
             resets_at=datetime(2026, 10, 5, tzinfo=UTC),
         )
 
@@ -75,8 +78,12 @@ def _policy():
         "locations": {},
         "rules": [],
         "budgets": {
-            "per_user_tokens": 10000, "per_user_cost_usd": 1.0, "max_tokens_per_request": 2048,
-            "upstream_timeout_s": 30, "warn_at_percent": 80, "on_exceeded": "block",
+            "per_user_tokens": 10000,
+            "per_user_cost_usd": 1.0,
+            "max_tokens_per_request": 2048,
+            "upstream_timeout_s": 30,
+            "warn_at_percent": 80,
+            "on_exceeded": "block",
         },
     }
     return parse_policy_document(data, source_hash="h")
@@ -84,15 +91,22 @@ def _policy():
 
 def _identity() -> Identity:
     return Identity(
-        sub="anna.kowalska", name="Anna Kowalska", role=Role.developer, location="Krakow, PL",
-        region="PL", agent_id="agent-anna-dev-7f3a",
+        sub="anna.kowalska",
+        name="Anna Kowalska",
+        role=Role.developer,
+        location="Krakow, PL",
+        region="PL",
+        agent_id="agent-anna-dev-7f3a",
     )
 
 
 async def test_assembles_me_view() -> None:
     use_case = GetMeUseCase(
-        _FakeToolCatalog(), _FakeBudgetRepository(), _FakeRiskRepository(),
-        _FakePolicyRepository(_policy()), _FakeModelProvider(),
+        _FakeToolCatalog(),
+        _FakeBudgetRepository(),
+        _FakeRiskRepository(),
+        _FakePolicyRepository(_policy()),
+        _FakeModelProvider(),
     )
     view = await use_case.execute(_identity())
     assert view.identity.sub == "anna.kowalska"

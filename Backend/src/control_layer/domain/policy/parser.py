@@ -96,7 +96,16 @@ def _parse_stage(rule_type: str, rule_dict: dict[str, Any]) -> StageName:
         raise PolicyValidationError(f"unknown pipeline stage: {explicit_stage!r}") from None
 
 
+def _normalize_on_key(rule_dict: dict[str, Any]) -> dict[str, Any]:
+    if True not in rule_dict:
+        return rule_dict
+    normalized = {key: value for key, value in rule_dict.items() if key is not True}
+    normalized.setdefault("on", rule_dict[True])
+    return normalized
+
+
 def _parse_rule(rule_dict: dict[str, Any], seen_ids: set[str]) -> Rule:
+    rule_dict = _normalize_on_key(rule_dict)
     rule_id = rule_dict.get("id")
     if not rule_id:
         raise PolicyValidationError("rule is missing an id")

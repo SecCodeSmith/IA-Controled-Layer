@@ -19,7 +19,9 @@ class _FakeEvaluator:
         return outcome
 
 
-def _ctx(point: InterceptionPoint = InterceptionPoint.prompt, text: str = "hello") -> ProcessingContext:
+def _ctx(
+    point: InterceptionPoint = InterceptionPoint.prompt, text: str = "hello"
+) -> ProcessingContext:
     return ProcessingContext(identity=None, point=point, text=text, session_id="s1", call_id="c1")
 
 
@@ -64,7 +66,15 @@ def test_filters_by_enabled() -> None:
     registry = EvaluatorRegistry()
     registry.register("detectors", _FakeEvaluator(RuleOutcome(matched=True)))
     policy = _policy(
-        [{"id": "disabled_rule", "stage": "dlp", "detect": ["email"], "action": "mask", "enabled": False}]
+        [
+            {
+                "id": "disabled_rule",
+                "stage": "dlp",
+                "detect": ["email"],
+                "action": "mask",
+                "enabled": False,
+            }
+        ]
     )
     runner = RuleRunner(registry)
     assert runner.applicable_rules(StageName.dlp, _ctx(), policy) == []
@@ -74,11 +84,24 @@ def test_filters_by_point() -> None:
     registry = EvaluatorRegistry()
     registry.register("detectors", _FakeEvaluator(RuleOutcome(matched=True)))
     policy = _policy(
-        [{"id": "response_only", "stage": "dlp", "on": "response", "detect": ["email"], "action": "mask"}]
+        [
+            {
+                "id": "response_only",
+                "stage": "dlp",
+                "on": "response",
+                "detect": ["email"],
+                "action": "mask",
+            }
+        ]
     )
     runner = RuleRunner(registry)
-    assert runner.applicable_rules(StageName.dlp, _ctx(point=InterceptionPoint.prompt), policy) == []
-    assert len(runner.applicable_rules(StageName.dlp, _ctx(point=InterceptionPoint.response), policy)) == 1
+    assert (
+        runner.applicable_rules(StageName.dlp, _ctx(point=InterceptionPoint.prompt), policy) == []
+    )
+    assert (
+        len(runner.applicable_rules(StageName.dlp, _ctx(point=InterceptionPoint.response), policy))
+        == 1
+    )
 
 
 async def test_accumulates_masked_text_across_rules() -> None:
@@ -135,7 +158,14 @@ async def test_rule_filter_excludes_rules() -> None:
     registry = EvaluatorRegistry()
     registry.register("tool_match", _FakeEvaluator(RuleOutcome(matched=True, reason="matched")))
     policy = _policy(
-        [{"id": "approval_rule", "stage": "authorization", "match": {"action": ["x"]}, "action": "require_approval"}]
+        [
+            {
+                "id": "approval_rule",
+                "stage": "authorization",
+                "match": {"action": ["x"]},
+                "action": "require_approval",
+            }
+        ]
     )
     runner = RuleRunner(registry)
     result = await runner.run(

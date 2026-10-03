@@ -81,8 +81,12 @@ def _approval(approval_id: str) -> PendingApproval:
     return PendingApproval(
         id=approval_id,
         identity=Identity(
-            sub="anna.kowalska", name="Anna Kowalska", role=Role.developer,
-            location="Krakow, PL", region="PL", agent_id="agent-1",
+            sub="anna.kowalska",
+            name="Anna Kowalska",
+            role=Role.developer,
+            location="Krakow, PL",
+            region="PL",
+            agent_id="agent-1",
         ),
         tool_call=ToolCallRequest(server="github", tool="delete_branch"),
         created_at=datetime.now(UTC),
@@ -117,8 +121,14 @@ async def test_reset_clears_alerts_when_the_store_supports_it() -> None:
     audit = FakeAuditRepository()
     alerts = FakeAlertStore(with_clear=True)
     use_case = ResetDemoUseCase(
-        audit, alerts, FakeBudgetRepository(), FakeSessionRepository(), FakeRiskRepository([]),
-        FakeApprovalRepository([]), FakeCache(), MetricsCollector(),
+        audit,
+        alerts,
+        FakeBudgetRepository(),
+        FakeSessionRepository(),
+        FakeRiskRepository([]),
+        FakeApprovalRepository([]),
+        FakeCache(),
+        MetricsCollector(),
     )
 
     await use_case.execute()
@@ -130,8 +140,14 @@ async def test_reset_tolerates_an_alert_store_without_clear() -> None:
     audit = FakeAuditRepository()
     alerts = FakeAlertStore(with_clear=False)
     use_case = ResetDemoUseCase(
-        audit, alerts, FakeBudgetRepository(), FakeSessionRepository(), FakeRiskRepository([]),
-        FakeApprovalRepository([]), FakeCache(), MetricsCollector(),
+        audit,
+        alerts,
+        FakeBudgetRepository(),
+        FakeSessionRepository(),
+        FakeRiskRepository([]),
+        FakeApprovalRepository([]),
+        FakeCache(),
+        MetricsCollector(),
     )
 
     await use_case.execute()  # must not raise
@@ -140,8 +156,14 @@ async def test_reset_tolerates_an_alert_store_without_clear() -> None:
 async def test_reset_zeroes_every_risk_profile() -> None:
     risks = FakeRiskRepository([RiskProfile(sub="anna.kowalska", score=40)])
     use_case = ResetDemoUseCase(
-        FakeAuditRepository(), FakeAlertStore(), FakeBudgetRepository(), FakeSessionRepository(),
-        risks, FakeApprovalRepository([]), FakeCache(), MetricsCollector(),
+        FakeAuditRepository(),
+        FakeAlertStore(),
+        FakeBudgetRepository(),
+        FakeSessionRepository(),
+        risks,
+        FakeApprovalRepository([]),
+        FakeCache(),
+        MetricsCollector(),
     )
 
     await use_case.execute()
@@ -154,8 +176,14 @@ async def test_reset_zeroes_every_risk_profile() -> None:
 async def test_reset_expires_every_pending_approval() -> None:
     approvals = FakeApprovalRepository([_approval("ap_1"), _approval("ap_2")])
     use_case = ResetDemoUseCase(
-        FakeAuditRepository(), FakeAlertStore(), FakeBudgetRepository(), FakeSessionRepository(),
-        FakeRiskRepository([]), approvals, FakeCache(), MetricsCollector(),
+        FakeAuditRepository(),
+        FakeAlertStore(),
+        FakeBudgetRepository(),
+        FakeSessionRepository(),
+        FakeRiskRepository([]),
+        approvals,
+        FakeCache(),
+        MetricsCollector(),
     )
 
     await use_case.execute()

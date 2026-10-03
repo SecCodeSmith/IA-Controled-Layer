@@ -32,8 +32,13 @@ def _identity() -> Identity:
 
 async def test_delegates_to_tool_catalog() -> None:
     descriptor = ToolDescriptor(
-        server="github", name="list_branches", qualified_name="github.list_branches",
-        description="", input_schema={}, tags=[], scope="read",
+        server="github",
+        name="list_branches",
+        qualified_name="github.list_branches",
+        description="",
+        input_schema={},
+        tags=[],
+        scope="read",
     )
     catalog = _FakeToolCatalog([descriptor])
     use_case = ListToolsUseCase(catalog)

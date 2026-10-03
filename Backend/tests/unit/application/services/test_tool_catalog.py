@@ -96,7 +96,10 @@ async def test_filters_out_tools_deny() -> None:
 
 
 async def test_filters_by_data_region() -> None:
-    descriptors = [_descriptor("ci", "get_run"), _descriptor("ci", "eu_report", data_region="eu_customers")]
+    descriptors = [
+        _descriptor("ci", "get_run"),
+        _descriptor("ci", "eu_report", data_region="eu_customers"),
+    ]
     catalog = ToolCatalog(_FakeMcpGateway(descriptors), _FakePolicyRepository(_policy()))
     us_tools = await catalog.provisioned_for(_identity(region="US"))
     assert [t.name for t in us_tools] == ["get_run"]

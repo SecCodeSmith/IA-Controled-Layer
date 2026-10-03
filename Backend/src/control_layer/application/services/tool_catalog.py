@@ -31,7 +31,9 @@ class ToolCatalog:
         return provisioned
 
     @staticmethod
-    def _region_allowed(descriptor: ToolDescriptor, identity: Identity, policy: PolicyDocument) -> bool:
+    def _region_allowed(
+        descriptor: ToolDescriptor, identity: Identity, policy: PolicyDocument
+    ) -> bool:
         if descriptor.data_region is None:
             return True
         location_config = policy.locations.get(descriptor.data_region)

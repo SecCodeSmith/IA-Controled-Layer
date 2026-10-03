@@ -80,15 +80,27 @@ class _FakeCache:
 
 def _user() -> DemoUser:
     return DemoUser(
-        sub="anna.kowalska", name="Anna Kowalska", initials="AK", role=Role.developer,
-        location="Krakow, PL", region="PL", agent_id="agent-anna-dev-7f3a", mcp_servers=["github"],
+        sub="anna.kowalska",
+        name="Anna Kowalska",
+        initials="AK",
+        role=Role.developer,
+        location="Krakow, PL",
+        region="PL",
+        agent_id="agent-anna-dev-7f3a",
+        mcp_servers=["github"],
     )
 
 
 def _claims() -> TokenClaims:
     return TokenClaims(
-        sub="anna.kowalska", name="Anna Kowalska", role=Role.developer, location="Krakow, PL",
-        region="PL", agent_id="agent-anna-dev-7f3a", iat=1000, exp=29800,
+        sub="anna.kowalska",
+        name="Anna Kowalska",
+        role=Role.developer,
+        location="Krakow, PL",
+        region="PL",
+        agent_id="agent-anna-dev-7f3a",
+        iat=1000,
+        exp=29800,
     )
 
 
@@ -100,7 +112,10 @@ async def test_execute_resolves_token_and_returns_approval() -> None:
 
     identity = await identity_service.resolve("token", session_id="s1")
     created = await approval_service.create(
-        identity, ToolCallRequest(server="github", tool="delete_branch", arguments={}), "rule", "reason"
+        identity,
+        ToolCallRequest(server="github", tool="delete_branch", arguments={}),
+        "rule",
+        "reason",
     )
 
     result = await use_case.execute("token", created.id)

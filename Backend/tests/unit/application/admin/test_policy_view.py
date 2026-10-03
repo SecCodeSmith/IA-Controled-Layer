@@ -94,7 +94,14 @@ async def test_rule_dict_has_the_documented_fields() -> None:
 
     rule = view.rules_by_stage["dlp"][0]
     assert set(rule.keys()) == {
-        "id", "type", "action", "on", "owasp", "severity", "enabled", "params",
+        "id",
+        "type",
+        "action",
+        "on",
+        "owasp",
+        "severity",
+        "enabled",
+        "params",
     }
     assert rule["id"] == "pii_masking"
     assert rule["action"] == "mask"

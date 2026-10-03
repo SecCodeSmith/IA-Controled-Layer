@@ -6,7 +6,9 @@ from control_layer.domain.models.approval import PendingApproval
 
 
 class GetApprovalUseCase:
-    def __init__(self, approval_service: ApprovalService, identity_service: IdentityService) -> None:
+    def __init__(
+        self, approval_service: ApprovalService, identity_service: IdentityService
+    ) -> None:
         self._approval_service = approval_service
         self._identity_service = identity_service
 
