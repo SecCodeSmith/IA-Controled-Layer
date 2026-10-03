@@ -1,3 +1,4 @@
+import { formatMs } from '../../lib/formatMs'
 import { PIPELINE_STAGE_ORDER } from '../../types/common'
 import type { AuditLatencyStages } from '../../types/audit'
 
@@ -15,7 +16,7 @@ export function StageTimingBar({ stages }: { stages: AuditLatencyStages }) {
             <div
               key={stage}
               style={{ width: `${Math.max(share, stages[stage] > 0 ? 2 : 0)}%`, background: STAGE_COLORS[index] }}
-              title={`${stage}: ${stages[stage]} ms`}
+              title={`${stage}: ${formatMs(stages[stage])}`}
             />
           )
         })}
@@ -24,7 +25,7 @@ export function StageTimingBar({ stages }: { stages: AuditLatencyStages }) {
         {PIPELINE_STAGE_ORDER.map((stage, index) => (
           <span key={stage} className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: STAGE_COLORS[index] }} />
-            {stage} · {stages[stage]} ms
+            {stage} · {formatMs(stages[stage])}
           </span>
         ))}
       </div>

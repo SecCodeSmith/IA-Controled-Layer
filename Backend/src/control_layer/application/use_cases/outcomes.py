@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from control_layer.domain.models.approval import PendingApproval
 from control_layer.domain.models.budget_usage import BudgetUsage
 from control_layer.domain.models.chat import ChatCompletionResponse
 from control_layer.domain.models.enums import CallStatus, StageName
 from control_layer.domain.models.identity import Identity, TokenClaims
+from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.models.risk import RiskProfile
 from control_layer.domain.models.tool import ToolCallResult, ToolDescriptor
@@ -49,6 +50,7 @@ class MeView(BaseModel):
     budget: BudgetUsage
     risk: RiskProfile
     provider: ProviderInfo
+    protection: ProtectionInfo = Field(default_factory=ProtectionInfo)
 
 
 class TokenIssued(BaseModel):

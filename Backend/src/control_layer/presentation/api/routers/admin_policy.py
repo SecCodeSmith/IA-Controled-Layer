@@ -6,7 +6,11 @@ from pydantic import ValidationError
 from control_layer.application.use_cases.admin.policy_view import PolicyView
 from control_layer.domain.models.enums import StageName
 from control_layer.presentation.api.dependencies import AdminDeps, ContainerDep
-from control_layer.presentation.api.schemas.policy import PolicyViewResponse
+from control_layer.presentation.api.schemas.policy import (
+    PolicyViewResponse,
+    RuleOverrideRequest,
+    RuleOverrideResponse,
+)
 
 router = APIRouter(prefix="/api/policy", tags=["admin"], dependencies=AdminDeps)
 
@@ -41,3 +45,11 @@ async def view_policy(container: ContainerDep) -> PolicyViewResponse:
 async def reload_policy(container: ContainerDep) -> PolicyViewResponse:
     view = await container.reload_policy.execute()
     return _to_response(view)
+
+
+@router.patch("/rules/{rule_id}", response_model=RuleOverrideResponse)
+async def override_rule(
+    rule_id: str, body: RuleOverrideRequest, container: ContainerDep
+) -> RuleOverrideResponse:
+    view = await container.manage_protection.set_rule(rule_id, body.enabled)
+    return RuleOverrideResponse.model_validate(view.model_dump())

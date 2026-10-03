@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from control_layer.infrastructure.providers.mock_provider import MockModelProvider
 from control_layer.infrastructure.providers.openai_compatible_provider import (
     OpenAICompatibleModelProvider,
 )
-from control_layer.infrastructure.providers.provider_factory import build_model_provider
+from control_layer.infrastructure.providers.provider_factory import (
+    build_model_provider,
+    build_provider_for,
+)
 from control_layer.infrastructure.settings import Settings
 
 
@@ -69,3 +73,21 @@ async def test_explicit_openai_compatible_provider() -> None:
 
     assert isinstance(provider, OpenAICompatibleModelProvider)
     assert provider.describe().name == "openai_compatible"
+
+
+def test_build_provider_for_each_known_provider() -> None:
+    settings = Settings(ollama_base_url="http://ollama:11434", openai_base_url=None)
+
+    ollama = build_provider_for(settings, "ollama", "gemma4:latest")
+    mock = build_provider_for(settings, "mock", "mock")
+    compat = build_provider_for(settings, "openai_compatible", "m1")
+
+    assert (ollama.describe().name, ollama.describe().model) == ("ollama", "gemma4:latest")
+    assert ollama._base_url == "http://ollama:11434/v1"
+    assert mock.describe().name == "mock"
+    assert (compat.describe().name, compat.describe().model) == ("openai_compatible", "m1")
+
+
+def test_build_provider_for_rejects_unknown_provider() -> None:
+    with pytest.raises(ValueError):
+        build_provider_for(Settings(), "bogus", "x")

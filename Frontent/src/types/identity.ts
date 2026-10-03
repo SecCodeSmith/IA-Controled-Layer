@@ -1,4 +1,5 @@
 import type { ProviderInfo, UserRole } from './common'
+import type { ProtectionRef } from './protection'
 
 export interface Identity {
   sub: string
@@ -80,4 +81,5 @@ export interface MeResponse {
   budget: BudgetUsage
   risk: RiskProfile
   provider: ProviderInfo
+  protection?: ProtectionRef
 }

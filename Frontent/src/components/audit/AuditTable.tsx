@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../common/StatusBadge'
 import { formatReason } from '../../lib/formatReason'
+import { formatMs } from '../../lib/formatMs'
 import { roleLabel } from '../../lib/roleLabel'
 import type { AuditListItem } from '../../types/audit'
 
@@ -37,7 +38,7 @@ export function AuditTable({ items }: { items: AuditListItem[] }) {
               </td>
               <td className="px-3 py-3 text-muted">{formatReason(item)}</td>
               <td className="px-3 py-3 pr-6 font-mono text-[13px] text-muted">
-                {item.proxy_latency_ms !== undefined ? `${item.proxy_latency_ms.toFixed(1)} ms` : '—'}
+                {item.proxy_latency_ms !== undefined ? formatMs(item.proxy_latency_ms) : '—'}
               </td>
             </tr>
           ))}

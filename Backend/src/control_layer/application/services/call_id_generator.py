@@ -17,3 +17,6 @@ class CallIdGenerator:
         current = await self._cache.get(_SEQUENCE_KEY)
         if current is None or int(current) < minimum:
             await self._cache.set(_SEQUENCE_KEY, str(minimum))
+
+    async def reset(self, value: int) -> None:
+        await self._cache.set(_SEQUENCE_KEY, str(value))

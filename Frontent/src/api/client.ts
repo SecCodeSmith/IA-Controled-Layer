@@ -95,6 +95,12 @@ export const adminApi = {
     apiRequest<T>('admin', path, { ...options, method: 'GET' }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiRequest<T>('admin', path, { ...options, method: 'POST', body: body ?? {} }),
+  put: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    apiRequest<T>('admin', path, { ...options, method: 'PUT', body }),
+  patch: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    apiRequest<T>('admin', path, { ...options, method: 'PATCH', body }),
+  delete: <T>(path: string, options?: RequestOptions) =>
+    apiRequest<T>('admin', path, { ...options, method: 'DELETE' }),
 }
 
 export const publicApi = {

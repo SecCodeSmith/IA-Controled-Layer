@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from control_layer.application.services.protection_service import ProtectionService
+from control_layer.application.use_cases.admin.clear_logs import ClearLogsUseCase
 from control_layer.domain.models.enums import ApprovalStatus
 from control_layer.domain.models.risk import RiskProfile
 from control_layer.domain.ports.approval_repository import ApprovalRepository
@@ -37,6 +39,8 @@ class ResetDemoUseCase:
         approval_repository: ApprovalRepository,
         cache: CacheRepository,
         metrics_collector: _ResettableMetrics,
+        clear_logs: ClearLogsUseCase | None = None,
+        protection: ProtectionService | None = None,
     ) -> None:
         self._audit_repository = audit_repository
         self._alert_store = alert_store
@@ -46,17 +50,27 @@ class ResetDemoUseCase:
         self._approval_repository = approval_repository
         self._cache = cache
         self._metrics_collector = metrics_collector
+        self._clear_logs = clear_logs
+        self._protection = protection
 
     async def execute(self) -> None:
-        await self._audit_repository.clear()
-        await self._clear_alerts()
+        await self._clear_logs_and_alerts()
         await self._budget_repository.reset()
         await self._session_repository.clear()
         await self._clear_risk_profiles()
         await self._clear_pending_approvals()
         self._metrics_collector.reset()
+        if self._protection is not None:
+            await self._protection.reset()
         for prefix in _CACHE_PREFIXES:
             await self._cache.flush(prefix)
+
+    async def _clear_logs_and_alerts(self) -> None:
+        if self._clear_logs is not None:
+            await self._clear_logs.execute()
+            return
+        await self._audit_repository.clear()
+        await self._clear_alerts()
 
     async def _clear_alerts(self) -> None:
         # AlertStore has no clear() in its domain port yet; call it only if the concrete

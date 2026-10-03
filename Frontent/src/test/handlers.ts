@@ -17,6 +17,8 @@ import {
 import type { AgentChatResponse, AgentEvent } from '../types/chat'
 import type { FeedRow } from '../types/feed'
 import type { AttackRun, Scenario } from '../types/attack'
+import type { ModelsResponse, ProtectionMode, ProtectionState } from '../types/protection'
+import type { PolicyResponse, PolicyRule } from '../types/policy'
 
 let callCounter = 1000
 function nextCallId(): string {
@@ -38,6 +40,42 @@ const state = {
   approvalCounter: 0,
   attackRuns: new Map<string, AttackRun>(),
   attackRunCounter: 0,
+  protectionMode: 'enforce' as ProtectionMode,
+  ruleOverrides: {} as Record<string, boolean>,
+  activeModel: { provider: 'ollama', model: 'qwen2.5:7b' },
+  logsCleared: 0,
+}
+
+const AVAILABLE_MODELS: ModelsResponse['available'] = [
+  { provider: 'ollama', model: 'qwen2.5:7b', allowed: true, size_gb: 4.7 },
+  { provider: 'ollama', model: 'gemma4:latest', allowed: false, size_gb: 6.6 },
+  { provider: 'mock', model: 'mock', allowed: true, size_gb: null },
+]
+
+function protectionState(): ProtectionState {
+  return {
+    mode: state.protectionMode,
+    rule_overrides: { ...state.ruleOverrides },
+    disabled_rules: Object.entries(state.ruleOverrides)
+      .filter(([, enabled]) => !enabled)
+      .map(([ruleId]) => ruleId),
+  }
+}
+
+function policyWithOverrides(): PolicyResponse {
+  const rulesByStage = Object.fromEntries(
+    Object.entries(POLICY_FIXTURE.rules_by_stage).map(([stage, rules]) => [
+      stage,
+      (rules ?? []).map(
+        (rule: PolicyRule): PolicyRule => ({
+          ...rule,
+          enabled: state.ruleOverrides[rule.id] ?? true,
+          overridden: rule.id in state.ruleOverrides,
+        }),
+      ),
+    ]),
+  )
+  return { ...POLICY_FIXTURE, rules_by_stage: rulesByStage }
 }
 
 export function resetMockState(): void {
@@ -47,6 +85,10 @@ export function resetMockState(): void {
   state.approvalCounter = 0
   state.attackRuns.clear()
   state.attackRunCounter = 0
+  state.protectionMode = 'enforce'
+  state.ruleOverrides = {}
+  state.activeModel = { provider: 'ollama', model: 'qwen2.5:7b' }
+  state.logsCleared = 0
 }
 
 function findUser(sub: string) {
@@ -179,6 +221,7 @@ export const handlers = [
       },
       risk: { score: 12, level: 'low' },
       provider: { name: 'ollama', model: 'qwen2.5:7b' },
+      protection: { mode: state.protectionMode },
     })
   }),
 
@@ -276,11 +319,65 @@ export const handlers = [
     new HttpResponse(new Blob(), { headers: { 'Content-Type': 'application/vnd.ms-excel' } }),
   ),
 
-  http.get(`${CONTROL_LAYER_URL}/api/stats`, () => HttpResponse.json(STATS_FIXTURE)),
+  http.get(`${CONTROL_LAYER_URL}/api/stats`, () =>
+    HttpResponse.json({ ...STATS_FIXTURE, protection: { mode: state.protectionMode } }),
+  ),
 
-  http.get(`${CONTROL_LAYER_URL}/api/policy`, () => HttpResponse.json(POLICY_FIXTURE)),
+  http.get(`${CONTROL_LAYER_URL}/api/policy`, () => HttpResponse.json(policyWithOverrides())),
 
-  http.post(`${CONTROL_LAYER_URL}/api/policy/reload`, () => HttpResponse.json(POLICY_FIXTURE)),
+  http.post(`${CONTROL_LAYER_URL}/api/policy/reload`, () => HttpResponse.json(policyWithOverrides())),
+
+  http.get(`${CONTROL_LAYER_URL}/api/protection`, () => HttpResponse.json(protectionState())),
+
+  http.put(`${CONTROL_LAYER_URL}/api/protection`, async ({ request }) => {
+    const body = (await request.json()) as { mode: ProtectionMode }
+    state.protectionMode = body.mode
+    return HttpResponse.json(protectionState())
+  }),
+
+  http.delete(`${CONTROL_LAYER_URL}/api/protection/overrides`, () => {
+    state.ruleOverrides = {}
+    return HttpResponse.json(protectionState())
+  }),
+
+  http.patch(`${CONTROL_LAYER_URL}/api/policy/rules/:ruleId`, async ({ request, params }) => {
+    const ruleId = String(params.ruleId)
+    const known = Object.values(POLICY_FIXTURE.rules_by_stage).some((rules) =>
+      (rules ?? []).some((rule) => rule.id === ruleId),
+    )
+    if (!known) {
+      return HttpResponse.json({ error: { code: 'not_found', reason: 'Unknown rule' } }, { status: 404 })
+    }
+    const body = (await request.json()) as { enabled: boolean }
+    state.ruleOverrides[ruleId] = body.enabled
+    return HttpResponse.json({ rule_id: ruleId, enabled: body.enabled, overridden: true })
+  }),
+
+  http.get(`${CONTROL_LAYER_URL}/api/models`, () =>
+    HttpResponse.json({
+      active: { name: state.activeModel.provider, model: state.activeModel.model },
+      available: AVAILABLE_MODELS,
+    }),
+  ),
+
+  http.put(`${CONTROL_LAYER_URL}/api/models`, async ({ request }) => {
+    const body = (await request.json()) as { provider: string; model: string }
+    const exists = AVAILABLE_MODELS.some((m) => m.provider === body.provider && m.model === body.model)
+    if (!exists) {
+      return HttpResponse.json({ error: { code: 'not_found', reason: 'Model not available' } }, { status: 404 })
+    }
+    state.activeModel = body
+    return HttpResponse.json({ name: body.provider, model: body.model })
+  }),
+
+  http.post(`${CONTROL_LAYER_URL}/api/logs/clear`, () => {
+    state.logsCleared += 1
+    state.feed = []
+    return HttpResponse.json({
+      ok: true,
+      cleared: ['audit', 'alerts', 'alerts_xlsx', 'audit_jsonl', 'metrics', 'feed'],
+    })
+  }),
 
   http.get(`${CONTROL_LAYER_URL}/api/reports/security`, () => HttpResponse.json(SECURITY_REPORT_FIXTURE)),
 

@@ -24,4 +24,5 @@ async def me(token: BearerDep, session: SessionDep, container: ContainerDep) -> 
         budget=BudgetSummary.model_validate(view.budget.model_dump()),
         risk=RiskSummary(score=view.risk.score, level=view.risk.level.value),
         provider=view.provider,
+        protection=view.protection,
     )

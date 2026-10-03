@@ -101,6 +101,8 @@ _NOT_FOUND_CLASSES: tuple[type[Exception], ...] = (
     exc_module.ApprovalNotFoundError,
     exc_module.CallNotFoundError,
     exc_module.UnknownToolError,
+    exc_module.RuleNotFoundError,
+    exc_module.ModelNotAvailableError,
     ExportNotAvailableError,
     RunNotFoundError,
 )

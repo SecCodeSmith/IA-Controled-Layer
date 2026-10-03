@@ -166,3 +166,16 @@ async def test_invalid_lines_are_skipped_on_load(tmp_path: Path) -> None:
     repo2 = JsonlAuditRepository(path)
 
     assert [r.call_id for r in await repo2.list_recent(limit=10)] == ["c_1"]
+
+
+async def test_clear_truncates_the_file_and_a_restart_loads_nothing(tmp_path: Path) -> None:
+    path = tmp_path / "calls.jsonl"
+    repo = JsonlAuditRepository(path)
+    await repo.append(_record("c_1"))
+
+    await repo.clear()
+
+    assert path.stat().st_size == 0
+    assert await JsonlAuditRepository(path).export_rows() == []
+    await repo.append(_record("c_2"))
+    assert [r["call_id"] for r in await JsonlAuditRepository(path).export_rows()] == ["c_2"]

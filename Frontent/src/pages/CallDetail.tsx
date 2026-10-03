@@ -9,6 +9,7 @@ import { Spinner } from '../components/common/Spinner'
 import { ErrorBanner } from '../components/common/ErrorBanner'
 import { errorMessage } from '../lib/errorMessage'
 import { formatDecision } from '../lib/formatDecision'
+import { formatMs } from '../lib/formatMs'
 import { roleLabel } from '../lib/roleLabel'
 import { downloadJson } from '../lib/downloadJson'
 
@@ -65,7 +66,7 @@ function CallDetailBody({ detail }: { detail: NonNullable<ReturnType<typeof useA
     { label: 'MCP server', value: detail.mcp_server ?? '—' },
     { label: 'Decision', value: formatDecision(detail.decision.status) },
     { label: 'Items masked', value: String(detail.items_masked) },
-    { label: 'Proxy latency', value: `${detail.latency.proxy_ms} ms` },
+    { label: 'Proxy latency', value: formatMs(detail.latency.proxy_ms) },
   ]
 
   return (

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 
 
@@ -54,3 +55,4 @@ class StatsResponse(BaseModel):
     latency: LatencyStats
     provider: ProviderInfo
     policy: PolicyStatusRef
+    protection: ProtectionInfo = ProtectionInfo()

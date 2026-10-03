@@ -77,3 +77,9 @@ class Severity(StrEnum):
 class CallKind(StrEnum):
     chat = "chat"
     tool_call = "tool_call"
+
+
+class ProtectionMode(StrEnum):
+    enforce = "enforce"
+    monitor = "monitor"
+    off = "off"

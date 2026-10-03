@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 
 
@@ -40,3 +41,4 @@ class HealthResponse(BaseModel):
     classifier: ClassifierHealth
     provider: ProviderInfo
     policy: PolicyHealth
+    protection: ProtectionInfo = ProtectionInfo()

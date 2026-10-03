@@ -6,10 +6,16 @@ import { Spinner } from '../components/common/Spinner'
 import { ErrorBanner } from '../components/common/ErrorBanner'
 import { RulesByStage } from '../components/policy/RulesByStage'
 import { errorMessage } from '../lib/errorMessage'
+import { useClearOverrides, useProtection, useToggleRule } from '../api/protection'
+import { ProtectionBadge } from '../components/layout/ProtectionBadge'
 
 export function Policy() {
   const policy = usePolicy()
   const reload = usePolicyReload()
+  const protection = useProtection()
+  const toggleRule = useToggleRule()
+  const clearOverrides = useClearOverrides()
+  const hasOverrides = Object.keys(protection.data?.rule_overrides ?? {}).length > 0
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -24,7 +30,16 @@ export function Policy() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {protection.data ? <ProtectionBadge mode={protection.data.mode} /> : null}
             {policy.data ? <StatusBadge status={policy.data.status} /> : null}
+            <button
+              type="button"
+              onClick={() => void clearOverrides.mutateAsync()}
+              disabled={clearOverrides.isPending || !hasOverrides}
+              className="min-h-10 rounded-lg border border-border bg-white px-4 text-sm font-medium text-ink disabled:opacity-50"
+            >
+              Clear overrides
+            </button>
             <button
               type="button"
               onClick={() => void reload.mutateAsync()}
@@ -50,7 +65,11 @@ export function Policy() {
 
             <section className="flex flex-col gap-4 rounded-[10px] border border-border bg-white px-6 py-5">
               <h2 className="m-0 text-[17px] font-semibold">Rules by stage</h2>
-              <RulesByStage rulesByStage={policy.data.rules_by_stage} />
+              <RulesByStage
+                rulesByStage={policy.data.rules_by_stage}
+                toggling={toggleRule.isPending}
+                onToggle={(ruleId, enabled) => toggleRule.mutate({ ruleId, enabled })}
+              />
             </section>
           </>
         ) : null}

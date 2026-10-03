@@ -7,10 +7,11 @@ interface ChatHeaderProps {
   identity: Identity
   tokensUsed: number
   tokensLimit: number
+  protectionMode?: 'enforce' | 'monitor' | 'off'
   onSignOut: () => void
 }
 
-export function ChatHeader({ identity, tokensUsed, tokensLimit, onSignOut }: ChatHeaderProps) {
+export function ChatHeader({ identity, tokensUsed, tokensLimit, protectionMode, onSignOut }: ChatHeaderProps) {
   const percent = tokensLimit > 0 ? Math.min(100, Math.round((tokensUsed / tokensLimit) * 100)) : 0
   const initials = identity.name
     .split(' ')
@@ -25,6 +26,19 @@ export function ChatHeader({ identity, tokensUsed, tokensLimit, onSignOut }: Cha
         <span className="text-[17px] font-semibold">Control Layer</span>
       </div>
       <div className="flex flex-wrap items-center gap-6">
+        {protectionMode === 'monitor' || protectionMode === 'off' ? (
+          <span
+            role="status"
+            className="rounded-full px-3 py-1 text-xs font-semibold"
+            style={
+              protectionMode === 'monitor'
+                ? { background: '#F8ECCF', color: '#7A4E00' }
+                : { background: '#FADFD7', color: '#A3301A' }
+            }
+          >
+            {protectionMode === 'monitor' ? 'monitoring only' : 'protection off'}
+          </span>
+        ) : null}
         <div className="flex min-w-[180px] flex-col gap-1.5">
           <span className="text-xs text-header-muted">
             Budget · {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()} tokens

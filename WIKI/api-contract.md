@@ -279,3 +279,18 @@ servers:
 - `policy.yaml` has 14 rules: `direct_push_to_main` (block) precedes `destructive_requires_approval`.
 - `POST /api/demo/reset?scope=behavior` (additive) clears only runtime state (rate limits, loop guard, circuit breaker, quarantine, budgets, sessions, risk, approvals) and keeps audit and alerts; the default `scope=all` is unchanged. The attack suite calls it before every scenario so scenarios do not influence each other.
 - `GET /v1/tools?scope=provisioned|all` (default `provisioned`): `scope=all` also lists tools the caller's role is not provisioned for; every item in `tools` carries `provisioned: bool` (additive). Calling an unprovisioned tool still returns 403 `role_provisioning`.
+
+## Addendum (protection, models, logs)
+
+Admin token required on every route below. Full semantics: `WIKI/feature-protection-models-logs.md`.
+
+- `GET /api/protection` and `PUT /api/protection` (body `{"mode": "enforce|monitor|off"}`) return `{"mode", "rule_overrides": {rule_id: bool}, "disabled_rules": [rule_id]}`; an invalid mode is a 422 `validation_error`. Changing the mode flushes the `decision:` cache prefix.
+- `PATCH /api/policy/rules/{rule_id}` (body `{"enabled": bool}`) returns `{"rule_id", "enabled", "overridden": true}`; unknown rule id is a 404 `not_found` envelope.
+- `DELETE /api/protection/overrides` clears the rule overrides (the mode is kept) and returns the `GET /api/protection` body.
+- `GET /api/policy` rules gain `enabled` (effective, override applied) and `overridden: bool`.
+- `GET /api/stats`, `GET /health`, `GET /v1/me` and the `stats` SSE event gain `protection: {"mode": "enforce|monitor|off"}`.
+- `monitor` downgrades block, quarantine, require_approval and mask results to `flag` (violation `rule_id`/`stage` kept, reason prefixed `[monitor] `, status FLAGGED); `off` runs only the identity and audit stages (status ALLOWED, identity errors still return 401).
+- `GET /api/models` returns `{"active": {"name", "model"}, "available": [{"provider", "model", "allowed", "size_gb"}]}`; `allowed` is membership in `policy.models.allowed`, Ollama models come from `GET {ollama_base_url}/api/tags` (none when unreachable), `mock` is always listed.
+- `PUT /api/models` (body `{"provider", "model"}`) switches the model for every following call (agents, LLM judge, `/v1/me`, `/health`, `/api/stats`) and returns the new `active` object; a model not in `available` is a 404 `not_found` envelope. The choice is stored under cache key `models:active` and restored at startup when still listed.
+- `POST /api/logs/clear` returns `{"ok": true, "cleared": ["audit", "alerts", "alerts_xlsx", "audit_jsonl", "metrics", "feed"]}`; empties the audit log (memory and `calls.jsonl`), the alert store and `alerts.xlsx`, resets metrics and the call id sequence. Budgets, sessions, approvals, risk, protection mode and overrides are kept.
+- `POST /api/demo/reset` (scope `all`) additionally resets the protection mode to `enforce` and clears the rule overrides, and clears logs through the same use case.

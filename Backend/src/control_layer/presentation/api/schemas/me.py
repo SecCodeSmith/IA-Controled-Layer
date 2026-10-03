@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from control_layer.domain.models.identity import Identity
+from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.models.tool import ToolDescriptor
 
@@ -34,3 +35,4 @@ class MeResponse(BaseModel):
     budget: BudgetSummary
     risk: RiskSummary
     provider: ProviderInfo
+    protection: ProtectionInfo = ProtectionInfo()

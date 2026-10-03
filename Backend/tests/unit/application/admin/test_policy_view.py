@@ -101,6 +101,7 @@ async def test_rule_dict_has_the_documented_fields() -> None:
         "owasp",
         "severity",
         "enabled",
+        "overridden",
         "params",
     }
     assert rule["id"] == "pii_masking"

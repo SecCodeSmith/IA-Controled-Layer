@@ -63,3 +63,7 @@ class ExcelAlertSink:
     async def emit(self, alert: Any) -> None:
         async with self._lock:
             await asyncio.to_thread(self._write_row_sync, alert)
+
+    async def clear(self) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._path.unlink, missing_ok=True)

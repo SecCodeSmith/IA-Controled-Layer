@@ -4,9 +4,14 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from control_layer.application.services.protection_service import (
+    ProtectionService,
+    current_protection,
+)
 from control_layer.application.telemetry.metrics_collector import MetricsView
 from control_layer.application.use_cases.admin._shared import load_all_call_records
 from control_layer.domain.models.audit import CallRecord
+from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.ports.audit_repository import AuditRepository
 from control_layer.domain.ports.budget_repository import BudgetRepository
@@ -81,6 +86,7 @@ class StatsView(BaseModel):
     latency: LatencyStats
     provider: ProviderInfo
     policy: PolicyStatusRef
+    protection: ProtectionInfo = Field(default_factory=ProtectionInfo)
 
 
 def _bump(counter: dict[str, int], key: str | None) -> None:
@@ -138,6 +144,7 @@ class StatsCalculator:
         policy_repository: PolicyRepository,
         model_provider: ModelProvider,
         user_repository: UserRepository,
+        protection: ProtectionService | None = None,
     ) -> None:
         self._audit_repository = audit_repository
         self._budget_repository = budget_repository
@@ -146,6 +153,7 @@ class StatsCalculator:
         self._policy_repository = policy_repository
         self._model_provider = model_provider
         self._user_repository = user_repository
+        self._protection = protection
 
     async def compute(self) -> StatsView:
         records = await load_all_call_records(self._audit_repository)
@@ -220,4 +228,5 @@ class StatsCalculator:
                 version=policy_status.get("version", 0),
                 status=policy_status.get("status", "LOADED"),
             ),
+            protection=await current_protection(self._protection),
         )

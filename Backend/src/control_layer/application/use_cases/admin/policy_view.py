@@ -23,7 +23,7 @@ class PolicyView(BaseModel):
     rules_by_stage: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
-def _rule_to_view_dict(rule: Rule) -> dict[str, Any]:
+def _rule_to_view_dict(rule: Rule, overridden: bool) -> dict[str, Any]:
     return {
         "id": rule.id,
         "type": rule.type,
@@ -32,14 +32,17 @@ def _rule_to_view_dict(rule: Rule) -> dict[str, Any]:
         "owasp": list(rule.owasp),
         "severity": rule.severity.value,
         "enabled": rule.enabled,
+        "overridden": overridden,
         "params": dict(rule.params),
     }
 
 
-def _group_rules_by_stage(rules: list[Rule]) -> dict[str, list[dict[str, Any]]]:
+def _group_rules_by_stage(
+    rules: list[Rule], overrides: dict[str, bool]
+) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {stage.value: [] for stage in StageName.ordered()}
     for rule in rules:
-        grouped[rule.stage.value].append(_rule_to_view_dict(rule))
+        grouped[rule.stage.value].append(_rule_to_view_dict(rule, rule.id in overrides))
     return grouped
 
 
@@ -58,7 +61,7 @@ class GetPolicyViewUseCase:
             error=status.get("error"),
             raw_yaml=status.get("raw_yaml", ""),
             document=document.model_dump(mode="json"),
-            rules_by_stage=_group_rules_by_stage(document.rules),
+            rules_by_stage=_group_rules_by_stage(document.rules, status.get("overrides") or {}),
         )
 
 

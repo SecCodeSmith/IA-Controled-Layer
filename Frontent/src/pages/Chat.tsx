@@ -84,6 +84,7 @@ export function Chat() {
         identity={auth.identity}
         tokensUsed={me.data?.budget.tokens_used ?? 0}
         tokensLimit={me.data?.budget.tokens_limit ?? 0}
+        protectionMode={me.data?.protection?.mode}
         onSignOut={handleSignOut}
       />
 

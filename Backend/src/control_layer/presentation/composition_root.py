@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -19,6 +20,9 @@ from control_layer.application.pipeline.stages.dlp import DlpStage
 from control_layer.application.pipeline.stages.identity import IdentityStage
 from control_layer.application.pipeline.stages.policy import PolicyStage
 from control_layer.application.pipeline.stages.resource import ResourceStage
+from control_layer.application.policy.overridden_policy_repository import (
+    OverriddenPolicyRepository,
+)
 from control_layer.application.reports.security_report import SecurityReportUseCase
 from control_layer.application.rules.registry import EvaluatorRegistry
 from control_layer.application.selftest.attack_run_manager import AttackRunManager
@@ -29,6 +33,11 @@ from control_layer.application.services.budget_service import BudgetService
 from control_layer.application.services.call_id_generator import CallIdGenerator
 from control_layer.application.services.call_id_seeding import highest_call_id
 from control_layer.application.services.circuit_breaker_service import CircuitBreakerService
+from control_layer.application.services.model_selection_service import ModelSelectionService
+from control_layer.application.services.protection_service import (
+    ProtectionService,
+    current_protection,
+)
 from control_layer.application.services.risk_service import RiskService
 from control_layer.application.services.session_service import SessionService
 from control_layer.application.services.tool_catalog import ToolCatalog
@@ -38,6 +47,7 @@ from control_layer.application.use_cases.admin.audit import (
     GetCallDetailUseCase,
     ListAuditUseCase,
 )
+from control_layer.application.use_cases.admin.clear_logs import ClearLogsUseCase
 from control_layer.application.use_cases.admin.exports import (
     ExportAlertsUseCase,
     ExportAuditUseCase,
@@ -54,6 +64,7 @@ from control_layer.application.use_cases.admin.policy_view import (
     GetPolicyViewUseCase,
     ReloadPolicyUseCase,
 )
+from control_layer.application.use_cases.admin.protection import ManageProtectionUseCase
 from control_layer.application.use_cases.admin.reset import ResetDemoUseCase
 from control_layer.application.use_cases.admin.stats import StatsCalculator
 from control_layer.application.use_cases.admin.stream_feed import StreamFeedUseCase
@@ -69,6 +80,7 @@ from control_layer.application.use_cases.list_tools import ListToolsUseCase
 from control_layer.application.use_cases.list_users import ListUsersUseCase
 from control_layer.domain.models.audit import CallRecord
 from control_layer.domain.models.enums import StageName
+from control_layer.domain.ports.policy_repository import PolicyRepository
 from control_layer.infrastructure.alerts.composite_alert_sink import CompositeAlertSink
 from control_layer.infrastructure.alerts.excel_alert_sink import ExcelAlertSink
 from control_layer.infrastructure.alerts.in_memory_alert_store import InMemoryAlertStore
@@ -79,7 +91,12 @@ from control_layer.infrastructure.mcp.mcp_client_gateway import McpClientGateway
 from control_layer.infrastructure.mcp.mcp_server_registry import McpServerRegistry
 from control_layer.infrastructure.policy.policy_file_watcher import PolicyFileWatcher
 from control_layer.infrastructure.policy.yaml_policy_repository import YamlPolicyRepository
-from control_layer.infrastructure.providers.provider_factory import build_model_provider
+from control_layer.infrastructure.providers.ollama_model_directory import OllamaModelDirectory
+from control_layer.infrastructure.providers.provider_factory import (
+    build_model_provider,
+    build_provider_for,
+)
+from control_layer.infrastructure.providers.switchable_provider import SwitchableModelProvider
 from control_layer.infrastructure.repositories.approval_repository import (
     CacheApprovalRepository,
 )
@@ -108,7 +125,7 @@ class MeteredAuditRepository:
         self,
         inner: JsonlAuditRepository,
         metrics: MetricsCollector,
-        policy_repository: YamlPolicyRepository,
+        policy_repository: PolicyRepository,
     ) -> None:
         self._inner = inner
         self._metrics = metrics
@@ -162,7 +179,8 @@ class Container:
     settings: Settings
     cache: Any
     cache_mode: str
-    policy_repository: YamlPolicyRepository
+    policy_repository: OverriddenPolicyRepository
+    protection: ProtectionService
     policy_watcher: PolicyFileWatcher
     policy_notifier: PolicyReloadNotifier
     call_ids: CallIdGenerator
@@ -170,7 +188,8 @@ class Container:
     signature_feed: YamlSignatureFeed
     user_repository: YamlUserRepository
     token_verifier: HmacTokenVerifier
-    model_provider: Any
+    model_provider: SwitchableModelProvider
+    model_selection: ModelSelectionService
     mcp_registry: McpServerRegistry
     mcp_gateway: McpClientGateway
     classifier: Any
@@ -203,6 +222,8 @@ class Container:
     reload_policy: ReloadPolicyUseCase
     security_report: SecurityReportUseCase
     reset_demo: ResetDemoUseCase
+    clear_logs: ClearLogsUseCase
+    manage_protection: ManageProtectionUseCase
     health: GetHealthUseCase
     attack_runs: AttackRunManager
     reset_runtime_state: Callable[[], Awaitable[None]]
@@ -220,11 +241,20 @@ async def build_container(settings: Settings) -> Container:
     cache_result = await build_cache_repository(settings)
     cache = cache_result.repository
 
-    policy_repository = YamlPolicyRepository(settings.policy_file_path)
+    file_policy_repository = YamlPolicyRepository(settings.policy_file_path)
+    protection = ProtectionService(cache)
+    policy_repository = OverriddenPolicyRepository(file_policy_repository, protection)
     signature_feed = YamlSignatureFeed(settings.signatures_file_path)
     user_repository = YamlUserRepository(settings.users_file_path)
     token_verifier = HmacTokenVerifier(settings.jwt_secret)
-    model_provider = await build_model_provider(settings)
+    model_provider = SwitchableModelProvider(await build_model_provider(settings))
+    model_selection = ModelSelectionService(
+        model_provider,
+        OllamaModelDirectory(settings.ollama_base_url),
+        functools.partial(build_provider_for, settings),
+        policy_repository,
+        cache,
+    )
     classifier = _load_classifier(settings)
 
     mcp_registry = McpServerRegistry(settings.mcp_servers_file_path, settings.base_dir)
@@ -268,7 +298,9 @@ async def build_container(settings: Settings) -> Container:
         ResourceStage(budget_repository),
         AuditStage(feed_broadcaster),
     ]
-    pipeline = MeteredPipeline(stages, cache, policy_repository, metrics=metrics)
+    pipeline = MeteredPipeline(
+        stages, cache, policy_repository, metrics=metrics, protection=protection
+    )
 
     identity_service = IdentityService(token_verifier, user_repository)
     tool_catalog = ToolCatalog(mcp_gateway, policy_repository)
@@ -325,11 +357,12 @@ async def build_container(settings: Settings) -> Container:
         policy_repository,
         model_provider,
         user_repository,
+        protection,
     )
     policy_view = GetPolicyViewUseCase(policy_repository)
 
     policy_notifier = PolicyReloadNotifier(
-        policy_repository, alert_sink, alert_store, feed_broadcaster.publish
+        file_policy_repository, alert_sink, alert_store, feed_broadcaster.publish
     )
 
     async def reload_signatures() -> None:
@@ -340,6 +373,10 @@ async def build_container(settings: Settings) -> Container:
     async def reset_runtime_state() -> None:
         for prefix in _RUNTIME_STATE_PREFIXES:
             await cache.flush(prefix)
+
+    clear_logs = ClearLogsUseCase(
+        audit_repository, alert_store, alert_sink, metrics, call_ids, feed_broadcaster.publish
+    )
 
     attack_runs = AttackRunManager(
         build_executor_factory(
@@ -355,6 +392,7 @@ async def build_container(settings: Settings) -> Container:
         cache=cache,
         cache_mode=cache_result.mode,
         policy_repository=policy_repository,
+        protection=protection,
         policy_watcher=PolicyFileWatcher(settings.policy_file_path, policy_notifier.reload),
         policy_notifier=policy_notifier,
         call_ids=call_ids,
@@ -363,6 +401,7 @@ async def build_container(settings: Settings) -> Container:
         user_repository=user_repository,
         token_verifier=token_verifier,
         model_provider=model_provider,
+        model_selection=model_selection,
         mcp_registry=mcp_registry,
         mcp_gateway=mcp_gateway,
         classifier=classifier,
@@ -378,7 +417,12 @@ async def build_container(settings: Settings) -> Container:
         list_users=ListUsersUseCase(user_repository),
         issue_token=issue_token,
         get_me=GetMeUseCase(
-            tool_catalog, budget_repository, risk_repository, policy_repository, model_provider
+            tool_catalog,
+            budget_repository,
+            risk_repository,
+            policy_repository,
+            model_provider,
+            protection,
         ),
         list_tools=ListToolsUseCase(tool_catalog),
         chat_completion=chat_completion,
@@ -405,7 +449,11 @@ async def build_container(settings: Settings) -> Container:
             approval_repository,
             cache,
             metrics,
+            clear_logs,
+            protection,
         ),
+        clear_logs=clear_logs,
+        manage_protection=ManageProtectionUseCase(protection, policy_repository),
         health=GetHealthUseCase(),
         attack_runs=attack_runs,
         reset_runtime_state=reset_runtime_state,
@@ -418,6 +466,7 @@ async def _seed_call_ids(container: Container) -> None:
 
 async def start(container: Container) -> None:
     await _seed_call_ids(container)
+    await container.model_selection.restore()
     await container.mcp_registry.start()
     container.policy_watcher.start()
     container.signature_watcher.start()
@@ -448,4 +497,5 @@ async def collect_health(container: Container) -> HealthView:
         ),
         provider=container.model_provider.describe(),
         policy_status=PolicyStatus(version=status["version"] or 0, status=status["status"]),
+        protection=await current_protection(container.protection),
     )

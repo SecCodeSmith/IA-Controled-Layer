@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { ShieldLogo } from '../common/ShieldLogo'
+import { ProtectionControl } from './ProtectionControl'
+import { ModelSelector } from './ModelSelector'
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Live feed', end: true },
@@ -32,7 +34,11 @@ export function AdminHeader({ actions }: { actions?: ReactNode }) {
           ))}
         </nav>
       </div>
-      {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
+      <div className="flex flex-wrap items-center gap-4">
+        <ProtectionControl />
+        <ModelSelector />
+        {actions}
+      </div>
     </header>
   )
 }

@@ -133,3 +133,21 @@ async def test_accepts_real_domain_alert_model(tmp_path: Path) -> None:
     assert row[0] == "al_real"
     assert row[6] == "pii_masking"
     assert "anna.kowalska" in row[3]
+
+
+async def test_clear_deletes_the_file_and_the_next_alert_recreates_the_header(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "alerts.xlsx"
+    sink = ExcelAlertSink(path)
+    await sink.emit(_alert())
+    assert path.exists()
+
+    await sink.clear()
+    assert not path.exists()
+    await sink.clear()
+
+    await sink.emit(_alert(id="al_2"))
+    rows = list(openpyxl.load_workbook(path).active.iter_rows(values_only=True))
+    assert rows[0] == ALERT_FIELDS
+    assert len(rows) == 2

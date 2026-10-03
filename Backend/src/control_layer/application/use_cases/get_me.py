@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from control_layer.application.services.protection_service import (
+    ProtectionService,
+    current_protection,
+)
 from control_layer.application.services.tool_catalog import ToolCatalog
 from control_layer.application.use_cases.outcomes import MeView
 from control_layer.domain.models.identity import Identity
@@ -17,12 +21,14 @@ class GetMeUseCase:
         risk_repository: RiskRepository,
         policy_repository: PolicyRepository,
         model_provider: ModelProvider,
+        protection: ProtectionService | None = None,
     ) -> None:
         self._tool_catalog = tool_catalog
         self._budget_repository = budget_repository
         self._risk_repository = risk_repository
         self._policy_repository = policy_repository
         self._model_provider = model_provider
+        self._protection = protection
 
     async def execute(self, identity: Identity) -> MeView:
         policy = await self._policy_repository.current()
@@ -38,4 +44,5 @@ class GetMeUseCase:
             budget=budget,
             risk=risk,
             provider=self._model_provider.describe(),
+            protection=await current_protection(self._protection),
         )

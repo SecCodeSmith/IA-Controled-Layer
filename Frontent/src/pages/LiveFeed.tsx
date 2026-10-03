@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useFeed } from '../api/feed'
 import { useStats } from '../api/stats'
 import { useResetDemo } from '../api/demo'
+import { useClearLogs } from '../api/logs'
 import { useFeedStream } from '../hooks/useFeedStream'
 import { AdminHeader } from '../components/layout/AdminHeader'
 import { KpiCards } from '../components/feed/KpiCards'
@@ -23,6 +24,7 @@ export function LiveFeed() {
   const feed = useFeed()
   const stats = useStats()
   const resetDemo = useResetDemo()
+  const clearLogs = useClearLogs()
   useFeedStream(true)
 
   const [filter, setFilter] = useState<FeedFilterValue>({
@@ -46,6 +48,15 @@ export function LiveFeed() {
     <div className="flex min-h-screen flex-col">
       <AdminHeader
         actions={
+          <>
+          <button
+            type="button"
+            onClick={() => void clearLogs.mutateAsync()}
+            disabled={clearLogs.isPending}
+            className="flex min-h-11 items-center gap-2 rounded-lg border border-[#5A5F66] bg-transparent px-4.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            Clear logs
+          </button>
           <button
             type="button"
             onClick={() => void resetDemo.mutateAsync()}
@@ -54,6 +65,7 @@ export function LiveFeed() {
           >
             Reset demo
           </button>
+          </>
         }
       />
 

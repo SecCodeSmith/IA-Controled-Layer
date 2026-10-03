@@ -18,3 +18,12 @@ class CompositeAlertSink:
                 logger.error(
                     "Alert sink %r failed to emit alert: %s", sink, exc, exc_info=True
                 )
+
+    async def clear(self) -> None:
+        for sink in self._sinks:
+            try:
+                await sink.clear()
+            except Exception as exc:
+                logger.error(
+                    "Alert sink %r failed to clear: %s", sink, exc, exc_info=True
+                )

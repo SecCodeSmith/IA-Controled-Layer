@@ -73,3 +73,22 @@ async def build_model_provider(
     finally:
         if owns_client:
             await http_client.aclose()
+
+
+def build_provider_for(settings: Settings, provider_name: str, model: str) -> Any:
+    if provider_name == "mock":
+        return MockModelProvider()
+    if provider_name == "ollama":
+        return OpenAICompatibleModelProvider(
+            base_url=f"{settings.ollama_base_url}/v1",
+            model=model,
+            provider_name="ollama",
+        )
+    if provider_name == "openai_compatible":
+        return OpenAICompatibleModelProvider(
+            base_url=settings.openai_base_url or f"{settings.ollama_base_url}/v1",
+            model=model,
+            provider_name="openai_compatible",
+            api_key=settings.openai_api_key,
+        )
+    raise ValueError(f"unknown model provider: {provider_name}")

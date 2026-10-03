@@ -45,3 +45,26 @@ async def test_all_sinks_failing_does_not_raise() -> None:
     composite = CompositeAlertSink([_FailingSink(), _FailingSink()])
 
     await composite.emit({"id": "al_1"})
+
+
+class _ClearableSink(_RecordingSink):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cleared = 0
+
+    async def clear(self) -> None:
+        self.cleared += 1
+
+
+class _FailingClearSink(_FailingSink):
+    async def clear(self) -> None:
+        raise RuntimeError("cannot clear")
+
+
+async def test_clear_fans_out_and_survives_a_failing_sink() -> None:
+    first, second = _ClearableSink(), _ClearableSink()
+    composite = CompositeAlertSink([first, _FailingClearSink(), second])
+
+    await composite.clear()
+
+    assert (first.cleared, second.cleared) == (1, 1)

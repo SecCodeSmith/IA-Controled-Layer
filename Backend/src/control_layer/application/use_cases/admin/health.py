@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from control_layer.domain.models.enums import StageName
+from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 
 
@@ -51,6 +52,7 @@ class HealthView(BaseModel):
     classifier: ClassifierStatus
     provider: ProviderInfo
     policy: PolicyStatus
+    protection: ProtectionInfo = Field(default_factory=ProtectionInfo)
 
 
 class GetHealthUseCase:
@@ -62,6 +64,7 @@ class GetHealthUseCase:
         classifier: ClassifierStatus,
         provider: ProviderInfo,
         policy_status: PolicyStatus,
+        protection: ProtectionInfo | None = None,
     ) -> HealthView:
         return HealthView(
             cache=CacheHealth(mode=cache_mode),
@@ -69,4 +72,5 @@ class GetHealthUseCase:
             classifier=classifier,
             provider=provider,
             policy=policy_status,
+            protection=protection or ProtectionInfo(),
         )

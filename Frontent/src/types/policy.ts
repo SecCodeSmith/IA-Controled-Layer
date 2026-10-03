@@ -11,6 +11,8 @@ export interface PolicyRule {
   params?: Record<string, unknown>
   owasp?: string[]
   severity?: string
+  enabled?: boolean
+  overridden?: boolean
 }
 
 export type RulesByStage = Partial<Record<PipelineStage, PolicyRule[]>>

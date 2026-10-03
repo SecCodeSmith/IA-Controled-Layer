@@ -88,3 +88,16 @@ class AgentUnavailableError(ControlLayerError):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+class RuleNotFoundError(ControlLayerError):
+    def __init__(self, rule_id: str) -> None:
+        super().__init__(f"rule not found: {rule_id}")
+        self.rule_id = rule_id
+
+
+class ModelNotAvailableError(ControlLayerError):
+    def __init__(self, provider: str, model: str) -> None:
+        super().__init__(f"model not available: {provider}/{model}")
+        self.provider = provider
+        self.model = model
