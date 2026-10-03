@@ -599,3 +599,18 @@ async def test_chat_step_passes_max_tokens_to_the_client() -> None:
     await ScenarioExecutor(client).run(scenario)
 
     assert client.chat_max_tokens == [16, 16, None]
+
+
+async def test_each_executor_run_uses_fresh_agent_sessions() -> None:
+    first = FakeScenarioClient()
+    second = FakeScenarioClient()
+    scenario = _Scenario(
+        id="s", kind="positive", expected=_Expectation(status=CallStatus.ALLOWED),
+        steps=[_FIND_APPROVER_STEP],
+    )
+
+    await ScenarioExecutor(first, run_token="run1").run(scenario)
+    await ScenarioExecutor(second, run_token="run2").run(scenario)
+
+    assert first.tool_calls[0][1] == "selftest-s-run1"
+    assert second.tool_calls[0][1] == "selftest-s-run2"
