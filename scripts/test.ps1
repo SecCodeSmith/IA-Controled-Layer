@@ -1,4 +1,4 @@
-# Test script for AI Control Layer
+﻿# Test script for AI Control Layer
 # Runs pytest, ruff linting, and npm tests
 
 $ErrorActionPreference = "Continue"

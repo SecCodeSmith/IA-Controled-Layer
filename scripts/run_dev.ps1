@@ -1,4 +1,4 @@
-# Development server runner for AI Control Layer
+﻿# Development server runner for AI Control Layer
 # Starts control layer, demo agent, and frontend in separate processes
 
 $ErrorActionPreference = "Continue"

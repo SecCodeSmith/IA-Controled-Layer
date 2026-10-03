@@ -1,4 +1,4 @@
-# Bootstrap script for AI Control Layer
+﻿# Bootstrap script for AI Control Layer
 # Sets up Python environment, Node modules, ML classifier, and Ollama model
 
 $ErrorActionPreference = "Continue"
@@ -29,7 +29,7 @@ Pop-Location
 # 2. Frontend npm setup
 Write-Host "`n[2/4] Setting up Frontend Node modules..." -ForegroundColor Yellow
 Push-Location Frontent
-if (Test-Path package-lock.json) {
+if ((Test-Path package-lock.json) -and -not (Test-Path node_modules)) {
     $npmOutput = npm ci 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Frontend npm ci failed" -ForegroundColor Red
@@ -40,7 +40,7 @@ if (Test-Path package-lock.json) {
         Write-Host "  ✓ Frontend dependencies installed (npm ci)" -ForegroundColor Green
     }
 } else {
-    $npmOutput = npm install 2>&1
+    $npmOutput = npm install --no-audit --no-fund 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Frontend npm install failed" -ForegroundColor Red
         $npmOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }

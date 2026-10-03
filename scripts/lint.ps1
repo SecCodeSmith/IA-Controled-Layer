@@ -1,4 +1,4 @@
-# Lint script for AI Control Layer
+﻿# Lint script for AI Control Layer
 # Runs ruff check and npm lint
 
 $ErrorActionPreference = "Continue"

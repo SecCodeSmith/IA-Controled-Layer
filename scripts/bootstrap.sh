@@ -27,7 +27,7 @@ cd ..
 echo ""
 echo "[2/4] Setting up Frontend Node modules..."
 cd Frontent
-if [ -f package-lock.json ]; then
+if [ -f package-lock.json ]; if [ -f package-lock.json ] && [ ! -d node_modules ]; then
     if npm ci > /dev/null 2>&1; then
         echo "  ✓ Frontend dependencies installed (npm ci)"
     else
@@ -35,8 +35,8 @@ if [ -f package-lock.json ]; then
         skipped+=("Frontend npm setup")
     fi
 else
-    if npm install > /dev/null 2>&1; then
-        echo "  ✓ Frontend dependencies installed (npm install)"
+    if npm install --no-audit --no-fund > /dev/null 2>&1; then
+s installed (npm install)"
     else
         echo "  ✗ Frontend npm install failed"
         skipped+=("Frontend npm setup")

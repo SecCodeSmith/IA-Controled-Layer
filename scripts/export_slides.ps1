@@ -1,4 +1,4 @@
-# Export slides script for AI Control Layer
+﻿# Export slides script for AI Control Layer
 # Renders presentation/slides.html to PDF using Edge or Chrome
 
 $ErrorActionPreference = "Continue"

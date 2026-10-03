@@ -1,4 +1,4 @@
-# Train ML classifier script for AI Control Layer
+﻿# Train ML classifier script for AI Control Layer
 # Trains the prompt injection classifier with optional pass-through arguments
 
 param(
