@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from control_layer.application.use_cases.admin.audit import (
     CallNotFoundError,
     GetCallDetailUseCase,
@@ -19,8 +21,6 @@ from control_layer.domain.models.audit import (
 from control_layer.domain.models.enums import CallKind, CallStatus, Role
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.provider import ProviderInfo
-
-import pytest
 
 
 def _record(call_id: str) -> CallRecord:

@@ -64,7 +64,9 @@ class GetPolicyViewUseCase:
 
 class ReloadPolicyUseCase:
     def __init__(
-        self, policy_repository: PolicyRepository, get_policy_view: GetPolicyViewUseCase | None = None
+        self,
+        policy_repository: PolicyRepository,
+        get_policy_view: GetPolicyViewUseCase | None = None,
     ) -> None:
         self._policy_repository = policy_repository
         self._get_policy_view = get_policy_view or GetPolicyViewUseCase(policy_repository)

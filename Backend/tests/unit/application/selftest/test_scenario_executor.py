@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
 from control_layer.application.selftest.scenario_client import StepObservation
@@ -29,6 +28,11 @@ class _Scenario(BaseModel):
     owasp: list[str] = Field(default_factory=list)
     steps: list[dict[str, Any]] = Field(default_factory=list)
     prompt: str = "do the thing"
+
+
+_FIND_APPROVER_STEP = {
+    "action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {},
+}
 
 
 def _obs(
@@ -84,7 +88,8 @@ class FakeScenarioClient:
             raise RuntimeError("boom")
         self.tool_calls.append((token, session_id, server, tool, arguments))
         if self.tool_call_results:
-            return self.tool_call_results[min(len(self.tool_calls) - 1, len(self.tool_call_results) - 1)]
+            index = min(len(self.tool_calls) - 1, len(self.tool_call_results) - 1)
+            return self.tool_call_results[index]
         return _obs(CallStatus.ALLOWED)
 
     async def approve(self, token: str, approval_id: str) -> StepObservation:
@@ -99,11 +104,13 @@ class FakeScenarioClient:
 
 async def test_negative_scenario_is_stopped_when_status_and_rule_match() -> None:
     client = FakeScenarioClient()
-    client.tool_call_results = [_obs(CallStatus.BLOCKED, stage=StageName.authorization, rule_id="role_provisioning")]
+    client.tool_call_results = [
+        _obs(CallStatus.BLOCKED, stage=StageName.authorization, rule_id="role_provisioning")
+    ]
     scenario = _Scenario(
         id="s1", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 
@@ -136,7 +143,7 @@ async def test_negative_scenario_is_succeeded_when_attack_got_through() -> None:
     scenario = _Scenario(
         id="s3", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 
@@ -151,7 +158,7 @@ async def test_negative_scenario_mismatch_without_bypass_is_error() -> None:
     scenario = _Scenario(
         id="s4", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 
@@ -306,7 +313,7 @@ async def test_ollama_tier_not_attempted_when_no_observations() -> None:
     scenario = _Scenario(
         id="s12", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 
@@ -321,7 +328,7 @@ async def test_ollama_tier_not_attempted_when_model_never_tries_the_risky_action
     scenario = _Scenario(
         id="s13", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 
@@ -332,11 +339,13 @@ async def test_ollama_tier_not_attempted_when_model_never_tries_the_risky_action
 
 async def test_ollama_tier_succeeded_when_attack_got_through() -> None:
     client = FakeScenarioClient()
-    client.agent_chat_result = [_obs(CallStatus.ALLOWED, stage=StageName.authorization, rule_id="role_provisioning")]
+    client.agent_chat_result = [
+        _obs(CallStatus.ALLOWED, stage=StageName.authorization, rule_id="role_provisioning")
+    ]
     scenario = _Scenario(
         id="s14", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 
@@ -354,7 +363,7 @@ async def test_ollama_tier_stopped_when_a_matching_observation_exists() -> None:
     scenario = _Scenario(
         id="s15", kind="negative",
         expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[{"action": "tool_call", "server": "hr-db", "tool": "find_approver", "arguments": {}}],
+        steps=[_FIND_APPROVER_STEP],
     )
     executor = ScenarioExecutor(client)
 

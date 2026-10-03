@@ -13,15 +13,7 @@ from control_layer.domain.ports.budget_repository import BudgetRepository
 from control_layer.domain.ports.model_provider import ModelProvider
 from control_layer.domain.ports.policy_repository import PolicyRepository
 from control_layer.domain.ports.risk_repository import RiskRepository
-
-
-class _HasSubAndName(Protocol):
-    sub: str
-    name: str
-
-
-class _UserDirectory(Protocol):
-    async def list_all(self) -> list[_HasSubAndName]: ...
+from control_layer.domain.ports.user_repository import UserRepository
 
 
 class _MetricsSource(Protocol):
@@ -97,7 +89,10 @@ def _bump(counter: dict[str, int], key: str | None) -> None:
     counter[key] = counter.get(key, 0) + 1
 
 
-def _tally(records: list[CallRecord]) -> tuple[int, int, int, int, int, dict, dict, dict, dict]:
+_TallyResult = tuple[int, int, int, int, int, dict, dict, dict, dict]
+
+
+def tally_call_records(records: list[CallRecord]) -> _TallyResult:
     allowed = blocked = masked = escalated = flagged = 0
     by_stage: dict[str, int] = {}
     by_rule: dict[str, int] = {}
@@ -127,7 +122,7 @@ def _tally(records: list[CallRecord]) -> tuple[int, int, int, int, int, dict, di
     return allowed, blocked, masked, escalated, flagged, by_stage, by_rule, by_owasp, by_role
 
 
-def _posture_score(total: int, allowed: int, masked: int) -> int:
+def posture_score(total: int, allowed: int, masked: int) -> int:
     if total == 0:
         return 100
     return round(100 * (allowed + masked) / total)
@@ -142,7 +137,7 @@ class StatsCalculator:
         metrics_collector: _MetricsSource,
         policy_repository: PolicyRepository,
         model_provider: ModelProvider,
-        user_repository: _UserDirectory,
+        user_repository: UserRepository,
     ) -> None:
         self._audit_repository = audit_repository
         self._budget_repository = budget_repository
@@ -164,7 +159,7 @@ class StatsCalculator:
             by_rule,
             by_owasp,
             by_role,
-        ) = _tally(records)
+        ) = tally_call_records(records)
         total = len(records)
 
         users = await self._user_repository.list_all()
@@ -212,7 +207,7 @@ class StatsCalculator:
             by_role=by_role,
             budget=budget_stats,
             risk=risk_stats,
-            posture_score=_posture_score(total, allowed, masked),
+            posture_score=posture_score(total, allowed, masked),
             cache_hit_ratio=metrics.cache.hit_ratio,
             latency=LatencyStats(
                 proxy_p50_ms=metrics.proxy.p50_ms,

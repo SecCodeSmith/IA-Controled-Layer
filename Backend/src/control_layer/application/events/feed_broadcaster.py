@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -29,14 +30,10 @@ class FeedBroadcaster:
         feed_event = FeedEvent(event=event, data=data)
         for queue in list(self._subscribers):
             if queue.full():
-                try:
+                with contextlib.suppress(asyncio.QueueEmpty):
                     queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
-            try:
+            with contextlib.suppress(asyncio.QueueFull):
                 queue.put_nowait(feed_event)
-            except asyncio.QueueFull:
-                pass
 
     def subscribe(self) -> AsyncIterator[FeedEvent]:
         queue: asyncio.Queue = asyncio.Queue(maxsize=self._maxsize)

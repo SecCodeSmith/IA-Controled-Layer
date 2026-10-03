@@ -51,9 +51,7 @@ class _ScenarioLike(Protocol):
 def _matches_expected(expected: _Expectation, observed: StepObservation) -> bool:
     if observed.status != expected.status:
         return False
-    if expected.rule_id is not None and observed.rule_id != expected.rule_id:
-        return False
-    return True
+    return expected.rule_id is None or observed.rule_id == expected.rule_id
 
 
 class ScenarioExecutor:

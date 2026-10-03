@@ -10,6 +10,7 @@ from control_layer.application.use_cases.admin.stats import (
     PolicyStatusRef,
     StatsView,
 )
+from control_layer.domain.models.alert import Alert, AlertUserRef
 from control_layer.domain.models.audit import (
     CallDecisionInfo,
     CallLatency,
@@ -18,7 +19,7 @@ from control_layer.domain.models.audit import (
     CallResponseInfo,
     TokensInfo,
 )
-from control_layer.domain.models.enums import CallKind, CallStatus, Role, StageName
+from control_layer.domain.models.enums import CallKind, CallStatus, Role, Severity, StageName
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.provider import ProviderInfo
 
@@ -38,9 +39,6 @@ def _record(
     sub: str = "anna.kowalska",
     name: str = "Anna Kowalska",
     status: CallStatus = CallStatus.BLOCKED,
-    stage: StageName | None = StageName.policy,
-    rule_id: str | None = "prompt_injection_signatures",
-    owasp: list[str] | None = None,
     age: timedelta = timedelta(minutes=1),
 ) -> CallRecord:
     return CallRecord(
@@ -49,14 +47,37 @@ def _record(
         identity=_identity(sub, name),
         kind=CallKind.chat,
         target="llm.complete",
-        decision=CallDecisionInfo(
-            status=status, stage=stage, rule_id=rule_id, owasp=owasp or ["LLM01", "ASI01"]
-        ),
+        decision=CallDecisionInfo(status=status),
         request=CallRequestInfo(summary="prompt"),
         response=CallResponseInfo(raw="hi", delivered="hi"),
         tokens=TokensInfo(prompt=1, completion=1, total=2),
         latency=CallLatency(proxy_ms=1.0, upstream_ms=1.0, stages={}),
         provider=ProviderInfo(name="mock", model="mock"),
+    )
+
+
+def _alert(
+    alert_id: str,
+    *,
+    sub: str = "anna.kowalska",
+    name: str = "Anna Kowalska",
+    status: CallStatus = CallStatus.BLOCKED,
+    stage: StageName = StageName.policy,
+    rule_id: str | None = "prompt_injection_signatures",
+    owasp: list[str] | None = None,
+    age: timedelta = timedelta(minutes=1),
+) -> Alert:
+    return Alert(
+        id=alert_id,
+        created_at=NOW - age,
+        call_id=f"c_{alert_id}",
+        user=AlertUserRef(sub=sub, name=name, role=Role.developer),
+        status=status,
+        stage=stage,
+        rule_id=rule_id,
+        severity=Severity.medium,
+        owasp=owasp or ["LLM01", "ASI01"],
+        reason="blocked",
     )
 
 
@@ -69,8 +90,11 @@ class FakeAuditRepository:
 
 
 class FakeAlertStore:
-    async def list_recent(self, limit: int = 100) -> list:
-        return []
+    def __init__(self, alerts: list[Alert]) -> None:
+        self._alerts = alerts
+
+    async def list_recent(self, limit: int = 100) -> list[Alert]:
+        return self._alerts[-limit:]
 
 
 def _stats_view(budget_users: list[BudgetUserStat] | None = None) -> StatsView:
@@ -104,28 +128,52 @@ def _clock() -> datetime:
     return NOW
 
 
-async def test_summary_is_a_subset_of_the_stats_view() -> None:
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository([]), FakeAlertStore(), clock=_clock
+def _use_case(
+    records: list[CallRecord] | None = None,
+    alerts: list[Alert] | None = None,
+    stats_view: StatsView | None = None,
+) -> SecurityReportUseCase:
+    return SecurityReportUseCase(
+        FakeStatsCalculator(stats_view or _stats_view()),
+        FakeAuditRepository(records or []),
+        FakeAlertStore(alerts or []),
+        clock=_clock,
     )
+
+
+async def test_summary_counts_recompute_from_period_filtered_audit_records() -> None:
+    records = [
+        _record("c_1", status=CallStatus.ALLOWED),
+        _record("c_2", status=CallStatus.BLOCKED),
+        _record("c_3", status=CallStatus.MASKED),
+    ]
+    use_case = _use_case(records=records)
 
     report = await use_case.execute("all")
 
-    assert report.summary["total_calls"] == 10
-    assert report.summary["blocked"] == 3
-    assert report.summary["posture_score"] == 70
+    assert report.summary["total_calls"] == 3
+    assert report.summary["allowed"] == 1
+    assert report.summary["blocked"] == 1
+    assert report.summary["masked"] == 1
+    assert report.summary["posture_score"] == 67
+
+
+async def test_summary_carries_live_cache_hit_ratio_and_policy_from_stats() -> None:
+    use_case = _use_case()
+
+    report = await use_case.execute("all")
+
+    assert report.summary["cache_hit_ratio"] == 0.5
+    assert report.summary["policy"]["version"] == 3
 
 
 async def test_top_rules_counts_and_sorts_descending() -> None:
-    records = [
-        _record("c_1", rule_id="prompt_injection_signatures", stage=StageName.policy),
-        _record("c_2", rule_id="prompt_injection_signatures", stage=StageName.policy),
-        _record("c_3", rule_id="pii_masking", stage=StageName.dlp, status=CallStatus.MASKED),
+    alerts = [
+        _alert("a1", rule_id="prompt_injection_signatures", stage=StageName.policy),
+        _alert("a2", rule_id="prompt_injection_signatures", stage=StageName.policy),
+        _alert("a3", rule_id="pii_masking", stage=StageName.dlp, status=CallStatus.MASKED),
     ]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    use_case = _use_case(alerts=alerts)
 
     report = await use_case.execute("all")
 
@@ -134,16 +182,22 @@ async def test_top_rules_counts_and_sorts_descending() -> None:
     assert report.top_rules[0]["stage"] == "policy"
 
 
+async def test_top_rules_skips_alerts_with_no_rule_id() -> None:
+    alerts = [_alert("a1", rule_id=None)]
+    use_case = _use_case(alerts=alerts)
+
+    report = await use_case.execute("all")
+
+    assert report.top_rules == []
+
+
 async def test_top_users_tallies_blocked_masked_escalated() -> None:
-    records = [
-        _record("c_1", sub="anna.kowalska", name="Anna Kowalska", status=CallStatus.BLOCKED),
-        _record("c_2", sub="anna.kowalska", name="Anna Kowalska", status=CallStatus.MASKED),
-        _record("c_3", sub="anna.kowalska", name="Anna Kowalska", status=CallStatus.ESCALATED),
+    alerts = [
+        _alert("a1", sub="anna.kowalska", name="Anna Kowalska", status=CallStatus.BLOCKED),
+        _alert("a2", sub="anna.kowalska", name="Anna Kowalska", status=CallStatus.MASKED),
+        _alert("a3", sub="anna.kowalska", name="Anna Kowalska", status=CallStatus.ESCALATED),
     ]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    use_case = _use_case(alerts=alerts)
 
     report = await use_case.execute("all")
 
@@ -154,11 +208,8 @@ async def test_top_users_tallies_blocked_masked_escalated() -> None:
 
 
 async def test_owasp_coverage_has_twenty_rows_in_catalog_order() -> None:
-    records = [_record("c_1", owasp=["LLM01"])]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    alerts = [_alert("a1", owasp=["LLM01"])]
+    use_case = _use_case(alerts=alerts)
 
     report = await use_case.execute("all")
 
@@ -173,13 +224,10 @@ async def test_owasp_coverage_has_twenty_rows_in_catalog_order() -> None:
 
 
 async def test_recommendation_for_a_user_with_three_or_more_blocks() -> None:
-    records = [
-        _record(f"c_{i}", sub="anna.kowalska", status=CallStatus.BLOCKED) for i in range(3)
+    alerts = [
+        _alert(f"a{i}", sub="anna.kowalska", status=CallStatus.BLOCKED) for i in range(3)
     ]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    use_case = _use_case(alerts=alerts)
 
     report = await use_case.execute("all")
 
@@ -187,11 +235,8 @@ async def test_recommendation_for_a_user_with_three_or_more_blocks() -> None:
 
 
 async def test_recommendation_for_a_rule_firing_ten_or_more_times() -> None:
-    records = [_record(f"c_{i}", rule_id="rate_limit") for i in range(10)]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    alerts = [_alert(f"a{i}", rule_id="rate_limit") for i in range(10)]
+    use_case = _use_case(alerts=alerts)
 
     report = await use_case.execute("all")
 
@@ -205,39 +250,35 @@ async def test_recommendation_for_a_user_near_their_budget() -> None:
             cost_used_usd=0.5,
         )
     ]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view(budget_users)), FakeAuditRepository([]), FakeAlertStore(),
-        clock=_clock,
-    )
+    use_case = _use_case(stats_view=_stats_view(budget_users))
 
     report = await use_case.execute("all")
 
     assert any("budget" in r.lower() for r in report.recommendations)
 
 
-async def test_period_filter_excludes_calls_outside_the_window() -> None:
+async def test_period_filter_excludes_calls_and_alerts_outside_the_window() -> None:
     records = [
         _record("c_old", age=timedelta(days=10)),
         _record("c_recent", age=timedelta(hours=1)),
     ]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    alerts = [
+        _alert("a_old", age=timedelta(days=10)),
+        _alert("a_recent", age=timedelta(hours=1)),
+    ]
+    use_case = _use_case(records=records, alerts=alerts)
 
     report_24h = await use_case.execute("24h")
     report_all = await use_case.execute("all")
 
+    assert report_24h.summary["total_calls"] == 1
+    assert report_all.summary["total_calls"] == 2
     assert sum(row["count"] for row in report_24h.top_rules) == 1
     assert sum(row["count"] for row in report_all.top_rules) == 2
 
 
 async def test_markdown_contains_the_expected_headings() -> None:
-    records = [_record("c_1")]
-    use_case = SecurityReportUseCase(
-        FakeStatsCalculator(_stats_view()), FakeAuditRepository(records), FakeAlertStore(),
-        clock=_clock,
-    )
+    use_case = _use_case(records=[_record("c_1")], alerts=[_alert("a1")])
 
     report = await use_case.execute("all")
 

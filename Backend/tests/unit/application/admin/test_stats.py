@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from control_layer.application.telemetry.metrics_collector import (
     CacheMetric,
     LatencyBand,
-    MetricsCollector,
     MetricsView,
     StageMetric,
 )
