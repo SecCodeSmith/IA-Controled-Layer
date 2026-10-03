@@ -18,7 +18,7 @@ export function FeedTable({ rows }: { rows: FeedRow[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.call_id} className="border-t border-border-soft">
+            <tr key={`${row.call_id}-${row.time}-${row.status}-${row.rule_id ?? ""}`} className="border-t border-border-soft">
               <td className="whitespace-nowrap px-6 py-3 font-mono text-[13px] text-muted">
                 {formatTime(row.time)}
               </td>

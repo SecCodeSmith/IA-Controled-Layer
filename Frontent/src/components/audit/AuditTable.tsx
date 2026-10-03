@@ -20,7 +20,7 @@ export function AuditTable({ items }: { items: AuditListItem[] }) {
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.call_id} className="border-t border-border-soft">
+            <tr key={`${item.call_id}-${item.time}-${item.status}-${item.rule_id ?? ""}`} className="border-t border-border-soft">
               <td className="whitespace-nowrap px-6 py-3 font-mono text-[13px] text-muted">
                 {formatTime(item.time)}
               </td>

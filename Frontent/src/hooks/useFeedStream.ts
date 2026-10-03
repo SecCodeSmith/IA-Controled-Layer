@@ -5,6 +5,10 @@ import type { FeedListResponse, FeedRow, StatsResponse } from '../types/feed'
 
 const MAX_FEED_ROWS = 200
 
+function sameEntry(a: FeedRow, b: FeedRow): boolean {
+  return a.call_id === b.call_id && a.time === b.time && a.status === b.status && a.rule_id === b.rule_id
+}
+
 export function useFeedStream(enabled = true) {
   const queryClient = useQueryClient()
   const url = enabled ? adminStreamUrl('/api/feed/stream') : null
@@ -14,7 +18,8 @@ export function useFeedStream(enabled = true) {
       const row = JSON.parse(event.data) as FeedRow
       queryClient.setQueryData<FeedListResponse>(['feed'], (prev) => {
         const items = prev?.items ?? []
-        return { items: [row, ...items].slice(0, MAX_FEED_ROWS) }
+        const alreadyKnown = items.some((item) => sameEntry(item, row))
+        return alreadyKnown ? { items } : { items: [row, ...items].slice(0, MAX_FEED_ROWS) }
       })
     },
     stats: (event) => {

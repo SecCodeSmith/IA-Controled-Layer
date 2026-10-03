@@ -31,7 +31,10 @@ export function LiveFeed() {
     status: ALL_STATUSES,
   })
 
-  const rows = useMemo(() => feed.data?.items ?? [], [feed.data])
+  const rows = useMemo(
+    () => [...(feed.data?.items ?? [])].sort((a, b) => b.time.localeCompare(a.time)),
+    [feed.data],
+  )
   const userOptions = useMemo(() => Array.from(new Set(rows.map((row) => row.user.name))), [rows])
   const roleOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => roleLabel(row.user.role)))),
