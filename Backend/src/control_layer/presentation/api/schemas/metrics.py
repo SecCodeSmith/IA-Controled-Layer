@@ -24,5 +24,6 @@ class MetricsResponse(BaseModel):
     stages: dict[str, StageMetric] = {}
     proxy: LatencyBand
     upstream: LatencyBand
+    overhead: LatencyBand
     cache: CacheMetric
     calls_per_minute: float

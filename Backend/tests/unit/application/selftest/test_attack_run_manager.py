@@ -203,3 +203,32 @@ async def test_subscribe_replays_current_statuses_then_streams_live_updates() ->
     final = await manager.wait(run.run_id)
     assert final.summary.stopped == 1
     assert final.summary.passed == 1
+
+
+async def test_run_records_provider_model_and_protection_mode() -> None:
+    scenarios = [_scenario("a")]
+    results = {"a": ScenarioResult(id="a", status=ScenarioStatus.STOPPED, duration_ms=1.0)}
+    manager = AttackRunManager(
+        lambda agent: _FakeExecutor(results, []), FeedBroadcaster(), scenarios=scenarios
+    )
+
+    run = await manager.start("ollama", provider="mock", model="mock-1", protection_mode="off")
+    await manager.wait(run.run_id)
+
+    assert (run.provider, run.model, run.protection_mode) == ("mock", "mock-1", "off")
+
+
+async def test_run_context_defaults_and_scenario_via_is_tracked() -> None:
+    scenarios = [_scenario("a")]
+    results = {
+        "a": ScenarioResult(id="a", status=ScenarioStatus.STOPPED, duration_ms=1.0, via="agent")
+    }
+    manager = AttackRunManager(
+        lambda agent: _FakeExecutor(results, []), FeedBroadcaster(), scenarios=scenarios
+    )
+
+    run = await manager.start("ollama")
+    await manager.wait(run.run_id)
+
+    assert (run.provider, run.model, run.protection_mode) == ("", "", "enforce")
+    assert run.scenarios[0].via == "agent"

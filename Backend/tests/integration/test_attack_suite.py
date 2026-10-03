@@ -57,7 +57,9 @@ async def test_scenarios_endpoint_lists_catalogue(api: httpx.AsyncClient) -> Non
     assert response.status_code == 200
     items = response.json()["scenarios"]
     assert [s["id"] for s in items] == [s.id for s in SCENARIOS]
-    assert {"id", "name", "kind", "actor", "stage", "expected", "owasp"} <= set(items[0])
+    assert {"id", "name", "kind", "actor", "stage", "expected", "owasp", "agent_driven"} <= set(
+        items[0]
+    )
 
 
 async def test_run_endpoint_completes_and_streams(shared_app, api: httpx.AsyncClient) -> None:
@@ -68,6 +70,9 @@ async def test_run_endpoint_completes_and_streams(shared_app, api: httpx.AsyncCl
     run = started.json()
     assert run["run_id"].startswith("run_")
     assert run["agent"] == "scripted"
+    assert run["provider"]
+    assert run["model"]
+    assert run["protection_mode"] == "enforce"
     assert len(run["scenarios"]) == len(SCENARIOS)
     assert {s["status"] for s in run["scenarios"]} <= {"PENDING", "RUNNING"}
 
@@ -91,6 +96,9 @@ async def test_run_endpoint_completes_and_streams(shared_app, api: httpx.AsyncCl
     assert detail is not None
     assert detail["summary"]["running"] == 0
     assert detail["summary"]["pending"] == 0
+    assert detail["summary"]["error"] == 0
+    assert detail["provider"] == run["provider"]
+    assert {s["via"] for s in detail["scenarios"]} == {"scripted"}
     assert detail["summary"]["stopped"] + detail["summary"]["passed"] > 0
 
     unknown = await api.get("/api/attack-suite/runs/run_9999", headers=ADMIN_HEADERS)

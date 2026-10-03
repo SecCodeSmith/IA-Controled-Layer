@@ -4,42 +4,10 @@ from typing import Any
 
 import httpx
 
+from control_layer.application.selftest.agent_events import observations_from_events
 from control_layer.application.selftest.scenario_client import StepObservation
 from control_layer.domain.exceptions import AgentUnavailableError
-from control_layer.domain.models.enums import CallStatus, StageName
 from control_layer.presentation.selftest.in_process_client import InProcessScenarioClient
-
-
-def _stage(value: str | None) -> StageName | None:
-    return StageName(value) if value else None
-
-
-def observations_from_events(events: list[dict]) -> list[StepObservation]:
-    observations: list[StepObservation] = []
-    for event in events:
-        kind = event.get("type")
-        if kind == "approval_required":
-            observations.append(
-                StepObservation(
-                    http_status=202,
-                    status=CallStatus.ESCALATED,
-                    stage=StageName.authorization,
-                    rule_id=event.get("rule_id"),
-                    reason=event.get("reason"),
-                    approval_id=event.get("approval_id"),
-                )
-            )
-        elif kind in ("tool_call", "assistant_text", "notice") and event.get("status"):
-            observations.append(
-                StepObservation(
-                    http_status=200,
-                    status=CallStatus(event["status"]),
-                    stage=_stage(event.get("stage")),
-                    rule_id=event.get("rule_id"),
-                    reason=event.get("reason"),
-                )
-            )
-    return observations
 
 
 class AgentTierScenarioClient(InProcessScenarioClient):
@@ -64,4 +32,6 @@ class AgentTierScenarioClient(InProcessScenarioClient):
             ) from exc
         if response.status_code >= 400:
             raise AgentUnavailableError(f"demo agent returned {response.status_code}")
-        return observations_from_events(response.json().get("events", []))
+        observations = observations_from_events(response.json().get("events", []))
+        self.remember_escalations(observations)
+        return observations

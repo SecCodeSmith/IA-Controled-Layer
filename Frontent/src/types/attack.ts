@@ -1,4 +1,7 @@
 import type { PipelineStage, ScenarioStatus } from './common'
+import type { ProtectionMode } from './protection'
+
+export type ScenarioVia = 'agent' | 'scripted' | null
 
 export type ScenarioKind = 'negative' | 'positive'
 
@@ -21,6 +24,8 @@ export interface Scenario {
   stage: PipelineStage
   expected: ScenarioExpected
   owasp: string[]
+  agent_driven?: boolean
+  via?: ScenarioVia
   status?: ScenarioStatus
   observed?: ScenarioObserved | null
   duration_ms?: number | null
@@ -37,6 +42,7 @@ export interface AttackRunSummary {
   passed: number
   succeeded: number
   not_attempted: number
+  error: number
   running: number
   pending: number
 }
@@ -45,6 +51,9 @@ export interface AttackRun {
   run_id: string
   number: number
   agent: AttackAgentMode
+  provider: string
+  model: string
+  protection_mode: ProtectionMode
   started_at: string
   scenarios: Scenario[]
   summary?: AttackRunSummary
@@ -55,6 +64,7 @@ export interface AttackScenarioStreamEvent {
   status: ScenarioStatus
   observed: ScenarioObserved | null
   duration_ms: number | null
+  via?: ScenarioVia
 }
 
 export interface AttackRunCompleteEvent {

@@ -127,6 +127,7 @@ class FakeMetricsCollector:
             stages={"dlp": StageMetric(p50_ms=1.0, p95_ms=2.0, count=1)},
             proxy=LatencyBand(p50_ms=3.0, p95_ms=9.0),
             upstream=LatencyBand(p50_ms=600.0, p95_ms=2000.0),
+            overhead=LatencyBand(p50_ms=2.5, p95_ms=7.0),
             cache=CacheMetric(hits=1, misses=1, hit_ratio=self._hit_ratio),
             calls_per_minute=5.0,
         )
@@ -235,6 +236,8 @@ async def test_latency_comes_from_metrics_snapshot() -> None:
     assert stats.latency.proxy_p50_ms == 3.0
     assert stats.latency.proxy_p95_ms == 9.0
     assert stats.latency.upstream_p50_ms == 600.0
+    assert stats.latency.overhead_p50_ms == 2.5
+    assert stats.latency.overhead_p95_ms == 7.0
     assert stats.latency.upstream_p95_ms == 2000.0
 
 

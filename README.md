@@ -107,7 +107,9 @@ python -m pytest -q --cov=control_layer --cov-report=term-missing
 # Attack suite (scripted tier)
 python attack_suite.py --target http://localhost:8080
 
-# Attack suite (Ollama tier)
+# Attack suite (Ollama tier: agent-driven scenarios go to the real model and report
+# NOT_ATTEMPTED if it never tries them; the 7 deterministic ones run scripted.
+# Needs provider ollama and protection enforce; the run header shows both.)
 python attack_suite.py --target http://localhost:8080 --agent ollama
 ```
 

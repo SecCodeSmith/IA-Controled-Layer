@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     temperature: float = 0.0
     request_timeout_s: float = 120.0
     tool_scope: str = "all"
+    cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 
 
 @lru_cache

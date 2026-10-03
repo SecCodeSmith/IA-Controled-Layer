@@ -32,6 +32,7 @@ class ScenarioSchema(BaseModel):
     stage: StageName
     expected: ScenarioExpectation
     owasp: list[str] = []
+    agent_driven: bool = True
 
 
 class ScenarioListResponse(BaseModel):
@@ -48,6 +49,7 @@ class ScenarioRunState(ScenarioSchema):
     status: ScenarioRunStatus = ScenarioRunStatus.PENDING
     observed: ObservedOutcome | None = None
     duration_ms: float | None = None
+    via: Literal["agent", "scripted"] = "scripted"
 
 
 class RunSummary(BaseModel):
@@ -57,12 +59,16 @@ class RunSummary(BaseModel):
     not_attempted: int = 0
     running: int = 0
     pending: int = 0
+    error: int = 0
 
 
 class AttackSuiteRunResponse(BaseModel):
     run_id: str
     number: int
     agent: Literal["scripted", "ollama"]
+    provider: str = ""
+    model: str = ""
+    protection_mode: str = "enforce"
     started_at: datetime
     scenarios: list[ScenarioRunState]
 
@@ -76,6 +82,7 @@ class ScenarioEvent(BaseModel):
     status: ScenarioRunStatus
     observed: ObservedOutcome | None = None
     duration_ms: float | None = None
+    via: Literal["agent", "scripted"] = "scripted"
 
 
 class RunCompleteEvent(BaseModel):

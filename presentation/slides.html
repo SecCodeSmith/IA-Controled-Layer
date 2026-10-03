@@ -33,7 +33,30 @@
             justify-content: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             page-break-inside: avoid;
+            overflow: hidden;
         }
+
+        .shots {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .shots figure { margin: 0; text-align: center; }
+
+        .shots img {
+            display: block;
+            width: 100%;
+            max-height: 215px;
+            object-fit: contain;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+
+        .shots figcaption { font-size: 11px; color: #555; margin-top: 3px; line-height: 1.3; }
+
+        .placeholder { border-bottom: 1px dashed #999; padding: 0 60px; color: #999; }
 
         .slide h1 {
             font-size: 48px;
@@ -246,14 +269,14 @@
     <!-- Slide 1: Title -->
     <div class="slide">
         <h1>AI Control Layer</h1>
-        <h2 style="color: #666; font-size: 32px; font-weight: 400; margin-bottom: 60px;">Policy-Enforcing Proxy for Agentic AI</h2>
+        <h2 style="color: #666; font-size: 28px; font-weight: 400; margin-bottom: 50px;">Policy-enforcing proxy between AI agents, LLM models and MCP tools</h2>
         <div style="margin-bottom: 40px;">
-            <p><strong>Team:</strong> SecCodeSmith Team (WS6b + Core Team)</p>
-            <p><strong>Challenge:</strong> HackYeah 2026</p>
-            <p><strong>Submission Date:</strong> 2026-10-03</p>
+            <p style="font-size: 20px;"><strong>HackYeah 2026</strong> &middot; AI Control Layer challenge</p>
+            <p style="font-size: 18px; margin-top: 24px;"><strong>Team:</strong> <span class="placeholder">____________</span></p>
+            <p style="font-size: 18px;"><strong>Repository:</strong> <span class="placeholder">____________</span></p>
         </div>
         <div class="footer-note">
-            Seven-stage pipeline • OWASP-grounded • Hot-reloadable policy • Real-time audit & alerting
+            Seven-stage pipeline &bull; OWASP-grounded &bull; Hot-reloadable policy &bull; Real-time audit &amp; alerting
         </div>
     </div>
 
@@ -281,13 +304,13 @@
                 <li><strong>Authorization:</strong> RBAC provisioning, residency check, approval gates → 403 if denied</li>
                 <li><strong>DLP:</strong> Detect & mask PII (email, PESEL, IBAN), secrets, exfiltration sequences → 403 or masked</li>
                 <li><strong>Policy:</strong> Signature + ML classifier + LLM judge for injection → 403 or escalate</li>
-                <li><strong>Behavior:</strong> Rate limit, loop guard, circuit breaker, risk scoring → 429/403 or quarantine</li>
-                <li><strong>Resource:</strong> Token budgets, cost limits, timeouts → 403 if exceeded</li>
-                <li><strong>Audit:</strong> Log every call, emit alerts (Excel + SSE), export reports</li>
+                <li><strong>Behavior analytics:</strong> Rate limit, loop guard, circuit breaker, risk scoring → 429/403 or quarantine</li>
+                <li><strong>Resource governance:</strong> Token budgets, cost limits, timeouts → 403 if exceeded</li>
+                <li><strong>Audit &amp; telemetry:</strong> Log every call (JSONL), emit alerts (Excel + SSE), export CSV/JSONL/XLSX</li>
             </ol>
         </div>
         <p style="margin-top: 20px; color: #666; font-size: 14px;">
-            ✓ <strong>OWASP-grounded:</strong> LLM Top 10 2025 + Agentic Top 10 2026 → All covered (except LLM08, LLM09 partial, ASI07)
+            &#10003; <strong>OWASP-grounded:</strong> LLM Top 10 2025 + Agentic Top 10 2026, mapped per rule in policy.yaml
         </p>
     </div>
 
@@ -334,7 +357,7 @@
             </defs>
         </svg>
         <p style="text-align: center; font-size: 14px; color: #666;">
-            Agent → Control Layer (intercepts all calls) → Ollama + MCP servers + Redis cache
+            Agent → Control Layer (intercepts all calls) → Ollama (OpenAI-compatible endpoint, mock fallback) + 9 demo MCP servers over stdio + Redis cache (in-memory fallback). Mock SSO JWT identity; policy.yaml, mcp_servers.yaml, attack_signatures.yaml and users.yaml are hot-reloaded.
         </p>
     </div>
 
@@ -368,17 +391,17 @@
                 <td>LLM01, ASI01, ASI05</td>
             </tr>
             <tr>
-                <td><strong>Behavior</strong></td>
+                <td><strong>Behavior analytics</strong></td>
                 <td>Rate limit (60/min), loop guard (5 identical), circuit breaker, risk score</td>
                 <td>LLM10, ASI08, ASI10</td>
             </tr>
             <tr>
-                <td><strong>Resource</strong></td>
+                <td><strong>Resource governance</strong></td>
                 <td>Token budgets (10k/day), cost limits, timeout (30s)</td>
                 <td>LLM10</td>
             </tr>
             <tr>
-                <td><strong>Audit</strong></td>
+                <td><strong>Audit &amp; telemetry</strong></td>
                 <td>Call logging, alerting (Excel + SSE), export (CSV/JSONL/XLSX)</td>
                 <td>All</td>
             </tr>
@@ -394,7 +417,7 @@
                 <p style="font-size: 14px;">Regex patterns (OWASP + custom). Fast, zero false positives.</p>
 
                 <h3 style="color: #1e40af; margin-top: 20px;">Tier 2: ML Classifier</h3>
-                <p style="font-size: 14px;">Scikit-learn TF-IDF on 300-sample balanced dataset. F1 ≥ 0.85. Detects subtle injections.</p>
+                <p style="font-size: 14px;">Scikit-learn word + char n-gram TF-IDF with logistic regression on a 668-row balanced dataset; training gate F1 ≥ 0.85. Catches paraphrased and log-style injections.</p>
 
                 <h3 style="color: #1e40af; margin-top: 20px;">Tier 3: LLM Judge</h3>
                 <p style="font-size: 14px;">Ollama (Qwen 7B) for edge cases. JSON response. 20s timeout → FLAG.</p>
@@ -429,125 +452,66 @@
     <div class="slide">
         <h2>Budgets, Behavior Analytics & Hot-Reload Policy</h2>
 
-        <div style="columns: 2; column-gap: 30px; margin: 20px 0;">
-            <h3>Token Budgets</h3>
-            <p style="font-size: 13px;">Per-user limits: 10,000 tokens/day. Warn at 80%, block at 100%. Real usage from Ollama. Cost tracking: $1.00 USD/day limit.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin: 5px 0 15px;">
+            <div><h3>Token Budgets</h3>
+            <p style="font-size: 13px;">Per-user limits: 10,000 tokens/day. Warn at 80%, block at 100%. Real usage from Ollama. Cost tracking: $1.00 USD/day limit.</p></div>
 
-            <h3>Behavior Analytics</h3>
-            <p style="font-size: 13px;">Per-user counters: rate limit (60/min), loop guard (5 identical calls), block-burst circuit breaker (5 blocks → quarantine). Risk scoring: anomalies (unusual tool for role, first destructive use, burst) raise score.</p>
+            <div><h3>Behavior Analytics</h3>
+            <p style="font-size: 13px;">Per-user counters: rate limit (60/min), loop guard (5 identical calls), block-burst circuit breaker (5 blocks → quarantine). Risk scoring: anomalies (unusual tool for role, first destructive use, burst) raise score.</p></div>
 
-            <h3>Hot-Reload Policy</h3>
-            <p style="font-size: 13px;">File watcher polls every 1s. Valid change → version bump, cache clear. Invalid YAML → keeps last good, emits alert. No restart required.</p>
+            <div><h3>Hot-Reload Policy</h3>
+            <p style="font-size: 13px;">File watcher polls every 1s. Valid change → version bump, cache clear. Invalid YAML → keeps last good, emits alert. No restart required.</p></div>
         </div>
 
-        <div class="kpi-grid" style="margin-top: 30px;">
-            <div class="kpi-card">
-                <h4>Tokens Used</h4>
-                <div class="number">3,420</div>
+        <div style="display: flex; gap: 20px; align-items: center; margin-top: 10px; border-top: 2px solid #ddd; padding-top: 12px;">
+            <div style="flex: 1;">
+                <h3 style="margin-top: 0;">Runtime Controls (Admin)</h3>
+                <p style="font-size: 13px; margin-bottom: 4px;">Protection mode <strong>Enforce / Monitor / Off</strong>, per-rule toggles (policy rule override), model selector across installed Ollama models, and one-click log clearing &mdash; all without a restart.</p>
             </div>
-            <div class="kpi-card allowed">
-                <h4>Allowed</h4>
-                <div class="number">112</div>
-            </div>
-            <div class="kpi-card blocked">
-                <h4>Blocked</h4>
-                <div class="number">21</div>
-            </div>
-            <div class="kpi-card masked">
-                <h4>Masked</h4>
-                <div class="number">11</div>
-            </div>
-            <div class="kpi-card">
-                <h4>Escalated</h4>
-                <div class="number">4</div>
-            </div>
+            <figure style="margin: 0; width: 300px; text-align: center;">
+                <img src="screenshots/12-admin-model-selector-warning.png" alt="Admin model selector" style="width: 100%; max-height: 170px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px;">
+                <figcaption style="font-size: 11px; color: #555;">Model selector with warning</figcaption>
+            </figure>
         </div>
     </div>
 
     <!-- Slide 8: Security Reporting & Audit -->
     <div class="slide">
-        <h2>Security Reporting & Audit</h2>
-        <h3 style="color: #1e40af; margin-top: 15px;">Real-Time Audit Log</h3>
-        <p style="font-size: 14px;">Every call → CallRecord (timestamp, identity, tool, status, stage, rule, reason, raw vs delivered, tokens, latency, per-stage timing). JSONL file for durability.</p>
-
-        <h3 style="color: #1e40af; margin-top: 15px;">Live Alerts</h3>
-        <p style="font-size: 14px;">Non-ALLOW decisions → Alert (Excel file + SSE stream to dashboard). Admins see violations in real time. Export to XLSX.</p>
-
-        <h3 style="color: #1e40af; margin-top: 15px;">Security Report</h3>
-        <p style="font-size: 14px;">JSON + Markdown summary: KPI counts, top rules/users, OWASP coverage, posture score. Via API <code>/api/reports/security</code>.</p>
-
-        <h3 style="color: #1e40af; margin-top: 15px;">Admin Dashboard</h3>
-        <p style="font-size: 14px;">Live feed (real-time table), call detail (raw vs delivered, per-stage timing), audit export, policy viewer, attack suite runner.</p>
-
-        <div class="todo" style="margin-top: 15px;">
-            TODO: Include dashboard screenshots (Sign-in, Chat, Live Feed, Audit Detail, Policy, Attack Suite)
+        <h2 style="margin-bottom: 15px;">Security Reporting &amp; Audit</h2>
+        <div style="display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start;">
+            <div>
+                <h3 style="color: #1e40af; margin-top: 0;">Real-Time Audit Log</h3>
+                <p style="font-size: 12px; line-height: 1.45;">Every call &rarr; CallRecord (identity, tool, status, stage, rule, reason, raw vs delivered, tokens, latency, per-stage timing). JSONL for durability.</p>
+                <h3 style="color: #1e40af; margin-top: 8px;">Live Alerts</h3>
+                <p style="font-size: 12px; line-height: 1.45;">Non-ALLOW decisions &rarr; Alert (Excel sink + SSE stream to dashboard). Export CSV / JSONL / XLSX.</p>
+                <h3 style="color: #1e40af; margin-top: 8px;">Security Report</h3>
+                <p style="font-size: 12px; line-height: 1.45;">JSON + Markdown: KPI counts, top rules/users, OWASP coverage, posture score. API <code>/api/reports/security</code>.</p>
+                <h3 style="color: #1e40af; margin-top: 8px;">Admin Dashboard</h3>
+                <p style="font-size: 12px; line-height: 1.45;">Live feed, call detail, audit export, policy viewer, attack suite runner.</p>
+            </div>
+            <div class="shots">
+                <figure><img src="screenshots/02-chat-approval.png" alt="Chat approval"><figcaption>Employee chat with approval card</figcaption></figure>
+                <figure><img src="screenshots/04-admin-feed-attack-suite.png" alt="Admin feed"><figcaption>Admin live feed + attack suite</figcaption></figure>
+                <figure><img src="screenshots/06-call-detail.png" alt="Call detail"><figcaption>Call detail: raw vs delivered, matched rule, stage timings</figcaption></figure>
+                <figure><img src="screenshots/07-policy.png" alt="Policy page"><figcaption>Policy page: policy.yaml v3 hot-reloaded</figcaption></figure>
+            </div>
         </div>
     </div>
 
     <!-- Slide 9: Self-Testing Suite Results -->
     <div class="slide">
-        <h2>Self-Testing Suite Results</h2>
-        <p style="font-size: 14px; margin-bottom: 15px;"><strong>30+ Attack Scenarios (Scripted Tier):</strong> Deterministic, mock provider. 100% pass rate.</p>
-
-        <table style="font-size: 12px;">
-            <tr>
-                <th>Category</th>
-                <th>Scenario Count</th>
-                <th>Status</th>
-                <th>Expected Stage</th>
-            </tr>
-            <tr>
-                <td><strong>Positive</strong> (allow/provision)</td>
-                <td>6</td>
-                <td>PASSED</td>
-                <td>Allow</td>
-            </tr>
-            <tr>
-                <td><strong>Identity</strong> (spoofed token, expired)</td>
-                <td>2</td>
-                <td>STOPPED</td>
-                <td>401</td>
-            </tr>
-            <tr>
-                <td><strong>Authorization</strong> (unprovision, residency)</td>
-                <td>4</td>
-                <td>STOPPED</td>
-                <td>403</td>
-            </tr>
-            <tr>
-                <td><strong>DLP</strong> (PII, exfiltration)</td>
-                <td>4</td>
-                <td>STOPPED/MASKED</td>
-                <td>403 or masked</td>
-            </tr>
-            <tr>
-                <td><strong>Policy</strong> (injection, exploit)</td>
-                <td>6</td>
-                <td>STOPPED</td>
-                <td>403</td>
-            </tr>
-            <tr>
-                <td><strong>Behavior</strong> (rate limit, loop, circuit)</td>
-                <td>4</td>
-                <td>STOPPED</td>
-                <td>429/403</td>
-            </tr>
-            <tr>
-                <td><strong>Resource</strong> (budget overrun)</td>
-                <td>2</td>
-                <td>STOPPED</td>
-                <td>403</td>
-            </tr>
-            <tr>
-                <td><strong>Ollama Tier</strong> (real agent + model)</td>
-                <td>30</td>
-                <td>PASSED / NOT_ATTEMPTED</td>
-                <td>As above</td>
-            </tr>
+        <h2 style="margin-bottom: 12px;">Self-Testing Suite Results</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 4px;">Verified 2026-10-03 &middot; qwen2.5:7b on RTX 4070 laptop, local Ollama</p>
+        <table id="suite-results" style="font-size: 12.5px; margin: 6px 0;">
+            <tr><th>Tier / measure</th><th>Result</th><th>Detail</th></tr>
+            <tr><td><strong>Scripted</strong><br><code>python attack_suite.py --target http://localhost:8080</code></td><td><strong>24 / 24 green</strong></td><td>19 attacks STOPPED at expected stage and rule; 5 compliant scenarios PASSED (no alert); exit code 0</td></tr>
+            <tr><td><strong>Ollama</strong> (<code>--agent ollama</code>, real model drives tools from natural-language prompts)</td><td><strong>14 stopped, 0 through</strong></td><td>5 compliant PASSED; 5 NOT_ATTEMPTED (model never tried the risky action; these deterministic scenarios now run scripted in both tiers)</td></tr>
+            <tr><td><strong>Automated tests</strong></td><td><strong>826 + 27</strong></td><td>826 backend (pytest, unit + integration, TDD), 27 frontend (vitest); ruff and eslint clean</td></tr>
+            <tr><td><strong>Stage overhead</strong> (p95, live run)</td><td><strong>&lt; 5 ms total</strong></td><td>identity 0.07 ms &middot; authorization 0.05 ms &middot; DLP 0.19 ms &middot; policy incl. ML classifier 1.8 ms &middot; behavior 0.02 ms &middot; resource 0.01 ms &middot; audit 0.01 ms</td></tr>
+            <tr><td><strong>Upstream model latency</strong></td><td>p50 &asymp; 0.7 s</td><td>The control layer adds well under 5 ms to a call the model itself takes hundreds of milliseconds to answer</td></tr>
         </table>
-
-        <p style="margin-top: 20px; font-size: 13px; color: #666;">
-            <strong>NOT_ATTEMPTED:</strong> Ollama tier tolerates model non-compliance (model never attempts risky call). Scripted tier is the baseline.
+        <p style="margin-top: 10px; font-size: 13px; color: #1e40af;">
+            <strong>OWASP coverage:</strong> LLM Top 10 2025 and Agentic Top 10 2026 mapped per rule (<code>owasp:</code> field in policy.yaml) &mdash; 17 rules across 7 stages, 39 attack signatures in a hot-reloaded feed.
         </p>
     </div>
 
@@ -563,7 +527,7 @@
                 <li>Signatures + ML + LLM judge</li>
                 <li>Budgets, rate limit, loop guard, circuit breaker</li>
                 <li>Approval escalations</li>
-                <li>Audit JSONL + Excel alerts</li>
+                <li>Audit JSONL (CSV/JSONL/XLSX export) + Excel alerts</li>
                 <li>Self-testing suite (scripted + Ollama)</li>
                 <li>5-screen React dashboard</li>
                 <li>Docker Compose deployment</li>
@@ -584,7 +548,7 @@
         </div>
 
         <h3 style="margin-top: 30px; color: #1e40af;">Scalability Notes</h3>
-        <p style="font-size: 13px;">Single process (Excel not thread-safe). Redis optional (in-memory fallback). Ollama ~100ms overhead per call on RTX 4070. MCP stdio processes spawned at startup (UTF-8 safe). No streaming yet (OpenAI passthrough coming P1).</p>
+        <p style="font-size: 13px;">Single process (Excel not thread-safe). Redis optional (in-memory fallback). Control-layer overhead &lt; 5 ms p95 per call; model latency dominates (p50 &asymp; 0.7 s on RTX 4070). MCP stdio processes spawned at startup (UTF-8 safe). No streaming yet (OpenAI passthrough coming P1).</p>
     </div>
 
 </body>

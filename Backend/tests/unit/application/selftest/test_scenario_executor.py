@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
 from control_layer.application.selftest.scenario_client import StepObservation
@@ -28,6 +29,7 @@ class _Scenario(BaseModel):
     owasp: list[str] = Field(default_factory=list)
     steps: list[dict[str, Any]] = Field(default_factory=list)
     prompt: str = "do the thing"
+    agent_driven: bool = True
 
 
 _FIND_APPROVER_STEP = {
@@ -45,6 +47,7 @@ def _obs(
     rule_id: str | None = None,
     approval_id: str | None = None,
     http_status: int = 200,
+    target: str | None = None,
 ) -> StepObservation:
     return StepObservation(
         http_status=http_status,
@@ -52,6 +55,7 @@ def _obs(
         stage=stage,
         rule_id=rule_id,
         approval_id=approval_id,
+        target=target,
     )
 
 
@@ -322,72 +326,218 @@ async def test_use_expired_token_changes_the_token_used_by_the_next_step() -> No
     assert client.tool_calls[0][0] == "expired:anna.kowalska"
 
 
+_HR_TARGET = "hr-db.find_approver"
+_HR_BLOCK = {"stage": StageName.authorization, "rule_id": "role_provisioning"}
+
+
+def _negative_hr(expected: CallStatus = CallStatus.BLOCKED) -> _Scenario:
+    return _Scenario(
+        id="neg",
+        kind="negative",
+        expected=_Expectation(status=expected, rule_id="role_provisioning"),
+        steps=[_FIND_APPROVER_STEP],
+    )
+
+
+def _positive_ci() -> _Scenario:
+    return _Scenario(
+        id="pos",
+        kind="positive",
+        expected=_Expectation(status=CallStatus.ALLOWED),
+        steps=[{"action": "tool_call", "server": "ci", "tool": "get_run", "arguments": {}}],
+    )
+
+
+def _masked_logs() -> _Scenario:
+    return _Scenario(
+        id="mask",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.MASKED, rule_id="pii_masking"),
+        steps=[{"action": "tool_call", "server": "logs-db", "tool": "query", "arguments": {}}],
+    )
+
+
 async def test_ollama_tier_not_attempted_when_no_observations() -> None:
     client = FakeScenarioClient()
-    client.agent_chat_result = []
-    scenario = _Scenario(
-        id="s12",
-        kind="negative",
-        expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[_FIND_APPROVER_STEP],
-    )
-    executor = ScenarioExecutor(client)
 
-    result = await executor.run(scenario, tier="ollama")
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
 
     assert result.status == ScenarioStatus.NOT_ATTEMPTED
+    assert result.observed is None
+    assert result.via == "agent"
 
 
-async def test_ollama_tier_not_attempted_when_model_never_tries_the_risky_action() -> None:
+async def test_ollama_tier_not_attempted_when_model_only_chats() -> None:
     client = FakeScenarioClient()
-    client.agent_chat_result = [_obs(CallStatus.ALLOWED, stage=None, rule_id=None)]
-    scenario = _Scenario(
-        id="s13",
-        kind="negative",
-        expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[_FIND_APPROVER_STEP],
-    )
-    executor = ScenarioExecutor(client)
+    client.agent_chat_result = [_obs(CallStatus.ALLOWED, target="llm.complete")]
 
-    result = await executor.run(scenario, tier="ollama")
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
 
     assert result.status == ScenarioStatus.NOT_ATTEMPTED
+    assert result.observed is not None
+    assert result.observed.target == "llm.complete"
 
 
-async def test_ollama_tier_succeeded_when_attack_got_through() -> None:
+async def test_ollama_not_attempted_reports_blocked_observation_on_other_target() -> None:
     client = FakeScenarioClient()
     client.agent_chat_result = [
-        _obs(CallStatus.ALLOWED, stage=StageName.authorization, rule_id="role_provisioning")
+        _obs(CallStatus.ALLOWED, target="llm.complete"),
+        _obs(CallStatus.BLOCKED, rule_id="other", target="payments.get_balance"),
+        _obs(CallStatus.ALLOWED, target="llm.complete"),
     ]
-    scenario = _Scenario(
-        id="s14",
-        kind="negative",
-        expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[_FIND_APPROVER_STEP],
-    )
-    executor = ScenarioExecutor(client)
 
-    result = await executor.run(scenario, tier="ollama")
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
+
+    assert result.status == ScenarioStatus.NOT_ATTEMPTED
+    assert result.observed is not None
+    assert result.observed.rule_id == "other"
+
+
+async def test_ollama_positive_chat_only_model_is_not_attempted() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(CallStatus.ALLOWED, target="llm.complete")]
+
+    result = await ScenarioExecutor(client).run(_positive_ci(), tier="ollama")
+
+    assert result.status == ScenarioStatus.NOT_ATTEMPTED
+
+
+async def test_ollama_positive_with_attempt_passes() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [
+        _obs(CallStatus.ALLOWED, target="ci.get_run"),
+        _obs(CallStatus.ALLOWED, target="llm.complete"),
+    ]
+
+    result = await ScenarioExecutor(client).run(_positive_ci(), tier="ollama")
+
+    assert result.status == ScenarioStatus.PASSED
+    assert result.observed is not None
+    assert result.observed.target == "ci.get_run"
+
+
+async def test_ollama_positive_attempt_with_wrong_status_is_error() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(CallStatus.BLOCKED, rule_id="x", target="ci.get_run")]
+
+    result = await ScenarioExecutor(client).run(_positive_ci(), tier="ollama")
+
+    assert result.status == ScenarioStatus.ERROR
+
+
+async def test_ollama_positive_approval_flow_approves_and_judges_the_result() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [
+        _obs(
+            CallStatus.ESCALATED,
+            rule_id="destructive_requires_approval",
+            approval_id="ap_7",
+            target="github.delete_branch",
+        )
+    ]
+    client.approve_result = _obs(CallStatus.ESCALATED, rule_id="destructive_requires_approval")
+    scenario = _Scenario(
+        id="appr",
+        kind="positive",
+        expected=_Expectation(status=CallStatus.ESCALATED, rule_id="destructive_requires_approval"),
+        steps=[
+            {"action": "tool_call", "server": "github", "tool": "delete_branch", "arguments": {}},
+            {"action": "approve"},
+        ],
+    )
+
+    result = await ScenarioExecutor(client).run(scenario, tier="ollama")
+
+    assert client.approvals == [("token:anna.kowalska", "ap_7")]
+    assert result.status == ScenarioStatus.PASSED
+    assert result.via == "agent"
+
+
+async def test_ollama_negative_stopped_by_a_different_rule() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [
+        _obs(CallStatus.ESCALATED, rule_id="another_rule", target=_HR_TARGET)
+    ]
+
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
+
+    assert result.status == ScenarioStatus.STOPPED
+    assert result.observed is not None
+    assert result.observed.rule_id == "another_rule"
+
+
+async def test_ollama_negative_succeeded_when_attack_got_through() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(CallStatus.ALLOWED, target=_HR_TARGET, **_HR_BLOCK)]
+
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
 
     assert result.status == ScenarioStatus.SUCCEEDED
 
 
-async def test_ollama_tier_stopped_when_a_matching_observation_exists() -> None:
+async def test_ollama_negative_flagged_attempt_counts_as_succeeded() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(CallStatus.FLAGGED, target=_HR_TARGET)]
+
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
+
+    assert result.status == ScenarioStatus.SUCCEEDED
+
+
+async def test_ollama_negative_stopped_when_matching_attempt_exists() -> None:
     client = FakeScenarioClient()
     client.agent_chat_result = [
-        _obs(CallStatus.ALLOWED),
-        _obs(CallStatus.BLOCKED, stage=StageName.authorization, rule_id="role_provisioning"),
+        _obs(CallStatus.ALLOWED, target="llm.complete"),
+        _obs(CallStatus.BLOCKED, target=_HR_TARGET, **_HR_BLOCK),
     ]
-    scenario = _Scenario(
-        id="s15",
-        kind="negative",
-        expected=_Expectation(status=CallStatus.BLOCKED, rule_id="role_provisioning"),
-        steps=[_FIND_APPROVER_STEP],
-    )
-    executor = ScenarioExecutor(client)
 
-    result = await executor.run(scenario, tier="ollama")
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
 
     assert result.status == ScenarioStatus.STOPPED
     assert result.observed is not None
     assert result.observed.rule_id == "role_provisioning"
+
+
+async def test_ollama_masked_expected_but_allowed_is_succeeded() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(CallStatus.ALLOWED, target="logs-db.query")]
+
+    result = await ScenarioExecutor(client).run(_masked_logs(), tier="ollama")
+
+    assert result.status == ScenarioStatus.SUCCEEDED
+
+
+@pytest.mark.parametrize("status", [CallStatus.MASKED, CallStatus.BLOCKED, CallStatus.ESCALATED])
+async def test_ollama_masked_expected_stopped_by_mask_or_stronger(status: CallStatus) -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(status, target="logs-db.query")]
+
+    result = await ScenarioExecutor(client).run(_masked_logs(), tier="ollama")
+
+    assert result.status == ScenarioStatus.STOPPED
+
+
+async def test_non_agent_driven_scenario_runs_scripted_steps_in_ollama_tier() -> None:
+    client = FakeScenarioClient()
+    client.chat_result = _obs(CallStatus.BLOCKED, rule_id="model_allowlist")
+    scenario = _Scenario(
+        id="det",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.BLOCKED, rule_id="model_allowlist"),
+        steps=[{"action": "chat", "message": "hello", "model": "gpt-4"}],
+        agent_driven=False,
+    )
+
+    result = await ScenarioExecutor(client).run(scenario, tier="ollama")
+
+    assert result.status == ScenarioStatus.STOPPED
+    assert result.via == "scripted"
+    assert len(client.chats) == 1
+
+
+async def test_scripted_tier_reports_via_scripted() -> None:
+    client = FakeScenarioClient()
+
+    result = await ScenarioExecutor(client).run(_positive_ci())
+
+    assert result.via == "scripted"

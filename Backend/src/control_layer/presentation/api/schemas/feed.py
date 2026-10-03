@@ -23,6 +23,9 @@ class FeedRow(BaseModel):
     stage: StageName | None = None
     rule_id: str | None = None
     reason: str | None = None
+    proxy_latency_ms: float = 0.0
+    upstream_latency_ms: float = 0.0
+    overhead_ms: float = 0.0
 
 
 class FeedListResponse(BaseModel):

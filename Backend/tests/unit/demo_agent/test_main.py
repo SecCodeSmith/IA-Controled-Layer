@@ -450,3 +450,29 @@ def test_agent_health_unreachable_when_control_layer_down(settings) -> None:
     assert body["status"] == "ok"
     assert body["control_layer"] == "unreachable"
     assert body["provider"] is None
+
+
+def test_cors_preflight_accepts_any_local_dev_port(test_client: TestClient) -> None:
+    response = test_client.options(
+        "/agent/chat",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+def test_cors_preflight_rejects_foreign_origin(test_client: TestClient) -> None:
+    response = test_client.options(
+        "/agent/chat",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 400

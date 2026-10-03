@@ -53,3 +53,19 @@ def test_every_scenario_has_a_prompt_and_at_least_one_step() -> None:
     for scenario in SCENARIOS:
         assert scenario.prompt
         assert len(scenario.steps) >= 1
+
+
+def test_deterministic_scenarios_are_not_agent_driven() -> None:
+    from control_layer.selftest.scenarios import SCENARIOS
+
+    scripted_only = {s.id for s in SCENARIOS if not s.agent_driven}
+
+    assert scripted_only == {
+        "spoofed_role_tampered_token",
+        "expired_token",
+        "forbidden_model",
+        "rate_limit_burst",
+        "loop_guard_repeat",
+        "block_burst_quarantine",
+        "token_budget_overrun",
+    }

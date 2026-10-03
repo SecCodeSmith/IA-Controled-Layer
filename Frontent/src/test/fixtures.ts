@@ -402,6 +402,12 @@ export const FEED_FIXTURE: FeedRow[] = [
   },
 ]
 
+FEED_FIXTURE.forEach((row, index) => {
+  row.proxy_latency_ms = 3.2 + index
+  row.upstream_latency_ms = row.kind === 'chat' ? 812 : 31
+  row.overhead_ms = Number((row.proxy_latency_ms - row.upstream_latency_ms > 0 ? row.proxy_latency_ms - row.upstream_latency_ms : row.proxy_latency_ms).toFixed(2))
+})
+
 export const STATS_FIXTURE: StatsResponse = {
   total_calls: 148,
   allowed: 112,
@@ -421,7 +427,7 @@ export const STATS_FIXTURE: StatsResponse = {
   risk: [{ sub: 'anna.kowalska', name: 'Anna Kowalska', score: 12, level: 'low' }],
   posture_score: 92,
   cache_hit_ratio: 0.37,
-  latency: { proxy_p50_ms: 3.1, proxy_p95_ms: 9.8, upstream_p50_ms: 640, upstream_p95_ms: 2100 },
+  latency: { proxy_p50_ms: 644.1, proxy_p95_ms: 2109.8, upstream_p50_ms: 640, upstream_p95_ms: 2100 },
   provider: { name: 'ollama', model: 'qwen2.5:7b' },
   policy: { version: 3, status: 'LOADED' },
 }
@@ -452,7 +458,9 @@ export const AUDIT_LIST_FIXTURE: AuditListItem[] = FEED_FIXTURE.map((row) => ({
   reason: row.reason,
   tokens: row.kind === 'chat' ? 420 : 0,
   cost_usd: 0,
-  proxy_latency_ms: 4.2,
+  proxy_latency_ms: row.proxy_latency_ms,
+  upstream_latency_ms: row.upstream_latency_ms,
+  overhead_ms: row.overhead_ms,
 }))
 
 export const CALL_DETAIL_FIXTURE: AuditDetail = {
@@ -489,9 +497,11 @@ export const CALL_DETAIL_FIXTURE: AuditDetail = {
   items_masked: 3,
   tokens: { prompt: 0, completion: 0, total: 0 },
   cost_usd: 0,
+  overhead_ms: 2.4,
   latency: {
     proxy_ms: 4.2,
     upstream_ms: 31.0,
+    overhead_ms: 2.4,
     stages: { identity: 0.1, authorization: 0.2, dlp: 1.1, policy: 2.0, behavior: 0.3, resource: 0.2, audit: 0.3 },
   },
   provider: { name: 'ollama', model: 'qwen2.5:7b' },

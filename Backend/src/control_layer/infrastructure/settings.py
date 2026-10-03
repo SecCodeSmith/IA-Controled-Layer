@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
     port: int = 8080
+    gateway_default_user: str | None = "anna.kowalska"
 
     @property
     def base_dir(self) -> Path:

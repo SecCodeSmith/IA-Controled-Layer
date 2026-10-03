@@ -42,6 +42,7 @@ class MetricsView(BaseModel):
     stages: dict[str, StageMetric] = Field(default_factory=dict)
     proxy: LatencyBand
     upstream: LatencyBand
+    overhead: LatencyBand
     cache: CacheMetric
     calls_per_minute: float
 
@@ -74,6 +75,7 @@ class MetricsCollector:
         )
         self._proxy_samples: deque[float] = deque(maxlen=_MAX_SAMPLES)
         self._upstream_samples: deque[float] = deque(maxlen=_MAX_SAMPLES)
+        self._overhead_samples: deque[float] = deque(maxlen=_MAX_SAMPLES)
         self._call_timestamps: deque[float] = deque(maxlen=_MAX_SAMPLES)
         self._cache_hits = 0
         self._cache_misses = 0
@@ -84,6 +86,7 @@ class MetricsCollector:
             self._stage_samples[stage_name].append(timing_ms)
         self._proxy_samples.append(call_record.latency.proxy_ms)
         self._upstream_samples.append(call_record.latency.upstream_ms)
+        self._overhead_samples.append(call_record.latency.overhead_ms)
         self._call_timestamps.append(self._clock())
         self._total_calls += 1
 
@@ -110,6 +113,7 @@ class MetricsCollector:
             stages=stages,
             proxy=_band(self._proxy_samples),
             upstream=_band(self._upstream_samples),
+            overhead=_band(self._overhead_samples),
             cache=CacheMetric(
                 hits=self._cache_hits, misses=self._cache_misses, hit_ratio=hit_ratio
             ),
@@ -120,6 +124,7 @@ class MetricsCollector:
         self._stage_samples.clear()
         self._proxy_samples.clear()
         self._upstream_samples.clear()
+        self._overhead_samples.clear()
         self._call_timestamps.clear()
         self._cache_hits = 0
         self._cache_misses = 0
@@ -155,6 +160,11 @@ class MetricsCollector:
             "# TYPE control_layer_upstream_latency_ms gauge",
             f'control_layer_upstream_latency_ms{{quantile="0.5"}} {snapshot.upstream.p50_ms}',
             f'control_layer_upstream_latency_ms{{quantile="0.95"}} {snapshot.upstream.p95_ms}',
+            "# HELP control_layer_overhead_ms Delay added by the control layer (proxy minus "
+            "upstream) percentiles in milliseconds.",
+            "# TYPE control_layer_overhead_ms gauge",
+            f'control_layer_overhead_ms{{quantile="0.5"}} {snapshot.overhead.p50_ms}',
+            f'control_layer_overhead_ms{{quantile="0.95"}} {snapshot.overhead.p95_ms}',
             "# HELP control_layer_cache_hit_ratio Decision cache hit ratio.",
             "# TYPE control_layer_cache_hit_ratio gauge",
             f"control_layer_cache_hit_ratio {snapshot.cache.hit_ratio}",

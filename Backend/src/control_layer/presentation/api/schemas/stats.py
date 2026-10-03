@@ -30,6 +30,8 @@ class LatencyStats(BaseModel):
     proxy_p95_ms: float
     upstream_p50_ms: float
     upstream_p95_ms: float
+    overhead_p50_ms: float = 0.0
+    overhead_p95_ms: float = 0.0
 
 
 class PolicyStatusRef(BaseModel):

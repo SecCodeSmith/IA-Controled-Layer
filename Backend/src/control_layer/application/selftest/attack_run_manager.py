@@ -41,7 +41,14 @@ class AttackRunManager:
         self._tasks: dict[str, asyncio.Task] = {}
         self._next_number = 1
 
-    async def start(self, agent: str) -> AttackRun:
+    async def start(
+        self,
+        agent: str,
+        *,
+        provider: str = "",
+        model: str = "",
+        protection_mode: str = "enforce",
+    ) -> AttackRun:
         number = self._next_number
         self._next_number += 1
         run_id = f"run_{number}"
@@ -51,6 +58,9 @@ class AttackRunManager:
             run_id=run_id,
             number=number,
             agent=agent,
+            provider=provider,
+            model=model,
+            protection_mode=protection_mode,
             started_at=datetime.now(UTC),
             scenarios=scenario_views,
             summary=AttackRunSummary.from_scenarios(scenario_views),
@@ -118,6 +128,7 @@ class AttackRunManager:
             view.status = result.status
             view.observed = result.observed
             view.duration_ms = result.duration_ms
+            view.via = result.via
             await self._emit(run_broadcaster, "scenario", self._scenario_event(view))
 
         run.finished_at = datetime.now(UTC)
@@ -146,4 +157,5 @@ class AttackRunManager:
             "status": view.status,
             "observed": observed,
             "duration_ms": view.duration_ms,
+            "via": view.via,
         }

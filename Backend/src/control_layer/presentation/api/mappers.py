@@ -33,6 +33,9 @@ def feed_row(record: CallRecord) -> FeedRow:
         stage=record.decision.stage,
         rule_id=record.decision.rule_id,
         reason=record.decision.reason,
+        proxy_latency_ms=record.latency.proxy_ms,
+        upstream_latency_ms=record.latency.upstream_ms,
+        overhead_ms=record.latency.overhead_ms,
     )
 
 
@@ -41,7 +44,6 @@ def audit_row(record: CallRecord) -> AuditRow:
         **feed_row(record).model_dump(),
         tokens=record.tokens.total,
         cost_usd=record.cost_usd,
-        proxy_latency_ms=record.latency.proxy_ms,
     )
 
 

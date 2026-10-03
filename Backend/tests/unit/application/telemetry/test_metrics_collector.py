@@ -163,3 +163,23 @@ def test_prometheus_text_total_counter_is_not_bounded_by_sample_window() -> None
     text = collector.prometheus_text()
 
     assert "control_layer_calls_total 3" in text
+
+
+def test_record_accumulates_added_delay_samples() -> None:
+    collector = MetricsCollector()
+    for value in (1.0, 2.0, 3.0, 4.0, 5.0):
+        collector.record(_call_record(proxy_ms=value + 100.0, upstream_ms=100.0, stages={}))
+
+    snapshot = collector.snapshot()
+
+    assert snapshot.overhead.p50_ms == 3.0
+    assert snapshot.overhead.p95_ms == 4.8
+
+
+def test_prometheus_text_exposes_added_delay() -> None:
+    collector = MetricsCollector()
+    collector.record(_call_record(proxy_ms=7.0, upstream_ms=5.0, stages={}))
+
+    text = collector.prometheus_text()
+
+    assert 'control_layer_overhead_ms{quantile="0.5"} 2.0' in text

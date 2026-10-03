@@ -86,6 +86,7 @@ def make_settings(
     policy_text: str | None = None,
     real_mcp: bool = True,
     model_provider: str = "mock",
+    gateway_default_user: str | None = "anna.kowalska",
 ) -> tuple[Settings, Path]:
     workdir.mkdir(parents=True, exist_ok=True)
     policy_path = workdir / "policy.yaml"
@@ -100,6 +101,7 @@ def make_settings(
         mcp_path.write_text(_EMPTY_MCP, encoding="utf-8")
     settings = Settings(
         model_provider=model_provider,
+        gateway_default_user=gateway_default_user,
         redis_url="redis://127.0.0.1:1/0",
         policy_file=str(policy_path),
         mcp_servers_file=str(mcp_path),
@@ -118,9 +120,14 @@ async def running_app(
     policy_text: str | None = None,
     real_mcp: bool = True,
     model_provider: str = "mock",
+    gateway_default_user: str | None = "anna.kowalska",
 ) -> AsyncIterator[RunningApp]:
     settings, policy_path = make_settings(
-        workdir, policy_text=policy_text, real_mcp=real_mcp, model_provider=model_provider
+        workdir,
+        policy_text=policy_text,
+        real_mcp=real_mcp,
+        model_provider=model_provider,
+        gateway_default_user=gateway_default_user,
     )
     app = create_app(settings)
     runner = _LifespanRunner(app)
@@ -155,8 +162,17 @@ AppFactory = Callable[..., contextlib.AbstractAsyncContextManager[RunningApp]]
 
 @pytest.fixture
 def isolated_app(tmp_path: Path) -> AppFactory:
-    def factory(policy_text: str | None = None, real_mcp: bool = False):
-        return running_app(tmp_path / "app", policy_text=policy_text, real_mcp=real_mcp)
+    def factory(
+        policy_text: str | None = None,
+        real_mcp: bool = False,
+        gateway_default_user: str | None = "anna.kowalska",
+    ):
+        return running_app(
+            tmp_path / "app",
+            policy_text=policy_text,
+            real_mcp=real_mcp,
+            gateway_default_user=gateway_default_user,
+        )
 
     return factory
 

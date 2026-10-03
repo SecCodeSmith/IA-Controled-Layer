@@ -59,4 +59,7 @@ class AuditService:
             "stage": call.decision.stage.value if call.decision.stage else None,
             "rule_id": call.decision.rule_id,
             "reason": call.decision.reason,
+            "proxy_latency_ms": call.latency.proxy_ms,
+            "upstream_latency_ms": call.latency.upstream_ms,
+            "overhead_ms": call.latency.overhead_ms,
         }

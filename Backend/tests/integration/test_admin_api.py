@@ -77,6 +77,7 @@ async def test_feed_and_audit_lists(api: httpx.AsyncClient) -> None:
     )
     assert audit.status_code == 200
     assert all("proxy_latency_ms" in i for i in audit.json()["items"])
+    assert all(i["overhead_ms"] <= i["proxy_latency_ms"] for i in audit.json()["items"])
 
 
 async def test_call_detail_shows_raw_vs_delivered_and_stage_timings(

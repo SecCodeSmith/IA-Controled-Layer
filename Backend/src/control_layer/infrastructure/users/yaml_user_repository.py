@@ -25,6 +25,7 @@ class YamlUserRepository:
                 region=entry["region"],
                 agent_id=entry["agent_id"],
                 mcp_servers=list(entry.get("mcp_servers", [])),
+                api_key=entry.get("api_key"),
             )
             for entry in data.get("users", [])
         }

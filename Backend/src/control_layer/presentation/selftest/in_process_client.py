@@ -4,6 +4,7 @@ import base64
 import json
 from typing import Any
 
+from control_layer.application.selftest.agent_events import LLM_TARGET
 from control_layer.application.selftest.scenario_client import StepObservation
 from control_layer.application.use_cases.execute_approval import ExecuteApprovalUseCase
 from control_layer.application.use_cases.handle_chat_completion import (
@@ -39,7 +40,9 @@ def tamper_token(token: str, claim: str, value: Any) -> str:
     return f"{header}.{forged}.{signature}"
 
 
-def observation_from_outcome(outcome: ToolCallOutcome) -> StepObservation:
+def observation_from_outcome(
+    outcome: ToolCallOutcome, target: str | None = None
+) -> StepObservation:
     return StepObservation(
         http_status=202 if outcome.approval is not None else 200,
         status=outcome.status,
@@ -47,10 +50,13 @@ def observation_from_outcome(outcome: ToolCallOutcome) -> StepObservation:
         rule_id=outcome.rule_id,
         reason=outcome.reason,
         approval_id=outcome.approval.id if outcome.approval is not None else None,
+        target=target,
     )
 
 
-def observation_from_error(exc: ControlLayerError) -> StepObservation:
+def observation_from_error(
+    exc: ControlLayerError, target: str | None = None
+) -> StepObservation:
     fields = describe_error(exc)
     if fields is None:
         raise exc
@@ -60,6 +66,7 @@ def observation_from_error(exc: ControlLayerError) -> StepObservation:
         stage=fields.stage,
         rule_id=fields.rule_id,
         reason=fields.reason,
+        target=target,
     )
 
 
@@ -104,13 +111,14 @@ class InProcessScenarioClient:
         try:
             outcome = await self._chat_completion.execute(token, session_id, request)
         except ControlLayerError as exc:
-            return observation_from_error(exc)
+            return observation_from_error(exc, LLM_TARGET)
         return StepObservation(
             http_status=200,
             status=outcome.status,
             stage=outcome.stage,
             rule_id=outcome.rule_id,
             reason=outcome.reason,
+            target=LLM_TARGET,
         )
 
     async def tool_call(
@@ -119,22 +127,30 @@ class InProcessScenarioClient:
         request = ToolCallRequest(
             server=server, tool=tool, arguments=arguments, session_id=session_id
         )
+        target = f"{server}.{tool}"
         try:
             outcome = await self._tool_call.execute(token, session_id, request)
         except ControlLayerError as exc:
-            return observation_from_error(exc)
-        observation = observation_from_outcome(outcome)
+            return observation_from_error(exc, target)
+        observation = observation_from_outcome(outcome, target)
         if observation.approval_id is not None:
             self._escalations[observation.approval_id] = observation
         return observation
+
+    def remember_escalations(self, observations: list[StepObservation]) -> None:
+        for observation in observations:
+            if observation.approval_id is not None:
+                self._escalations[observation.approval_id] = observation
 
     async def approve(self, token: str, approval_id: str) -> StepObservation:
         try:
             outcome = await self._execute_approval.approve(token, approval_id)
         except ControlLayerError as exc:
             return observation_from_error(exc)
-        executed = observation_from_outcome(outcome)
         escalation = self._escalations.pop(approval_id, None)
+        executed = observation_from_outcome(
+            outcome, escalation.target if escalation is not None else None
+        )
         if escalation is None or executed.status == CallStatus.BLOCKED:
             return executed
         return escalation.model_copy(

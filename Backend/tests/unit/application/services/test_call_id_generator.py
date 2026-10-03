@@ -43,7 +43,7 @@ async def test_uses_calls_seq_key() -> None:
     cache = _FakeCache()
     generator = CallIdGenerator(cache)
     await generator.next()
-    assert "calls:seq" in cache._counters
+    assert "audit:call_seq" in cache._counters
 
 
 async def test_seed_raises_counter_so_next_id_follows_minimum() -> None:
@@ -58,3 +58,15 @@ async def test_seed_never_lowers_an_existing_higher_counter() -> None:
         await generator.next()
     await generator.seed(2)
     assert await generator.next() == "c_000006"
+
+
+async def test_flushing_the_calls_prefix_keeps_the_sequence() -> None:
+    cache = _FakeCache()
+    generator = CallIdGenerator(cache)
+    await generator.next()
+    await generator.next()
+    await cache.incr("calls:session-1")
+
+    await cache.flush("calls:")
+
+    assert await generator.next() == "c_000003"

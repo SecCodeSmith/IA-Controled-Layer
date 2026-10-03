@@ -285,7 +285,7 @@ All should finish with **STOPPED** at the indicated stage:
 
 **Scripted tier:** All deterministic (mock provider). No model dependency. ~30 seconds to run all 24.
 
-**Ollama tier (if available):** Click **Run (Ollama)**. Same scenarios sent as natural language to real Ollama agent. Slower (2–3 minutes), but shows real model behavior and LLM judge escalation.
+**Ollama tier (if available):** Click **Run (Ollama)**. Agent-driven scenarios are sent as natural language to the real model; a scenario reports NOT_ATTEMPTED when the model never attempts the risky action. The 7 deterministic scenarios (tokens, forbidden model, rate limit, loop guard, circuit breaker, token budget) run scripted in both tiers (the `via` field shows which). The run header shows the active provider and protection mode; protection must be `enforce` and the provider `ollama` for a meaningful run. Slower (2–3 minutes).
 
 ## 10. Self-Testing Suite (Optional, 2 minutes)
 
@@ -308,7 +308,7 @@ Expected: All scenarios pass. Exit code 0.
 python attack_suite.py --target http://localhost:8080 --agent ollama
 ```
 
-Expected: All scenarios pass (or NOT_ATTEMPTED for model non-compliance). Exit code 0.
+Expected: All scenarios pass (or NOT_ATTEMPTED for model non-compliance). Exit code 0. The first line shows `target ... · provider ... · protection ... · agent ...`; a stderr warning means protection is not `enforce` or the active provider is `mock`.
 
 ## Running with Docker (Alternative)
 
@@ -342,7 +342,7 @@ On Windows, before running `docker compose`:
 
 ### Configuration
 
-In `.env` or at the command line, set `CTRL_OLLAMA_BASE_URL` based on your Docker setup:
+In `.env` or at the command line, set `DOCKER_OLLAMA_BASE_URL` (passed to the containers as `CTRL_OLLAMA_BASE_URL`; `CTRL_OLLAMA_BASE_URL` itself stays `http://localhost:11434` for native runs) based on your Docker setup:
 
 - **Docker Desktop (Windows/macOS):** `http://host.docker.internal:11434`
 - **Docker Engine in WSL2 (NAT mode):** `http://<windows-host-ip>:11434`

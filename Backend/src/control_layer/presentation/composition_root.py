@@ -12,6 +12,7 @@ from control_layer.application.auth.identity_service import IdentityService
 from control_layer.application.evaluators import build_evaluators
 from control_layer.application.evaluators.dependencies import EvaluatorDependencies
 from control_layer.application.events.feed_broadcaster import FeedBroadcaster
+from control_layer.application.gateway.credential_resolver import GatewayCredentialResolver
 from control_layer.application.pipeline.processing_pipeline import ProcessingPipeline
 from control_layer.application.pipeline.stages.audit import AuditStage
 from control_layer.application.pipeline.stages.authorization import AuthorizationStage
@@ -55,6 +56,7 @@ from control_layer.application.use_cases.admin.exports import (
 from control_layer.application.use_cases.admin.feed import ListFeedUseCase
 from control_layer.application.use_cases.admin.health import (
     ClassifierStatus,
+    GatewayInfo,
     GetHealthUseCase,
     HealthView,
     McpServerStatus,
@@ -190,6 +192,8 @@ class Container:
     token_verifier: HmacTokenVerifier
     model_provider: SwitchableModelProvider
     model_selection: ModelSelectionService
+    model_directory: OllamaModelDirectory
+    gateway_credentials: GatewayCredentialResolver
     mcp_registry: McpServerRegistry
     mcp_gateway: McpClientGateway
     classifier: Any
@@ -248,9 +252,10 @@ async def build_container(settings: Settings) -> Container:
     user_repository = YamlUserRepository(settings.users_file_path)
     token_verifier = HmacTokenVerifier(settings.jwt_secret)
     model_provider = SwitchableModelProvider(await build_model_provider(settings))
+    model_directory = OllamaModelDirectory(settings.ollama_base_url)
     model_selection = ModelSelectionService(
         model_provider,
-        OllamaModelDirectory(settings.ollama_base_url),
+        model_directory,
         functools.partial(build_provider_for, settings),
         policy_repository,
         cache,
@@ -369,6 +374,9 @@ async def build_container(settings: Settings) -> Container:
         await signature_feed.reload()
 
     issue_token = IssueTokenUseCase(user_repository, token_verifier)
+    gateway_credentials = GatewayCredentialResolver(
+        issue_token, user_repository, settings.gateway_default_user
+    )
 
     async def reset_runtime_state() -> None:
         for prefix in _RUNTIME_STATE_PREFIXES:
@@ -402,6 +410,8 @@ async def build_container(settings: Settings) -> Container:
         token_verifier=token_verifier,
         model_provider=model_provider,
         model_selection=model_selection,
+        model_directory=model_directory,
+        gateway_credentials=gateway_credentials,
         mcp_registry=mcp_registry,
         mcp_gateway=mcp_gateway,
         classifier=classifier,
@@ -498,4 +508,7 @@ async def collect_health(container: Container) -> HealthView:
         provider=container.model_provider.describe(),
         policy_status=PolicyStatus(version=status["version"] or 0, status=status["status"]),
         protection=await current_protection(container.protection),
+        gateway=GatewayInfo(
+            default_user=container.gateway_credentials.default_user, ollama_api=True
+        ),
     )

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../common/StatusBadge'
 import { formatReason } from '../../lib/formatReason'
-import { formatMs } from '../../lib/formatMs'
+import { overheadCell } from '../../lib/overhead'
 import { roleLabel } from '../../lib/roleLabel'
 import type { AuditListItem } from '../../types/audit'
 
@@ -16,7 +16,7 @@ export function AuditTable({ items }: { items: AuditListItem[] }) {
             <th className="px-3 py-3 font-medium">Target</th>
             <th className="px-3 py-3 font-medium">Status</th>
             <th className="px-3 py-3 font-medium">Reason</th>
-            <th className="px-3 py-3 pr-6 font-medium">Latency</th>
+            <th className="px-3 py-3 pr-6 text-right font-medium">Added delay</th>
           </tr>
         </thead>
         <tbody>
@@ -37,8 +37,11 @@ export function AuditTable({ items }: { items: AuditListItem[] }) {
                 <StatusBadge status={item.status} />
               </td>
               <td className="px-3 py-3 text-muted">{formatReason(item)}</td>
-              <td className="px-3 py-3 pr-6 font-mono text-[13px] text-muted">
-                {item.proxy_latency_ms !== undefined ? formatMs(item.proxy_latency_ms) : '—'}
+              <td
+                className="whitespace-nowrap px-3 py-3 pr-6 text-right font-mono text-[13px] text-muted"
+                title={overheadCell(item).title}
+              >
+                {overheadCell(item).text}
               </td>
             </tr>
           ))}

@@ -45,5 +45,7 @@ describe('CallDetail', () => {
     expect(screen.getByText(/id: pii_masking/)).toBeInTheDocument()
     expect(screen.getByText('Anna Kowalska')).toBeInTheDocument()
     expect(screen.getByText('MASKED')).toBeInTheDocument()
+    expect(screen.getByText('Added delay')).toBeInTheDocument()
+    expect(screen.getByText('+2.4 ms')).toBeInTheDocument()
   })
 })

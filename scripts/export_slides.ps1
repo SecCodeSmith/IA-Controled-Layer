@@ -40,15 +40,24 @@ if (Test-Path $edgePath) {
 # Convert path to file:/// URL
 $fileUrl = "file:///$($slidesHtml -replace '\\', '/')"
 
+Remove-Item $slidesPdf -ErrorAction SilentlyContinue
 Write-Host "Rendering PDF..." -ForegroundColor Yellow
-& $browserPath --headless --disable-gpu `
+$profileDir = Join-Path $env:TEMP "control-layer-slides-export"
+& $browserPath --headless --disable-gpu --user-data-dir="$profileDir" `
     --print-to-pdf="$slidesPdf" `
     --no-pdf-header-footer `
-    "$fileUrl"
+    "$fileUrl" 2>&1 | Out-Null
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "✗ PDF export failed (browser error)" -ForegroundColor Red
-    exit $LASTEXITCODE
+# The browser launcher can return before the renderer finishes writing; wait for a stable file.
+$deadline = (Get-Date).AddSeconds(90)
+$lastSize = -1
+while ((Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 500
+    if (Test-Path $slidesPdf) {
+        $size = (Get-Item $slidesPdf).Length
+        if ($size -gt 0 -and $size -eq $lastSize) { break }
+        $lastSize = $size
+    }
 }
 
 if (Test-Path $slidesPdf) {

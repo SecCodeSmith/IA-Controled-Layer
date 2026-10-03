@@ -10,6 +10,8 @@ import { FeedFilters, ALL_ROLES, ALL_STATUSES, ALL_USERS, type FeedFilterValue }
 import { FeedTable } from '../components/feed/FeedTable'
 import { AttackSuitePanel } from '../components/attack/AttackSuitePanel'
 import { Spinner } from '../components/common/Spinner'
+import { overheadPercentiles } from '../lib/overhead'
+import { formatMs } from '../lib/formatMs'
 import { roleLabel } from '../lib/roleLabel'
 import type { FeedRow } from '../types/feed'
 
@@ -77,6 +79,13 @@ export function LiveFeed() {
           masked={stats.data?.masked ?? 0}
           escalated={stats.data?.escalated ?? 0}
         />
+
+        {stats.data ? (
+          <p className="m-0 text-[13px] text-muted" data-testid="added-delay-kpi">
+            Added delay p50 {formatMs(overheadPercentiles(stats.data.latency).p50)} · p95{' '}
+            {formatMs(overheadPercentiles(stats.data.latency).p95)}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-start gap-6">
           <section className="min-w-0 flex-[999_1_640px] rounded-[10px] border border-border bg-white">

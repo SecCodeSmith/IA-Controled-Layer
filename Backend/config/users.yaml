@@ -6,6 +6,7 @@ users:
     location: "Krakow, PL"
     region: PL
     agent_id: agent-anna-dev-7f3a
+    api_key: ck-anna-dev-2026
     mcp_servers: [github, ci, logs-db, jira, mail]
 
   - sub: marek.nowak
@@ -15,6 +16,7 @@ users:
     location: "Warsaw, PL"
     region: PL
     agent_id: agent-marek-hr-3c91
+    api_key: ck-marek-hr-2026
     mcp_servers: [hr-db, calendar, mail]
 
   - sub: john.smith
@@ -24,6 +26,7 @@ users:
     location: "New York, US"
     region: US
     agent_id: agent-john-dev-9b2e
+    api_key: ck-john-dev-2026
     mcp_servers: [github, ci, logs-db, jira, mail]
 
   - sub: ewa.zielinska
@@ -33,4 +36,5 @@ users:
     location: "Warsaw, PL"
     region: PL
     agent_id: agent-ewa-fin-5d6f
+    api_key: ck-ewa-fin-2026
     mcp_servers: [payments, calendar]

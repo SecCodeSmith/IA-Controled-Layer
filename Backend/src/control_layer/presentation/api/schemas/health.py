@@ -33,6 +33,11 @@ class PolicyHealth(BaseModel):
     status: Literal["LOADED", "ERROR"]
 
 
+class GatewayHealth(BaseModel):
+    default_user: str | None = None
+    ollama_api: bool = True
+
+
 class HealthResponse(BaseModel):
     status: str = "ok"
     stages: list[str]
@@ -42,3 +47,4 @@ class HealthResponse(BaseModel):
     provider: ProviderInfo
     policy: PolicyHealth
     protection: ProtectionInfo = ProtectionInfo()
+    gateway: GatewayHealth = GatewayHealth()

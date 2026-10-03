@@ -207,3 +207,17 @@ async def test_feed_event_payload_shape() -> None:
     assert feed_payload["kind"] == "tool_call"
     assert feed_payload["target"] == "logs-db.query"
     assert feed_payload["status"] == "ALLOWED"
+
+
+async def test_feed_event_carries_latency_and_added_delay() -> None:
+    publisher = _FakeEventPublisher()
+    service = _service(_FakeAuditRepository(), _FakeAlertSink(), _FakeAlertStore(), publisher)
+    record = _call_record(CallStatus.ALLOWED).model_copy(
+        update={"latency": CallLatency(proxy_ms=12.5, upstream_ms=10.0)}
+    )
+    await service.record(record, Decision(status=CallStatus.ALLOWED, action=RuleAction.allow))
+
+    _, feed_payload = publisher.published[0]
+    assert feed_payload["proxy_latency_ms"] == 12.5
+    assert feed_payload["upstream_latency_ms"] == 10.0
+    assert feed_payload["overhead_ms"] == 2.5

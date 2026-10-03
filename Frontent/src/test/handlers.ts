@@ -46,6 +46,8 @@ const state = {
   logsCleared: 0,
 }
 
+const DETERMINISTIC_SCENARIOS = ['spoofed_role_in_request', 'token_budget_overrun']
+
 const AVAILABLE_MODELS: ModelsResponse['available'] = [
   { provider: 'ollama', model: 'qwen2.5:7b', allowed: true, size_gb: 4.7 },
   { provider: 'ollama', model: 'gemma4:latest', allowed: false, size_gb: 6.6 },
@@ -382,7 +384,12 @@ export const handlers = [
   http.get(`${CONTROL_LAYER_URL}/api/reports/security`, () => HttpResponse.json(SECURITY_REPORT_FIXTURE)),
 
   http.get(`${CONTROL_LAYER_URL}/api/attack-suite/scenarios`, () =>
-    HttpResponse.json({ scenarios: SCENARIOS_FIXTURE }),
+    HttpResponse.json({
+      scenarios: SCENARIOS_FIXTURE.map((scenario) => ({
+        ...scenario,
+        agent_driven: !DETERMINISTIC_SCENARIOS.includes(scenario.id),
+      })),
+    }),
   ),
 
   http.post(`${CONTROL_LAYER_URL}/api/attack-suite/run`, ({ request }) => {
@@ -392,6 +399,8 @@ export const handlers = [
     const runId = `run_${state.attackRunCounter}`
     const scenarios: Scenario[] = SCENARIOS_FIXTURE.map((scenario) => ({
       ...scenario,
+      agent_driven: !DETERMINISTIC_SCENARIOS.includes(scenario.id),
+      via: null,
       status: 'PENDING',
       observed: null,
       duration_ms: null,
@@ -400,9 +409,12 @@ export const handlers = [
       run_id: runId,
       number: state.attackRunCounter,
       agent,
+      provider: state.activeModel.provider,
+      model: state.activeModel.model,
+      protection_mode: state.protectionMode,
       started_at: new Date().toISOString(),
       scenarios,
-      summary: { stopped: 0, passed: 0, succeeded: 0, not_attempted: 0, running: 0, pending: scenarios.length },
+      summary: { stopped: 0, passed: 0, succeeded: 0, not_attempted: 0, error: 0, running: 0, pending: scenarios.length },
     }
     state.attackRuns.set(runId, run)
     return HttpResponse.json(run)
@@ -425,7 +437,7 @@ export const handlers = [
           return
         }
         let index = 0
-        const summary = { stopped: 0, passed: 0, succeeded: 0, not_attempted: 0, running: 0, pending: run.scenarios.length }
+        const summary = { stopped: 0, passed: 0, succeeded: 0, not_attempted: 0, error: 0, running: 0, pending: run.scenarios.length }
         timer = setInterval(() => {
           if (index >= run.scenarios.length) {
             if (timer) clearInterval(timer)
@@ -443,6 +455,7 @@ export const handlers = [
             status: finalStatus,
             observed: { status: scenario.expected.status, stage: scenario.stage, rule_id: scenario.expected.rule_id },
             duration_ms: 120 + index * 10,
+            via: 'scripted',
           }
           controller.enqueue(encoder.encode(`event: scenario\ndata: ${JSON.stringify(event)}\n\n`))
           index += 1

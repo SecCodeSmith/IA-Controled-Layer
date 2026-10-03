@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from control_layer.domain.ports.cache_repository import CacheRepository
 
-_SEQUENCE_KEY = "calls:seq"
+_SEQUENCE_KEY = "audit:call_seq"
 
 
 class CallIdGenerator:

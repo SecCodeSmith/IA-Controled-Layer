@@ -51,6 +51,9 @@ def _system_prompt(identity: Identity, today: date) -> str:
         "with services auth, payments and web. HR approvals are looked up with "
         "hr-db.find_approver(request). "
         "Calling one tool at a time is fine. "
+        "Never say you did something (deleted, pushed, sent, transferred, read) unless you "
+        "called the matching tool in this turn and saw its result. When the user asks for an "
+        "action that a tool can do, call the tool; do not answer from memory. "
         "If the control layer blocks or masks something, tell the user plainly "
         "and suggest what to do next. Be concise."
     )

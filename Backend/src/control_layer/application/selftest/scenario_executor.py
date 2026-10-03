@@ -3,15 +3,18 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from control_layer.application.selftest.agent_events import LLM_TARGET
 from control_layer.application.selftest.scenario_client import ScenarioClient, StepObservation
 from control_layer.domain.models.enums import CallStatus
 
 _ATTACK_EXPECTED_STATUSES = frozenset({CallStatus.BLOCKED, CallStatus.ESCALATED})
 _ATTACK_THROUGH_STATUSES = frozenset({CallStatus.ALLOWED, CallStatus.MASKED})
+_MASK_STOPPING_STATUSES = frozenset({CallStatus.MASKED, CallStatus.BLOCKED, CallStatus.ESCALATED})
+_DENIED_STATUSES = frozenset({CallStatus.BLOCKED, CallStatus.ESCALATED, CallStatus.MASKED})
 
 
 class ScenarioStatus(StrEnum):
@@ -31,6 +34,7 @@ class ScenarioResult(BaseModel):
     status: ScenarioStatus
     observed: StepObservation | None = None
     duration_ms: float
+    via: Literal["agent", "scripted"] = "scripted"
     error: str | None = None
 
 
@@ -46,12 +50,53 @@ class _ScenarioLike(Protocol):
     expected: _Expectation
     steps: list[dict[str, Any]]
     prompt: str
+    agent_driven: bool
 
 
 def _matches_expected(expected: _Expectation, observed: StepObservation) -> bool:
     if observed.status != expected.status:
         return False
     return expected.rule_id is None or observed.rule_id == expected.rule_id
+
+
+def _step_target(step: dict[str, Any]) -> str | None:
+    action = step["action"]
+    if action == "tool_call":
+        return f"{step['server']}.{step['tool']}"
+    if action == "chat":
+        return LLM_TARGET
+    if action == "repeat":
+        return _step_target(step["step"])
+    return None
+
+
+def expected_target(scenario: _ScenarioLike) -> str | None:
+    targets = [target for step in scenario.steps if (target := _step_target(step))]
+    return targets[-1] if targets else None
+
+
+def _judge_negative(expected: _Expectation, attempt: StepObservation) -> ScenarioStatus:
+    stopping = (
+        _ATTACK_EXPECTED_STATUSES
+        if expected.status in _ATTACK_EXPECTED_STATUSES
+        else _MASK_STOPPING_STATUSES
+    )
+    return ScenarioStatus.STOPPED if attempt.status in stopping else ScenarioStatus.SUCCEEDED
+
+
+def _informative(observations: list[StepObservation]) -> StepObservation | None:
+    denied = [o for o in observations if o.status in _DENIED_STATUSES]
+    if denied:
+        return denied[-1]
+    return observations[-1] if observations else None
+
+
+class _Outcome(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    status: ScenarioStatus
+    observed: StepObservation | None
+    via: Literal["agent", "scripted"]
 
 
 class ScenarioExecutor:
@@ -63,33 +108,36 @@ class ScenarioExecutor:
 
     async def run(self, scenario: _ScenarioLike, tier: str = "scripted") -> ScenarioResult:
         start = self._clock()
+        via: Literal["agent", "scripted"] = (
+            "agent"
+            if tier == "ollama" and getattr(scenario, "agent_driven", True)
+            else "scripted"
+        )
         try:
-            if tier == "ollama":
-                observed, not_attempted = await self._run_ollama(scenario)
-            else:
-                observed = await self._run_steps(scenario)
-                not_attempted = False
+            outcome = await (
+                self._run_agent(scenario) if via == "agent" else self._run_scripted(scenario)
+            )
         except Exception as exc:
-            duration_ms = (self._clock() - start) * 1000
             return ScenarioResult(
                 id=scenario.id,
                 status=ScenarioStatus.ERROR,
                 observed=None,
-                duration_ms=duration_ms,
+                duration_ms=(self._clock() - start) * 1000,
                 error=str(exc),
+                via=via,
             )
-
-        duration_ms = (self._clock() - start) * 1000
-        if not_attempted:
-            return ScenarioResult(
-                id=scenario.id,
-                status=ScenarioStatus.NOT_ATTEMPTED,
-                observed=observed,
-                duration_ms=duration_ms,
-            )
-        status = self._determine_status(scenario, observed)
         return ScenarioResult(
-            id=scenario.id, status=status, observed=observed, duration_ms=duration_ms
+            id=scenario.id,
+            status=outcome.status,
+            observed=outcome.observed,
+            duration_ms=(self._clock() - start) * 1000,
+            via=outcome.via,
+        )
+
+    async def _run_scripted(self, scenario: _ScenarioLike) -> _Outcome:
+        observed = await self._run_steps(scenario)
+        return _Outcome(
+            status=self._determine_status(scenario, observed), observed=observed, via="scripted"
         )
 
     def _determine_status(
@@ -159,30 +207,41 @@ class ScenarioExecutor:
             return token, previous
         raise ValueError(f"unknown scenario step action: {action!r}")
 
-    async def _run_ollama(
-        self, scenario: _ScenarioLike
-    ) -> tuple[StepObservation | None, bool]:
+    async def _run_agent(self, scenario: _ScenarioLike) -> _Outcome:
         token = await self._client.token_for(scenario.actor)
         session_id = f"selftest-{scenario.id}"
         observations = await self._client.agent_chat(token, session_id, scenario.prompt)
-        if not observations:
-            return None, True
+        target = expected_target(scenario)
+        attempts = [o for o in observations if o.target == target]
+        if not attempts:
+            others = [o for o in observations if o.target != target]
+            return _Outcome(
+                status=ScenarioStatus.NOT_ATTEMPTED, observed=_informative(others), via="agent"
+            )
+        attempt = await self._settle_approval(scenario, token, attempts[-1])
+        return _Outcome(
+            status=self._judge_attempt(scenario, attempt), observed=attempt, via="agent"
+        )
 
-        matches = [o for o in observations if _matches_expected(scenario.expected, o)]
-        if matches:
-            return matches[-1], False
+    async def _settle_approval(
+        self, scenario: _ScenarioLike, token: str, attempt: StepObservation
+    ) -> StepObservation:
+        wants_approval = any(step["action"] == "approve" for step in scenario.steps)
+        if not (
+            scenario.kind == "positive"
+            and wants_approval
+            and attempt.status == CallStatus.ESCALATED
+            and attempt.approval_id is not None
+        ):
+            return attempt
+        approved = await self._client.approve(token, attempt.approval_id)
+        if approved.target is None:
+            approved = approved.model_copy(update={"target": attempt.target})
+        return approved
 
-        # An observation with no stage/rule attached is a trivial ALLOWED turn (plain assistant
-        # text or an untouched call) and is not evidence that the risky action was attempted.
-        meaningful = [o for o in observations if o.stage is not None or o.rule_id is not None]
-
-        if scenario.kind == "negative" and scenario.expected.status in _ATTACK_EXPECTED_STATUSES:
-            got_through = [o for o in meaningful if o.status in _ATTACK_THROUGH_STATUSES]
-            if got_through:
-                return got_through[-1], False
-            return (meaningful[-1] if meaningful else None), True
-
+    @staticmethod
+    def _judge_attempt(scenario: _ScenarioLike, attempt: StepObservation) -> ScenarioStatus:
         if scenario.kind == "negative":
-            return (meaningful[-1] if meaningful else None), True
-
-        return observations[-1], False
+            return _judge_negative(scenario.expected, attempt)
+        matches = _matches_expected(scenario.expected, attempt)
+        return ScenarioStatus.PASSED if matches else ScenarioStatus.ERROR

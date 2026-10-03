@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from control_layer.domain.models.enums import CallKind, CallStatus, StageName
 from control_layer.domain.models.identity import Identity
@@ -47,6 +47,11 @@ class CallLatency(BaseModel):
     proxy_ms: float
     upstream_ms: float
     stages: dict[str, float] = Field(default_factory=dict)
+
+    @computed_field
+    @property
+    def overhead_ms(self) -> float:
+        return max(self.proxy_ms - self.upstream_ms, 0.0)
 
 
 class CallRecord(BaseModel):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,6 +34,8 @@ class AttackRunScenario(BaseModel):
     status: ScenarioStatus = ScenarioStatus.PENDING
     observed: StepObservation | None = None
     duration_ms: float | None = None
+    via: Literal["agent", "scripted"] = "scripted"
+    agent_driven: bool = True
 
     @classmethod
     def from_scenario(cls, scenario: Scenario) -> AttackRunScenario:
@@ -44,6 +47,7 @@ class AttackRunScenario(BaseModel):
             stage=scenario.stage,
             expected=scenario.expected,
             owasp=list(scenario.owasp),
+            agent_driven=scenario.agent_driven,
         )
 
 
@@ -73,6 +77,9 @@ class AttackRun(BaseModel):
     run_id: str
     number: int
     agent: str
+    provider: str = ""
+    model: str = ""
+    protection_mode: str = "enforce"
     started_at: datetime
     finished_at: datetime | None = None
     scenarios: list[AttackRunScenario]

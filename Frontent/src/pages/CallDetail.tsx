@@ -10,6 +10,7 @@ import { ErrorBanner } from '../components/common/ErrorBanner'
 import { errorMessage } from '../lib/errorMessage'
 import { formatDecision } from '../lib/formatDecision'
 import { formatMs } from '../lib/formatMs'
+import { overheadMs } from '../lib/overhead'
 import { roleLabel } from '../lib/roleLabel'
 import { downloadJson } from '../lib/downloadJson'
 
@@ -58,6 +59,12 @@ export function CallDetail() {
 }
 
 function CallDetailBody({ detail }: { detail: NonNullable<ReturnType<typeof useAuditDetail>['data']> }) {
+  const overhead = overheadMs({
+    overhead_ms: detail.overhead_ms ?? detail.latency.overhead_ms,
+    proxy_latency_ms: detail.latency.proxy_ms,
+    upstream_latency_ms: detail.latency.upstream_ms,
+  })
+  const overheadText = overhead === null ? '–' : `+${formatMs(overhead)}`
   const meta: MetaItem[] = [
     { label: 'Time', value: new Date(detail.timestamp).toLocaleString(undefined, { hour12: false }) },
     { label: 'User', value: detail.identity.name },
@@ -67,6 +74,8 @@ function CallDetailBody({ detail }: { detail: NonNullable<ReturnType<typeof useA
     { label: 'Decision', value: formatDecision(detail.decision.status) },
     { label: 'Items masked', value: String(detail.items_masked) },
     { label: 'Proxy latency', value: formatMs(detail.latency.proxy_ms) },
+    { label: 'Upstream', value: formatMs(detail.latency.upstream_ms) },
+    { label: 'Added delay', value: overheadText },
   ]
 
   return (

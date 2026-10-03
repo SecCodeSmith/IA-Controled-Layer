@@ -1,19 +1,21 @@
 import { StatusBadge } from '../common/StatusBadge'
 import { formatReason } from '../../lib/formatReason'
+import { overheadCell } from '../../lib/overhead'
 import { roleLabel } from '../../lib/roleLabel'
 import type { FeedRow } from '../../types/feed'
 
 export function FeedTable({ rows }: { rows: FeedRow[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] border-collapse text-sm">
+      <table className="w-full min-w-[900px] border-collapse text-sm">
         <thead>
           <tr className="text-left text-xs uppercase tracking-wide text-muted">
             <th className="px-6 py-3 font-medium">Time</th>
             <th className="px-3 py-3 font-medium">User · role</th>
             <th className="px-3 py-3 font-medium">Tool call</th>
             <th className="px-3 py-3 font-medium">Status</th>
-            <th className="px-3 py-3 pr-6 font-medium">Reason</th>
+            <th className="px-3 py-3 font-medium">Reason</th>
+            <th className="px-3 py-3 pr-6 text-right font-medium">Added delay</th>
           </tr>
         </thead>
         <tbody>
@@ -29,7 +31,13 @@ export function FeedTable({ rows }: { rows: FeedRow[] }) {
               <td className="px-3 py-3">
                 <StatusBadge status={row.status} />
               </td>
-              <td className="px-3 py-3 pr-6 text-muted">{formatReason(row)}</td>
+              <td className="px-3 py-3 text-muted">{formatReason(row)}</td>
+              <td
+                className="whitespace-nowrap px-3 py-3 pr-6 text-right font-mono text-[13px] text-muted"
+                title={overheadCell(row).title}
+              >
+                {overheadCell(row).text}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -42,6 +42,13 @@ class PolicyStatus(BaseModel):
     status: str
 
 
+class GatewayInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    default_user: str | None = None
+    ollama_api: bool = True
+
+
 class HealthView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -53,6 +60,7 @@ class HealthView(BaseModel):
     provider: ProviderInfo
     policy: PolicyStatus
     protection: ProtectionInfo = Field(default_factory=ProtectionInfo)
+    gateway: GatewayInfo = Field(default_factory=GatewayInfo)
 
 
 class GetHealthUseCase:
@@ -65,6 +73,7 @@ class GetHealthUseCase:
         provider: ProviderInfo,
         policy_status: PolicyStatus,
         protection: ProtectionInfo | None = None,
+        gateway: GatewayInfo | None = None,
     ) -> HealthView:
         return HealthView(
             cache=CacheHealth(mode=cache_mode),
@@ -73,4 +82,5 @@ class GetHealthUseCase:
             provider=provider,
             policy=policy_status,
             protection=protection or ProtectionInfo(),
+            gateway=gateway or GatewayInfo(),
         )

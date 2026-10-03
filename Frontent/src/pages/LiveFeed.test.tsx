@@ -59,4 +59,18 @@ describe('LiveFeed', () => {
 
     await waitFor(() => expect(screen.getByText('jira.search')).toBeInTheDocument())
   })
+
+  it('shows the added delay with total and upstream time in the tooltip', async () => {
+    renderWithProviders(<LiveFeed />, { route: '/admin' })
+
+    const row = (await screen.findByText('github.delete_branch')).closest('tr')
+    expect(screen.getByText('Added delay')).toBeInTheDocument()
+    const cell = within(row as HTMLElement).getByText('+3.2 ms')
+    expect(cell).toHaveAttribute('title', 'total 3.2 ms · upstream 31 ms')
+  })
+
+  it('shows the added delay percentiles computed as proxy minus upstream', async () => {
+    renderWithProviders(<LiveFeed />, { route: '/admin' })
+    expect(await screen.findByTestId('added-delay-kpi')).toHaveTextContent('Added delay p50 4.1 ms · p95 9.8 ms')
+  })
 })

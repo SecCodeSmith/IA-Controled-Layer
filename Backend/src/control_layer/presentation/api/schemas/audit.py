@@ -14,22 +14,12 @@ from control_layer.domain.models.audit import (
 from control_layer.domain.models.enums import CallKind, CallStatus, StageName
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.provider import ProviderInfo
-from control_layer.presentation.api.schemas.feed import FeedUserRef
+from control_layer.presentation.api.schemas.feed import FeedRow
 
 
-class AuditRow(BaseModel):
-    call_id: str
-    time: datetime
-    user: FeedUserRef
-    kind: CallKind
-    target: str
-    status: CallStatus
-    stage: StageName | None = None
-    rule_id: str | None = None
-    reason: str | None = None
+class AuditRow(FeedRow):
     tokens: int = 0
     cost_usd: float = 0.0
-    proxy_latency_ms: float = 0.0
 
 
 class AuditListResponse(BaseModel):

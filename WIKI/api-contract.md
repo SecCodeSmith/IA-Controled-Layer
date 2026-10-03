@@ -294,3 +294,20 @@ Admin token required on every route below. Full semantics: `WIKI/feature-protect
 - `PUT /api/models` (body `{"provider", "model"}`) switches the model for every following call (agents, LLM judge, `/v1/me`, `/health`, `/api/stats`) and returns the new `active` object; a model not in `available` is a 404 `not_found` envelope. The choice is stored under cache key `models:active` and restored at startup when still listed.
 - `POST /api/logs/clear` returns `{"ok": true, "cleared": ["audit", "alerts", "alerts_xlsx", "audit_jsonl", "metrics", "feed"]}`; empties the audit log (memory and `calls.jsonl`), the alert store and `alerts.xlsx`, resets metrics and the call id sequence. Budgets, sessions, approvals, risk, protection mode and overrides are kept.
 - `POST /api/demo/reset` (scope `all`) additionally resets the protection mode to `enforce` and clears the rule overrides, and clears logs through the same use case.
+
+## Addendum (attack suite tiers and run context)
+
+- `GET /api/attack-suite/scenarios` items gain `agent_driven: bool`. It is `false` for the 7 deterministic scenarios (tampered token, expired token, forbidden model, rate-limit burst, loop guard, circuit breaker, token budget) that run their scripted steps in both tiers; in the `ollama` tier the other scenarios are sent as natural language to the demo agent.
+- Scenario states (run responses and `scenario` SSE events) gain `via: "agent" | "scripted"`: how the scenario was actually driven (`"scripted"` until it has run).
+- In the `ollama` tier the verdict is judged on the control-layer decision for the expected tool (or `llm.complete` for chat scenarios): no attempt by the model is `NOT_ATTEMPTED`; a negative scenario is `STOPPED` on any BLOCKED/ESCALATED attempt (the rule may differ from the expected one) and `SUCCEEDED` otherwise (MASKED-expected scenarios also count MASKED as stopped). Observations carry an internal `target` (`server.tool` or `llm.complete`) that is not exposed by the API.
+- `POST /api/attack-suite/run`, `GET /api/attack-suite/runs/{id}` gain `provider` (name), `model` and `protection_mode` (`enforce|monitor|off`) of the target when the run started; `summary` gains `error: int` (it is also in the `run_complete` summary).
+- `attack_suite.py` prints a header `target <url> · provider <name>/<model> · protection <mode> · agent <tier>` before the table, adds a `via` column, and warns on stderr when protection is not `enforce` ("attacks are expected to get through") or when `--agent ollama` runs against a non-Ollama provider. NOT_ATTEMPTED never fails the run.
+- Call ids no longer restart at `c_000001` between scenarios: the sequence lives under cache key `audit:call_seq`, outside the flushed `calls:` prefix (it is still reset by `POST /api/logs/clear`).
+- Demo agent CORS now allows any localhost origin (`AGENT_CORS_ORIGIN_REGEX`, default same regex as the control layer).
+
+## Addendum (added delay / processing time)
+
+- `CallLatency` (call detail `latency`, audit JSONL) gains the computed `overhead_ms = max(proxy_ms - upstream_ms, 0)`: the delay the control layer itself adds between the request arriving and the allow / block / mask / escalate decision, excluding the time the model or MCP tool took. For a blocked call nothing goes upstream, so `overhead_ms` equals `proxy_ms`.
+- Feed rows (`GET /api/feed` items and the `feed` SSE event) and audit rows (`GET /api/audit` items, which now extend the feed row) gain `proxy_latency_ms`, `upstream_latency_ms` and `overhead_ms`.
+- `GET /api/metrics` gains `overhead: {"p50_ms", "p95_ms"}`; `GET /api/stats` `latency` gains `overhead_p50_ms` and `overhead_p95_ms`; `/metrics` (Prometheus text) gains `control_layer_overhead_ms{quantile="0.5|0.95"}`.
+- Dashboard: the live feed and audit tables show an "Added delay" column (`overhead_ms`, tooltip with total and upstream), the call detail shows it next to proxy and upstream latency, the live feed page shows added-delay p50/p95, and attack-suite rows show the wall-clock `duration_ms` of each scenario.

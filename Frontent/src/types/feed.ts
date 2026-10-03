@@ -18,6 +18,9 @@ export interface FeedRow {
   stage: PipelineStage | null
   rule_id: string | null
   reason: string
+  proxy_latency_ms?: number | null
+  upstream_latency_ms?: number | null
+  overhead_ms?: number | null
 }
 
 export interface FeedListResponse {
@@ -62,6 +65,8 @@ export interface LatencyStats {
   proxy_p95_ms: number
   upstream_p50_ms: number
   upstream_p95_ms: number
+  overhead_p50_ms?: number
+  overhead_p95_ms?: number
 }
 
 export interface StatsResponse {

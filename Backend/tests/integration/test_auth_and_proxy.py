@@ -109,22 +109,17 @@ async def test_forbidden_model_is_blocked(api: httpx.AsyncClient) -> None:
     assert response.json()["error"]["stage"] == "authorization"
 
 
-async def test_streaming_is_rejected(api: httpx.AsyncClient) -> None:
-    token = await get_token(api, "anna.kowalska")
-    response = await chat(api, token, "Hello", stream=True)
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "streaming_not_supported"
-
-
-async def test_missing_token_is_401(api: httpx.AsyncClient) -> None:
-    response = await api.post(
-        "/v1/chat/completions",
-        json={"model": "mock", "messages": [{"role": "user", "content": "hi"}]},
-    )
-    assert response.status_code == 401
-    assert response.json()["error"]["code"] == "identity_rejected"
-    assert (await api.get("/v1/me")).status_code == 401
-    assert (await api.get("/v1/tools")).status_code == 401
+async def test_missing_token_is_401(isolated_app) -> None:
+    async with isolated_app(gateway_default_user=None) as running:
+        api = running.client
+        response = await api.post(
+            "/v1/chat/completions",
+            json={"model": "mock", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "identity_rejected"
+        assert (await api.get("/v1/me")).status_code == 401
+        assert (await api.get("/v1/tools")).status_code == 401
 
 
 async def test_tampered_token_is_401(api: httpx.AsyncClient) -> None:

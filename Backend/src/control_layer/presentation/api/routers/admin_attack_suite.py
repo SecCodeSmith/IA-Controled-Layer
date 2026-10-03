@@ -27,6 +27,9 @@ def _run_fields(run: AttackRun) -> dict:
         "run_id": run.run_id,
         "number": run.number,
         "agent": run.agent,
+        "provider": run.provider,
+        "model": run.model,
+        "protection_mode": run.protection_mode,
         "started_at": run.started_at,
         "scenarios": [
             ScenarioRunState.model_validate(scenario.model_dump(mode="json"))
@@ -46,7 +49,13 @@ async def scenarios() -> ScenarioListResponse:
 async def start_run(
     container: ContainerDep, agent: Literal["scripted", "ollama"] = "scripted"
 ) -> AttackSuiteRunResponse:
-    run = await container.attack_runs.start(agent)
+    provider = container.model_provider.describe()
+    run = await container.attack_runs.start(
+        agent,
+        provider=provider.name,
+        model=provider.model,
+        protection_mode=str(await container.protection.get_mode()),
+    )
     return AttackSuiteRunResponse(**_run_fields(run))
 
 

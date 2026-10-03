@@ -13,6 +13,10 @@ from typing import Any
 
 import httpx
 
+from control_layer.application.selftest.agent_events import (
+    LLM_TARGET,
+    observations_from_events,
+)
 from control_layer.application.selftest.scenario_client import StepObservation
 from control_layer.application.selftest.scenario_executor import (
     ScenarioExecutor,
@@ -82,34 +86,6 @@ def _observation(response: httpx.Response) -> StepObservation:
     return _from_success_body(response.status_code, body)
 
 
-def observations_from_events(events: list[dict]) -> list[StepObservation]:
-    observations: list[StepObservation] = []
-    for event in events:
-        kind = event.get("type")
-        if kind == "approval_required":
-            observations.append(
-                StepObservation(
-                    http_status=202,
-                    status=CallStatus.ESCALATED,
-                    stage=StageName.authorization,
-                    rule_id=event.get("rule_id"),
-                    reason=event.get("reason"),
-                    approval_id=event.get("approval_id"),
-                )
-            )
-        elif kind in ("tool_call", "assistant_text", "notice") and event.get("status"):
-            observations.append(
-                StepObservation(
-                    http_status=200,
-                    status=CallStatus(event["status"]),
-                    stage=_stage(event.get("stage")),
-                    rule_id=event.get("rule_id"),
-                    reason=event.get("reason"),
-                )
-            )
-    return observations
-
-
 class HttpScenarioClient:
     def __init__(self, target: str, agent_url: str, client: httpx.AsyncClient) -> None:
         self._target = target.rstrip("/")
@@ -149,7 +125,7 @@ class HttpScenarioClient:
             json=body,
             headers={"Authorization": f"Bearer {token}", "X-Session-Id": session_id},
         )
-        return _observation(response)
+        return _observation(response).model_copy(update={"target": LLM_TARGET})
 
     async def tool_call(
         self, token: str, session_id: str, server: str, tool: str, arguments: dict
@@ -159,7 +135,7 @@ class HttpScenarioClient:
             json={"server": server, "tool": tool, "arguments": arguments, "session_id": session_id},
             headers={"Authorization": f"Bearer {token}"},
         )
-        observation = _observation(response)
+        observation = _observation(response).model_copy(update={"target": f"{server}.{tool}"})
         if observation.approval_id:
             self._escalations[observation.approval_id] = observation
         return observation
@@ -169,8 +145,10 @@ class HttpScenarioClient:
             f"{self._target}/v1/approvals/{approval_id}/approve",
             headers={"Authorization": f"Bearer {token}"},
         )
-        executed = _observation(response)
         escalation = self._escalations.pop(approval_id, None)
+        executed = _observation(response).model_copy(
+            update={"target": escalation.target if escalation is not None else None}
+        )
         if escalation is None or executed.status == CallStatus.BLOCKED:
             return executed
         return escalation.model_copy(
@@ -197,7 +175,40 @@ class HttpScenarioClient:
             ) from exc
         if response.status_code >= 400:
             raise AgentUnavailableError(f"demo agent returned {response.status_code}")
-        return observations_from_events(response.json().get("events", []))
+        observations = observations_from_events(response.json().get("events", []))
+        for observation in observations:
+            if observation.approval_id:
+                self._escalations[observation.approval_id] = observation
+        return observations
+
+
+def _provider_of(health: dict) -> dict:
+    return health.get("provider") or {}
+
+
+def _protection_mode(health: dict) -> str:
+    return (health.get("protection") or {}).get("mode", "unknown")
+
+
+def run_header(target: str, agent: str, health: dict) -> str:
+    provider = _provider_of(health)
+    return (
+        f"target {target} · provider {provider.get('name', 'unknown')}/"
+        f"{provider.get('model', 'unknown')} · protection {_protection_mode(health)} "
+        f"· agent {agent}"
+    )
+
+
+def context_warnings(agent: str, health: dict) -> list[str]:
+    warnings = []
+    if _protection_mode(health) != "enforce":
+        warnings.append("warning: protection is not enforce; attacks are expected to get through")
+    if agent == "ollama" and _provider_of(health).get("name") != "ollama":
+        warnings.append(
+            "warning: the agent tier needs an Ollama model; "
+            f"the active provider is {_provider_of(health).get('name', 'unknown')}"
+        )
+    return warnings
 
 
 def _expected_text(scenario: Scenario) -> str:
@@ -213,7 +224,7 @@ def _observed_text(result: ScenarioResult) -> str:
 
 
 def render_table(rows: list[tuple[Scenario, ScenarioResult]]) -> str:
-    header = ("id", "name", "stage", "expected", "observed", "status", "ms")
+    header = ("id", "name", "stage", "expected", "observed", "status", "via", "ms")
     body = [
         (
             s.id,
@@ -222,6 +233,7 @@ def render_table(rows: list[tuple[Scenario, ScenarioResult]]) -> str:
             _expected_text(s),
             _observed_text(r),
             r.status.value,
+            r.via,
             f"{r.duration_ms:.0f}",
         )
         for s, r in rows
@@ -261,10 +273,13 @@ async def run_suite(args: argparse.Namespace) -> int:
         return 2
     async with httpx.AsyncClient(timeout=60.0) as http:
         try:
-            await http.get(f"{args.target.rstrip('/')}/health")
-        except httpx.HTTPError as exc:
+            health = (await http.get(f"{args.target.rstrip('/')}/health")).json()
+        except (httpx.HTTPError, ValueError) as exc:
             print(f"cannot reach control layer at {args.target}: {exc}", file=sys.stderr)
             return 2
+        print(run_header(args.target, args.agent, health))
+        for warning in context_warnings(args.agent, health):
+            print(warning, file=sys.stderr)
         executor = ScenarioExecutor(HttpScenarioClient(args.target, args.agent_url, http))
         rows = []
         warned = False

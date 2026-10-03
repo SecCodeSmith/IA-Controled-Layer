@@ -27,8 +27,6 @@ from demo_agent.schemas import (
 from demo_agent.session_store import SessionStore
 from demo_agent.settings import Settings, get_settings
 
-CORS_ORIGINS = ["http://localhost:5173"]
-
 
 def _bearer_token(authorization: str | None) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -62,7 +60,7 @@ def create_app(
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=CORS_ORIGINS,
+        allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

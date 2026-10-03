@@ -16,3 +16,4 @@ class DemoUser(BaseModel):
     region: str
     agent_id: str
     mcp_servers: list[str] = Field(default_factory=list)
+    api_key: str | None = Field(default=None, repr=False)

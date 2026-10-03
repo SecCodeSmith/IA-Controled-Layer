@@ -13,7 +13,9 @@ export interface AuditListItem {
   reason: string
   tokens?: number
   cost_usd?: number
-  proxy_latency_ms?: number
+  proxy_latency_ms?: number | null
+  upstream_latency_ms?: number | null
+  overhead_ms?: number | null
 }
 
 export interface AuditListResponse {
@@ -66,6 +68,7 @@ export interface AuditLatencyStages {
 export interface AuditLatency {
   proxy_ms: number
   upstream_ms: number
+  overhead_ms?: number | null
   stages: AuditLatencyStages
 }
 
@@ -84,5 +87,6 @@ export interface AuditDetail {
   tokens: AuditTokens
   cost_usd: number
   latency: AuditLatency
+  overhead_ms?: number | null
   provider: { name: string; model: string }
 }

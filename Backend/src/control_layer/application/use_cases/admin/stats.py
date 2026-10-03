@@ -57,6 +57,8 @@ class LatencyStats(BaseModel):
     proxy_p95_ms: float
     upstream_p50_ms: float
     upstream_p95_ms: float
+    overhead_p50_ms: float = 0.0
+    overhead_p95_ms: float = 0.0
 
 
 class PolicyStatusRef(BaseModel):
@@ -222,6 +224,8 @@ class StatsCalculator:
                 proxy_p95_ms=metrics.proxy.p95_ms,
                 upstream_p50_ms=metrics.upstream.p50_ms,
                 upstream_p95_ms=metrics.upstream.p95_ms,
+                overhead_p50_ms=metrics.overhead.p50_ms,
+                overhead_p95_ms=metrics.overhead.p95_ms,
             ),
             provider=provider_info,
             policy=PolicyStatusRef(
