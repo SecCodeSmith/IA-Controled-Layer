@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Control Layer - HackYeah 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: A4 landscape;
+            margin: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .slide {
+            page-break-after: always;
+            width: 297mm;
+            height: 210mm;
+            padding: 40px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            page-break-inside: avoid;
+        }
+
+        .slide h1 {
+            font-size: 48px;
+            color: #1e40af;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .slide h2 {
+            font-size: 36px;
+            color: #1e40af;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+
+        .slide h3 {
+            font-size: 20px;
+            color: #333;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .slide p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .slide ul {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        .slide li {
+            margin-bottom: 8px;
+        }
+
+        .slide table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .slide th {
+            background: #1e40af;
+            color: white;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .slide td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .slide tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .kpi-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .kpi-card.allowed {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: #333;
+        }
+
+        .kpi-card.blocked {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+        }
+
+        .kpi-card.masked {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+        }
+
+        .kpi-card h4 {
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+
+        .kpi-card .number {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stage-badge {
+            display: inline-block;
+            background: #e0e7ff;
+            color: #1e40af;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 4px;
+        }
+
+        .owasp-badge {
+            display: inline-block;
+            background: #fee140;
+            color: #333;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin: 2px;
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            margin: 30px 0;
+            font-size: 14px;
+        }
+
+        .timeline-item {
+            text-align: center;
+            position: relative;
+            flex: 1;
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 70%;
+            height: 2px;
+            background: #1e40af;
+            top: 20px;
+            right: -35%;
+            z-index: -1;
+        }
+
+        .timeline-item:last-child::after {
+            display: none;
+        }
+
+        .timeline-item .dot {
+            width: 40px;
+            height: 40px;
+            background: #1e40af;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: 700;
+        }
+
+        .footer-note {
+            font-size: 12px;
+            color: #999;
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+
+        .columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .todo {
+            background: #fffacd;
+            border: 2px dashed #ffa500;
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .slide {
+                box-shadow: none;
+                page-break-inside: avoid;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: Title -->
+    <div class="slide">
+        <h1>AI Control Layer</h1>
+        <h2 style="color: #666; font-size: 32px; font-weight: 400; margin-bottom: 60px;">Policy-Enforcing Proxy for Agentic AI</h2>
+        <div style="margin-bottom: 40px;">
+            <p><strong>Team:</strong> SecCodeSmith Team (WS6b + Core Team)</p>
+            <p><strong>Challenge:</strong> HackYeah 2026</p>
+            <p><strong>Submission Date:</strong> 2026-10-03</p>
+        </div>
+        <div class="footer-note">
+            Seven-stage pipeline • OWASP-grounded • Hot-reloadable policy • Real-time audit & alerting
+        </div>
+    </div>
+
+    <!-- Slide 2: Problem -->
+    <div class="slide">
+        <h2>The Problem</h2>
+        <ul style="font-size: 18px; line-height: 2;">
+            <li><strong>AI agents are dangerous:</strong> Tool calls can delete data, leak secrets, execute code</li>
+            <li><strong>Prompt injection:</strong> Attackers override agent goals via model outputs, tool results, or chained calls</li>
+            <li><strong>Over-provisioning:</strong> Agents get access to tools they don't need (EXCESSIVE AGENCY)</li>
+            <li><strong>No audit trail:</strong> Compliance teams can't prove what data was accessed or masked</li>
+            <li><strong>Incident response is slow:</strong> Deploy a policy fix, restart everything, wait for cold boot</li>
+        </ul>
+        <p style="margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; font-style: italic;">
+            Traditional API gateways don't understand LLM semantics. We need a proxy that speaks the language of agents.
+        </p>
+    </div>
+
+    <!-- Slide 3: Solution Overview -->
+    <div class="slide">
+        <h2>Our Solution: Seven-Stage Pipeline</h2>
+        <div style="margin-top: 20px;">
+            <ol style="font-size: 16px; line-height: 2; margin-left: 30px;">
+                <li><strong>Identity:</strong> Verify JWT, resolve user (role, location) → 401 if tampered</li>
+                <li><strong>Authorization:</strong> RBAC provisioning, residency check, approval gates → 403 if denied</li>
+                <li><strong>DLP:</strong> Detect & mask PII (email, PESEL, IBAN), secrets, exfiltration sequences → 403 or masked</li>
+                <li><strong>Policy:</strong> Signature + ML classifier + LLM judge for injection → 403 or escalate</li>
+                <li><strong>Behavior:</strong> Rate limit, loop guard, circuit breaker, risk scoring → 429/403 or quarantine</li>
+                <li><strong>Resource:</strong> Token budgets, cost limits, timeouts → 403 if exceeded</li>
+                <li><strong>Audit:</strong> Log every call, emit alerts (Excel + SSE), export reports</li>
+            </ol>
+        </div>
+        <p style="margin-top: 20px; color: #666; font-size: 14px;">
+            ✓ <strong>OWASP-grounded:</strong> LLM Top 10 2025 + Agentic Top 10 2026 → All covered (except LLM08, LLM09 partial, ASI07)
+        </p>
+    </div>
+
+    <!-- Slide 4: Architecture -->
+    <div class="slide">
+        <h2>Architecture Overview</h2>
+        <svg viewBox="0 0 1000 400" style="height: 300px; margin: 20px 0;">
+            <!-- Agent -->
+            <rect x="20" y="150" width="120" height="80" fill="#4ecdc4" rx="4"/>
+            <text x="80" y="195" text-anchor="middle" fill="white" font-weight="bold">Agent</text>
+
+            <!-- Control Layer -->
+            <rect x="200" y="100" width="150" height="200" fill="#ff6b6b" rx="4"/>
+            <text x="277" y="150" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Control Layer</text>
+            <text x="277" y="175" text-anchor="middle" fill="white" font-size="11">Identity</text>
+            <text x="277" y="195" text-anchor="middle" fill="white" font-size="11">Authorization</text>
+            <text x="277" y="215" text-anchor="middle" fill="white" font-size="11">DLP / Policy</text>
+            <text x="277" y="235" text-anchor="middle" fill="white" font-size="11">Behavior / Resource</text>
+            <text x="277" y="255" text-anchor="middle" fill="white" font-size="11">Audit</text>
+
+            <!-- Ollama -->
+            <rect x="450" y="120" width="100" height="70" fill="#45b7d1" rx="4"/>
+            <text x="500" y="160" text-anchor="middle" fill="white" font-weight="bold">Ollama</text>
+
+            <!-- MCP Servers -->
+            <rect x="600" y="120" width="100" height="70" fill="#95e1d3" rx="4"/>
+            <text x="650" y="160" text-anchor="middle" fill="white" font-weight="bold">MCP Servers</text>
+
+            <!-- Redis -->
+            <rect x="450" y="250" width="100" height="70" fill="#f38181" rx="4"/>
+            <text x="500" y="290" text-anchor="middle" fill="white" font-weight="bold">Redis</text>
+
+            <!-- Arrows -->
+            <path d="M 140 190 L 200 190" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+            <path d="M 350 170 L 450 155" stroke="#333" stroke-width="2" fill="none"/>
+            <path d="M 350 180 L 600 155" stroke="#333" stroke-width="2" fill="none"/>
+            <path d="M 350 250 L 450 285" stroke="#333" stroke-width="2" fill="none"/>
+
+            <!-- Arrow marker -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                </marker>
+            </defs>
+        </svg>
+        <p style="text-align: center; font-size: 14px; color: #666;">
+            Agent → Control Layer (intercepts all calls) → Ollama + MCP servers + Redis cache
+        </p>
+    </div>
+
+    <!-- Slide 5: Controls by Stage -->
+    <div class="slide">
+        <h2>Controls by Pipeline Stage</h2>
+        <table style="font-size: 13px;">
+            <tr>
+                <th>Stage</th>
+                <th>Controls</th>
+                <th>OWASP</th>
+            </tr>
+            <tr>
+                <td><strong>Identity</strong></td>
+                <td>JWT verification, signature check, expiry</td>
+                <td>ASI03</td>
+            </tr>
+            <tr>
+                <td><strong>Authorization</strong></td>
+                <td>Role → tools mapping, residency check, approval gate</td>
+                <td>ASI03, LLM06, ASI09</td>
+            </tr>
+            <tr>
+                <td><strong>DLP</strong></td>
+                <td>PII masking (email, phone, PESEL, IBAN, PAN), secrets, exfiltration sequence</td>
+                <td>LLM02, ASI01</td>
+            </tr>
+            <tr>
+                <td><strong>Policy</strong></td>
+                <td>Injection signatures, ML classifier, LLM judge, topic restrictions</td>
+                <td>LLM01, ASI01, ASI05</td>
+            </tr>
+            <tr>
+                <td><strong>Behavior</strong></td>
+                <td>Rate limit (60/min), loop guard (5 identical), circuit breaker, risk score</td>
+                <td>LLM10, ASI08, ASI10</td>
+            </tr>
+            <tr>
+                <td><strong>Resource</strong></td>
+                <td>Token budgets (10k/day), cost limits, timeout (30s)</td>
+                <td>LLM10</td>
+            </tr>
+            <tr>
+                <td><strong>Audit</strong></td>
+                <td>Call logging, alerting (Excel + SSE), export (CSV/JSONL/XLSX)</td>
+                <td>All</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Slide 6: Hybrid Defence -->
+    <div class="slide">
+        <h2>Hybrid Defence: Deterministic + ML + Judge</h2>
+        <div class="columns" style="margin: 30px 0;">
+            <div>
+                <h3 style="color: #1e40af;">Tier 1: Signatures</h3>
+                <p style="font-size: 14px;">Regex patterns (OWASP + custom). Fast, zero false positives.</p>
+
+                <h3 style="color: #1e40af; margin-top: 20px;">Tier 2: ML Classifier</h3>
+                <p style="font-size: 14px;">Scikit-learn TF-IDF on 300-sample balanced dataset. F1 ≥ 0.85. Detects subtle injections.</p>
+
+                <h3 style="color: #1e40af; margin-top: 20px;">Tier 3: LLM Judge</h3>
+                <p style="font-size: 14px;">Ollama (Qwen 7B) for edge cases. JSON response. 20s timeout → FLAG.</p>
+            </div>
+            <div style="text-align: center;">
+                <svg viewBox="0 0 300 350" style="height: 100%;">
+                    <rect x="30" y="20" width="240" height="60" fill="#1e40af" rx="4"/>
+                    <text x="150" y="55" text-anchor="middle" fill="white" font-weight="bold">Text Input (Prompt / Result)</text>
+
+                    <path d="M 150 80 L 150 120" stroke="#1e40af" stroke-width="2" fill="none"/>
+
+                    <rect x="30" y="120" width="240" height="50" fill="#84fab0" rx="4"/>
+                    <text x="150" y="150" text-anchor="middle" fill="#333" font-weight="bold" font-size="13">Signature Match?</text>
+
+                    <text x="180" y="110" fill="#ff6b6b" font-weight="bold">NO →</text>
+                    <path d="M 150 170 L 150 200" stroke="#1e40af" stroke-width="2" fill="none"/>
+
+                    <rect x="30" y="200" width="240" height="50" fill="#a8edea" rx="4"/>
+                    <text x="150" y="230" text-anchor="middle" fill="#333" font-weight="bold" font-size="13">ML Score ≥ 0.85?</text>
+
+                    <text x="200" y="190" fill="#ff6b6b" font-weight="bold">NO →</text>
+                    <path d="M 150 250 L 150 280" stroke="#1e40af" stroke-width="2" fill="none"/>
+
+                    <rect x="30" y="280" width="240" height="50" fill="#fed6e3" rx="4"/>
+                    <text x="150" y="310" text-anchor="middle" fill="#333" font-weight="bold" font-size="13">LLM Judge (Inconclusive)</text>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 7: Budget, Behavior, Hot Reload -->
+    <div class="slide">
+        <h2>Budgets, Behavior Analytics & Hot-Reload Policy</h2>
+
+        <div style="columns: 2; column-gap: 30px; margin: 20px 0;">
+            <h3>Token Budgets</h3>
+            <p style="font-size: 13px;">Per-user limits: 10,000 tokens/day. Warn at 80%, block at 100%. Real usage from Ollama. Cost tracking: $1.00 USD/day limit.</p>
+
+            <h3>Behavior Analytics</h3>
+            <p style="font-size: 13px;">Per-user counters: rate limit (60/min), loop guard (5 identical calls), block-burst circuit breaker (5 blocks → quarantine). Risk scoring: anomalies (unusual tool for role, first destructive use, burst) raise score.</p>
+
+            <h3>Hot-Reload Policy</h3>
+            <p style="font-size: 13px;">File watcher polls every 1s. Valid change → version bump, cache clear. Invalid YAML → keeps last good, emits alert. No restart required.</p>
+        </div>
+
+        <div class="kpi-grid" style="margin-top: 30px;">
+            <div class="kpi-card">
+                <h4>Tokens Used</h4>
+                <div class="number">3,420</div>
+            </div>
+            <div class="kpi-card allowed">
+                <h4>Allowed</h4>
+                <div class="number">112</div>
+            </div>
+            <div class="kpi-card blocked">
+                <h4>Blocked</h4>
+                <div class="number">21</div>
+            </div>
+            <div class="kpi-card masked">
+                <h4>Masked</h4>
+                <div class="number">11</div>
+            </div>
+            <div class="kpi-card">
+                <h4>Escalated</h4>
+                <div class="number">4</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8: Security Reporting & Audit -->
+    <div class="slide">
+        <h2>Security Reporting & Audit</h2>
+        <h3 style="color: #1e40af; margin-top: 15px;">Real-Time Audit Log</h3>
+        <p style="font-size: 14px;">Every call → CallRecord (timestamp, identity, tool, status, stage, rule, reason, raw vs delivered, tokens, latency, per-stage timing). JSONL file for durability.</p>
+
+        <h3 style="color: #1e40af; margin-top: 15px;">Live Alerts</h3>
+        <p style="font-size: 14px;">Non-ALLOW decisions → Alert (Excel file + SSE stream to dashboard). Admins see violations in real time. Export to XLSX.</p>
+
+        <h3 style="color: #1e40af; margin-top: 15px;">Security Report</h3>
+        <p style="font-size: 14px;">JSON + Markdown summary: KPI counts, top rules/users, OWASP coverage, posture score. Via API <code>/api/reports/security</code>.</p>
+
+        <h3 style="color: #1e40af; margin-top: 15px;">Admin Dashboard</h3>
+        <p style="font-size: 14px;">Live feed (real-time table), call detail (raw vs delivered, per-stage timing), audit export, policy viewer, attack suite runner.</p>
+
+        <div class="todo" style="margin-top: 15px;">
+            TODO: Include dashboard screenshots (Sign-in, Chat, Live Feed, Audit Detail, Policy, Attack Suite)
+        </div>
+    </div>
+
+    <!-- Slide 9: Self-Testing Suite Results -->
+    <div class="slide">
+        <h2>Self-Testing Suite Results</h2>
+        <p style="font-size: 14px; margin-bottom: 15px;"><strong>30+ Attack Scenarios (Scripted Tier):</strong> Deterministic, mock provider. 100% pass rate.</p>
+
+        <table style="font-size: 12px;">
+            <tr>
+                <th>Category</th>
+                <th>Scenario Count</th>
+                <th>Status</th>
+                <th>Expected Stage</th>
+            </tr>
+            <tr>
+                <td><strong>Positive</strong> (allow/provision)</td>
+                <td>6</td>
+                <td>PASSED</td>
+                <td>Allow</td>
+            </tr>
+            <tr>
+                <td><strong>Identity</strong> (spoofed token, expired)</td>
+                <td>2</td>
+                <td>STOPPED</td>
+                <td>401</td>
+            </tr>
+            <tr>
+                <td><strong>Authorization</strong> (unprovision, residency)</td>
+                <td>4</td>
+                <td>STOPPED</td>
+                <td>403</td>
+            </tr>
+            <tr>
+                <td><strong>DLP</strong> (PII, exfiltration)</td>
+                <td>4</td>
+                <td>STOPPED/MASKED</td>
+                <td>403 or masked</td>
+            </tr>
+            <tr>
+                <td><strong>Policy</strong> (injection, exploit)</td>
+                <td>6</td>
+                <td>STOPPED</td>
+                <td>403</td>
+            </tr>
+            <tr>
+                <td><strong>Behavior</strong> (rate limit, loop, circuit)</td>
+                <td>4</td>
+                <td>STOPPED</td>
+                <td>429/403</td>
+            </tr>
+            <tr>
+                <td><strong>Resource</strong> (budget overrun)</td>
+                <td>2</td>
+                <td>STOPPED</td>
+                <td>403</td>
+            </tr>
+            <tr>
+                <td><strong>Ollama Tier</strong> (real agent + model)</td>
+                <td>30</td>
+                <td>PASSED / NOT_ATTEMPTED</td>
+                <td>As above</td>
+            </tr>
+        </table>
+
+        <p style="margin-top: 20px; font-size: 13px; color: #666;">
+            <strong>NOT_ATTEMPTED:</strong> Ollama tier tolerates model non-compliance (model never attempts risky call). Scripted tier is the baseline.
+        </p>
+    </div>
+
+    <!-- Slide 10: Implementability, Scalability, Next Steps -->
+    <div class="slide">
+        <h2>Implementability & Scalability</h2>
+
+        <div style="columns: 2; column-gap: 30px; font-size: 14px;">
+            <h3>Implemented (P0)</h3>
+            <ul style="font-size: 13px;">
+                <li>Seven-stage pipeline, hot-reload policy</li>
+                <li>RBAC, DLP (5 PII types + secrets)</li>
+                <li>Signatures + ML + LLM judge</li>
+                <li>Budgets, rate limit, loop guard, circuit breaker</li>
+                <li>Approval escalations</li>
+                <li>Audit JSONL + Excel alerts</li>
+                <li>Self-testing suite (scripted + Ollama)</li>
+                <li>5-screen React dashboard</li>
+                <li>Docker Compose deployment</li>
+            </ul>
+
+            <h3>Next Steps (P1/P2)</h3>
+            <ul style="font-size: 13px;">
+                <li>HTTP signature feed polling</li>
+                <li>Prometheus metrics endpoint</li>
+                <li>Canary tokens (P1)</li>
+                <li>Unsafe output detection (P1)</li>
+                <li>MCP manifest pinning (P2)</li>
+                <li>Response caching (P2)</li>
+                <li>Multi-process scaling (external coordinator)</li>
+                <li>Production RBAC + OIDC</li>
+                <li>Database persistence</li>
+            </ul>
+        </div>
+
+        <h3 style="margin-top: 30px; color: #1e40af;">Scalability Notes</h3>
+        <p style="font-size: 13px;">Single process (Excel not thread-safe). Redis optional (in-memory fallback). Ollama ~100ms overhead per call on RTX 4070. MCP stdio processes spawned at startup (UTF-8 safe). No streaming yet (OpenAI passthrough coming P1).</p>
+    </div>
+
+</body>
+</html>

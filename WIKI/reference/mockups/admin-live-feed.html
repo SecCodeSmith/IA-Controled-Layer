@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Admin dashboard – Control Layer</title>
+<script src="6cc7b315-5319-45a8-ac0a-f51eb2f026f0"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1iIq129k.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1isq129k.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1iAq129k.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1iEq129k.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("d2ff98f7-2b44-4c20-bd12-726a39367646") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwl1FgtIU.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwlRFgtIU.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwl9FgtIU.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwl5FgtIU.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwlBFgg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxTKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxaKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxdKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxRKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxQKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("64e476f2-65f4-4748-a366-78892122eb63") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxTKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxaKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxdKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxRKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxQKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("64e476f2-65f4-4748-a366-78892122eb63") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxTKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxaKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxdKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxRKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexsans/v23/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxQKYbSAYZgVNW7Iw.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("64e476f2-65f4-4748-a366-78892122eb63") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<style>
+body{margin:0}
+a{color:#2348B8}a:hover{color:#16307D}
+</style>
+</helmet>
+<div style="min-height: 1240px; box-sizing: border-box; background: #F4F5F2; color: #16181B; font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: #16181B; color: #FFFFFF">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="24" height="24" sc-camel-view-box="0 0 24 24" fill="none" stroke="#8FB3FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6l8-3z"></path><path d="M8.5 12l2.5 2.5 4.5-5"></path></svg>
+        <span style="font-size: 17px; font-weight: 600">Control Layer</span>
+        <span style="font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #3A3E44; color: #C9CDD3">Admin</span>
+      </div>
+      <nav style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px">
+        <a href="Dashboard.dc.html" style="color: #FFFFFF; font-weight: 600; text-decoration: none; border-bottom: 2px solid #8FB3FF; padding-bottom: 4px">Live feed</a>
+        <a href="CallDetail.dc.html" style="color: #C9CDD3; text-decoration: none; padding-bottom: 4px">Audit log</a>
+        <a href="Policy.dc.html" style="color: #C9CDD3; text-decoration: none; padding-bottom: 4px">Policy</a>
+      </nav>
+    </div>
+    <button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid #5A5F66; background: transparent; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px">
+      <svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>
+      Reset demo
+    </button>
+  </header>
+
+  <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px">
+      <sc-for list="{{counters}}" as="c" hint-placeholder-count="5">
+        <div style="background: #FFFFFF; border: 1px solid #DADDD6; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 14px; color: #5A5F66">{{c.label}}</span>
+          <span style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em; color: {{c.fg}}">{{c.value}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <section style="flex: 999 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #DADDD6; border-radius: 10px; display: flex; flex-direction: column">
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid #DADDD6">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 600">Live feed</h2>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #17613F"><span style="width: 8px; height: 8px; border-radius: 50%; background: #17613F"></span>Live</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <label for="f-user" style="font-size: 12px; color: #5A5F66">User</label>
+              <sc-raw-select id="f-user" style="min-height: 40px; padding: 0 10px; border: 1px solid #DADDD6; border-radius: 6px; font: inherit; font-size: 14px; background: #FFFFFF"><option>All users</option><option>Anna Kowalska</option><option>Marek Nowak</option></sc-raw-select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <label for="f-role" style="font-size: 12px; color: #5A5F66">Role</label>
+              <sc-raw-select id="f-role" style="min-height: 40px; padding: 0 10px; border: 1px solid #DADDD6; border-radius: 6px; font: inherit; font-size: 14px; background: #FFFFFF"><option>All roles</option><option>Developer</option><option>HR</option></sc-raw-select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <label for="f-status" style="font-size: 12px; color: #5A5F66">Status</label>
+              <sc-raw-select id="f-status" style="min-height: 40px; padding: 0 10px; border: 1px solid #DADDD6; border-radius: 6px; font: inherit; font-size: 14px; background: #FFFFFF"><option>All statuses</option><option>Blocked</option><option>Masked</option><option>Escalated</option><option>Allowed</option></sc-raw-select>
+            </div>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <sc-raw-table style="width: 100%; min-width: 820px; border-collapse: collapse; font-size: 14px">
+            <sc-raw-thead>
+              <sc-raw-tr style="text-align: left; color: #5A5F66; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em">
+                <sc-raw-th style="padding: 12px 24px; font-weight: 500">Time</sc-raw-th>
+                <sc-raw-th style="padding: 12px 12px; font-weight: 500">User · role</sc-raw-th>
+                <sc-raw-th style="padding: 12px 12px; font-weight: 500">Tool call</sc-raw-th>
+                <sc-raw-th style="padding: 12px 12px; font-weight: 500">Status</sc-raw-th>
+                <sc-raw-th style="padding: 12px 24px 12px 12px; font-weight: 500">Reason</sc-raw-th>
+              </sc-raw-tr>
+            </sc-raw-thead>
+            <sc-raw-tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+                <sc-raw-tr style="border-top: 1px solid #ECEDEA">
+                  <sc-raw-td style="padding: 12px 24px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: #5A5F66; white-space: nowrap">{{r.time}}</sc-raw-td>
+                  <sc-raw-td style="padding: 12px 12px; white-space: nowrap">{{r.user}}</sc-raw-td>
+                  <sc-raw-td style="padding: 12px 12px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px">{{r.tool}}</sc-raw-td>
+                  <sc-raw-td style="padding: 12px 12px"><span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: {{r.bg}}; color: {{r.fg}}; white-space: nowrap">{{r.status}}</span></sc-raw-td>
+                  <sc-raw-td style="padding: 12px 24px 12px 12px; color: #5A5F66">{{r.reason}}</sc-raw-td>
+                </sc-raw-tr>
+              </sc-for>
+            </sc-raw-tbody>
+          </sc-raw-table>
+        </div>
+      </section>
+
+      <section style="flex: 1 1 360px; background: #FFFFFF; border: 1px solid #DADDD6; border-radius: 10px; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 600">Attack suite · run #3</h2>
+          <span style="font-size: 13px; color: #5A5F66">8 of 10 scenarios complete</span>
+        </div>
+        <div style="height: 8px; border-radius: 4px; background: #ECEDEA"><div style="width: 80%; height: 8px; border-radius: 4px; background: {{accent}}"></div></div>
+        <div style="display: flex; flex-direction: column">
+          <sc-for list="{{attacks}}" as="a" hint-placeholder-count="10">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #ECEDEA">
+              <span style="font-size: 14px; line-height: 1.4">{{a.name}}</span>
+              <span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: {{a.bg}}; color: {{a.fg}}; white-space: nowrap">{{a.status}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background: #F4F5F2; border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 15px; font-weight: 600">8 attacks stopped · 0 succeeded</span>
+          <span style="font-size: 13px; color: #5A5F66">1 running · 1 pending</span>
+        </div>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; color: #5A5F66">$ python attack_suite.py --target localhost:8080</span>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2348B8&quot;,&quot;options&quot;:[&quot;#2348B8&quot;,&quot;#17613F&quot;,&quot;#16181B&quot;]},&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1240}}">
+class Component extends DCLogic {
+  renderVals() {
+    const S = {
+      ALLOWED: { bg: '#E2F0E8', fg: '#17613F' },
+      BLOCKED: { bg: '#FADFD7', fg: '#A3301A' },
+      MASKED: { bg: '#F8ECCF', fg: '#7A4E00' },
+      ESCALATED: { bg: '#E3E9F8', fg: '#2348B8' },
+      STOPPED: { bg: '#E2F0E8', fg: '#17613F' },
+      RUNNING: { bg: '#E3E9F8', fg: '#2348B8' },
+      PENDING: { bg: '#ECEDEA', fg: '#5A5F66' }
+    };
+    const rows = [
+      ['10:42:18', 'Anna K. · Developer', 'github.delete_branch', 'ESCALATED', 'Destructive action, waiting for approval'],
+      ['10:42:05', 'attack-suite · Developer', 'mail.send(to=external)', 'BLOCKED', 'Possible exfiltration after reading external doc'],
+      ['10:41:52', 'attack-suite · Developer', 'hr_db.query', 'BLOCKED', 'Tool not provisioned for role'],
+      ['10:41:40', 'Anna K. · Developer', 'logs.query', 'MASKED', '3 emails masked'],
+      ['10:41:33', 'Anna K. · Developer', 'ci.get_run', 'ALLOWED', 'Matches roles.developer'],
+      ['10:41:12', 'attack-suite · Developer', 'llm.complete ×40', 'BLOCKED', 'Token budget exceeded'],
+      ['10:40:58', 'Marek N. · HR', 'hr_db.query', 'MASKED', 'PESEL numbers masked'],
+      ['10:40:41', 'John S. · Developer (US)', 'eu_customers.read', 'BLOCKED', 'Data residency: EU-only'],
+      ['10:40:20', 'attack-suite · Developer', 'github.push(main)', 'BLOCKED', 'Direct push to main not allowed'],
+      ['10:40:02', 'Marek N. · HR', 'calendar.list', 'ALLOWED', 'Matches roles.hr']
+    ].map(([time, user, tool, status, reason]) => ({ time, user, tool, status, reason, ...S[status] }));
+    const attacks = [
+      ['Developer reads HR database', 'STOPPED'],
+      ['Direct push to main', 'STOPPED'],
+      ['Delete production branch', 'STOPPED'],
+      ['PII in log response', 'STOPPED'],
+      ['PESEL in HR export', 'STOPPED'],
+      ['US user reads EU-only data', 'STOPPED'],
+      ['Token budget overrun', 'STOPPED'],
+      ['Spoofed role in request', 'STOPPED'],
+      ['Prompt injection via README', 'RUNNING'],
+      ['Exfiltration to external email', 'PENDING']
+    ].map(([name, status]) => ({ name, status, ...S[status] }));
+    return {
+      accent: this.props.accent ?? '#2348B8',
+      counters: [
+        { label: 'Total calls', value: '148', fg: '#16181B' },
+        { label: 'Allowed', value: '112', fg: '#17613F' },
+        { label: 'Blocked', value: '21', fg: '#A3301A' },
+        { label: 'Masked', value: '11', fg: '#7A4E00' },
+        { label: 'Escalated', value: '4', fg: '#2348B8' }
+      ],
+      rows,
+      attacks
+    };
+  }
+}
+</script>
+
+
+</body></html>

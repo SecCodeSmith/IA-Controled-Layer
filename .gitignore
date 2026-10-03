@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+dist/
+build/
+
+# Generated runtime data
+Backend/alerts/*.xlsx
+Backend/audit/*.jsonl
+Backend/src/control_layer/ml/artifacts/*.joblib
+attack_report.json
+presentation/*.pdf
+
+# Node
+node_modules/
+Frontent/dist/
+Frontent/coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

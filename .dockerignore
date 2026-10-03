@@ -1,0 +1,79 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE and editors
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+*~
+.DS_Store
+.env.local
+.env.*.local
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.tox/
+.env
+
+# Node
+node_modules/
+npm-debug.log
+npm-error.log
+yarn-error.log
+package-lock.json.bak
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+
+# Runtime
+*.log
+logs/
+*.sqlite
+*.db
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Project specific
+alerts/
+audit/
+.env
+!.env.example
+*.xlsx
+*.jsonl
+presentation/slides.pdf

@@ -1,0 +1,88 @@
+servers:
+  - name: github
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.github"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      list_branches: { tags: [] }
+      get_readme: { tags: [read_external] }
+      delete_branch: { tags: [destructive] }
+      push_main: { tags: [destructive] }
+
+  - name: ci
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.ci"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      get_run: { tags: [] }
+      list_pipelines: { tags: [] }
+
+  - name: logs-db
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.logs_db"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      query: { tags: [] }
+
+  - name: jira
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.jira"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      search: { tags: [] }
+
+  - name: hr-db
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.hr_db"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      find_approver: { tags: [] }
+      get_employee: { tags: [] }
+      query: { tags: [] }
+
+  - name: calendar
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.calendar"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      list: { tags: [] }
+
+  - name: mail
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.mail"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      send: { tags: [send_external] }
+
+  - name: payments
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.payments"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      get_balance: { tags: [] }
+      transfer: { tags: [destructive, financial] }
+
+  - name: eu-customers
+    transport: stdio
+    command: python
+    args: ["-m", "demo.mcp.eu_customers"]
+    cwd: ".."
+    env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
+    tools:
+      read: { tags: [], data_region: eu_customers }

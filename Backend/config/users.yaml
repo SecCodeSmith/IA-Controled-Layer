@@ -1,0 +1,36 @@
+users:
+  - sub: anna.kowalska
+    name: Anna Kowalska
+    initials: AK
+    role: developer
+    location: "Krakow, PL"
+    region: PL
+    agent_id: agent-anna-dev-7f3a
+    mcp_servers: [github, ci, logs-db, jira]
+
+  - sub: marek.nowak
+    name: Marek Nowak
+    initials: MN
+    role: hr
+    location: "Warsaw, PL"
+    region: PL
+    agent_id: agent-marek-hr-3c91
+    mcp_servers: [hr-db, calendar, mail]
+
+  - sub: john.smith
+    name: John Smith
+    initials: JS
+    role: developer
+    location: "New York, US"
+    region: US
+    agent_id: agent-john-dev-9b2e
+    mcp_servers: [github, ci, logs-db, jira]
+
+  - sub: ewa.zielinska
+    name: Ewa Zielinska
+    initials: EZ
+    role: finance
+    location: "Warsaw, PL"
+    region: PL
+    agent_id: agent-ewa-fin-5d6f
+    mcp_servers: [payments, calendar]

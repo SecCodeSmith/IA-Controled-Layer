@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: control-layer-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  control-layer:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    container_name: control-layer-api
+    ports:
+      - "8080:8080"
+    environment:
+      # Load from .env file
+      CTRL_MODEL_PROVIDER: ${CTRL_MODEL_PROVIDER:-auto}
+      CTRL_OLLAMA_BASE_URL: ${CTRL_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      CTRL_OLLAMA_MODEL: ${CTRL_OLLAMA_MODEL:-qwen2.5:7b}
+      CTRL_JUDGE_MODEL: ${CTRL_JUDGE_MODEL:-qwen2.5:7b}
+      CTRL_REDIS_URL: redis://redis:6379/0
+      CTRL_POLICY_FILE: ${CTRL_POLICY_FILE:-config/policy.yaml}
+      CTRL_MCP_SERVERS_FILE: ${CTRL_MCP_SERVERS_FILE:-config/mcp_servers.yaml}
+      CTRL_SIGNATURES_FILE: ${CTRL_SIGNATURES_FILE:-config/attack_signatures.yaml}
+      CTRL_USERS_FILE: ${CTRL_USERS_FILE:-config/users.yaml}
+      CTRL_ALERTS_XLSX: ${CTRL_ALERTS_XLSX:-alerts/alerts.xlsx}
+      CTRL_AUDIT_JSONL: ${CTRL_AUDIT_JSONL:-audit/calls.jsonl}
+      CTRL_ML_MODEL_PATH: ${CTRL_ML_MODEL_PATH:-src/control_layer/ml/artifacts/prompt_injection_classifier.joblib}
+      CTRL_JWT_SECRET: ${CTRL_JWT_SECRET:-dev-secret-change-me}
+      CTRL_ADMIN_TOKEN: ${CTRL_ADMIN_TOKEN:-admin-dev-token}
+      CTRL_CORS_ORIGINS: ${CTRL_CORS_ORIGINS:-http://localhost:5173}
+      CTRL_PORT: ${CTRL_PORT:-8080}
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+    volumes:
+      - ./Backend/config:/app/Backend/config:ro
+      - ./Backend/alerts:/app/Backend/alerts
+      - ./Backend/audit:/app/Backend/audit
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  demo-agent:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    container_name: control-layer-demo-agent
+    ports:
+      - "8090:8090"
+    environment:
+      AGENT_CONTROL_LAYER_URL: http://control-layer:8080
+      AGENT_PORT: ${AGENT_PORT:-8090}
+      CTRL_OLLAMA_BASE_URL: ${CTRL_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      CTRL_OLLAMA_MODEL: ${CTRL_OLLAMA_MODEL:-qwen2.5:7b}
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+    command: python -m uvicorn demo_agent.main:app --host 0.0.0.0 --port 8090
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: Frontent
+      dockerfile: Dockerfile
+      args:
+        VITE_CONTROL_LAYER_URL: ${VITE_CONTROL_LAYER_URL:-http://localhost:8080}
+        VITE_AGENT_URL: ${VITE_AGENT_URL:-http://localhost:8090}
+        VITE_ADMIN_TOKEN: ${VITE_ADMIN_TOKEN:-admin-dev-token}
+    container_name: control-layer-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - control-layer
+
+volumes:
+  redis-data:
+
+networks:
+  default:
+    name: control-layer-network

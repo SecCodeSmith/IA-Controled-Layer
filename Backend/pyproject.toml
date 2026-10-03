@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "control-layer"
+version = "0.1.0"
+description = "AI Control Layer - policy-enforcing proxy between agents, models and MCP tools"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+dependencies = [
+    "fastapi>=0.136",
+    "uvicorn[standard]>=0.46",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.14",
+    "httpx>=0.28",
+    "redis>=8.0",
+    "openpyxl>=3.1",
+    "scikit-learn>=1.8",
+    "joblib>=1.5",
+    "mcp>=1.28",
+    "sse-starlette>=3.4",
+    "PyYAML>=6.0",
+    "python-multipart>=0.0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.4",
+    "pytest-cov>=7.1",
+    "fakeredis>=2.36",
+    "ruff>=0.8",
+]
+
+[project.scripts]
+control-layer = "control_layer.presentation.main:run"
+control-layer-train-ml = "control_layer.ml.train:main"
+demo-agent = "demo_agent.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/control_layer", "src/demo_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
+markers = [
+    "integration: end-to-end tests against the running application",
+    "ollama: requires a running Ollama with the configured model",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

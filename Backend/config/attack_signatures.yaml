@@ -1,0 +1,353 @@
+version: 1
+updated_at: "2026-10-03"
+signatures:
+  - id: SIG-PI-001
+    title: Ignore previous instructions
+    pattern: 'ignore (all |any )?(the )?(previous|prior|above) instructions'
+    categories: [prompt_injection]
+    severity: high
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-PI-002
+    title: Disregard prior rules or constraints
+    pattern: 'disregard (all |any )?(the )?(prior|previous|above) (rules|constraints|instructions)'
+    categories: [prompt_injection]
+    severity: high
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-PI-003
+    title: Forget your training or instructions
+    pattern: 'forget (all |your |every )?(previous |prior )?(instructions|rules|training|constraints)'
+    categories: [prompt_injection]
+    severity: high
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-PI-004
+    title: Role override persona switch
+    pattern: 'you are now (a |an )?[a-z0-9 _-]{0,40}(assistant|ai|model|bot)'
+    categories: [prompt_injection, jailbreak]
+    severity: medium
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-PI-005
+    title: Developer mode activation phrase
+    pattern: 'developer mode (is |has been )?(enabled|activated|on)'
+    categories: [prompt_injection, jailbreak]
+    severity: high
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-JB-001
+    title: DAN style jailbreak persona
+    pattern: '\bdan\b.{0,40}(mode|jailbreak|do anything now)'
+    categories: [jailbreak]
+    severity: high
+    reference: "Known community jailbreak prompt (DAN)"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-JB-002
+    title: Do anything now jailbreak phrase
+    pattern: 'do anything now'
+    categories: [jailbreak]
+    severity: high
+    reference: "Known community jailbreak prompt (DAN)"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-JB-003
+    title: Pretend to have no restrictions
+    pattern: '(pretend|act) (that )?you (are|have) (no|zero) (restrictions|rules|limitations|filters)'
+    categories: [jailbreak]
+    severity: high
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-JB-004
+    title: Unrestricted uncensored mode request
+    pattern: 'respond (as|in) an? (unrestricted|uncensored|unfiltered) (ai|mode|way)'
+    categories: [jailbreak]
+    severity: medium
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-SPE-001
+    title: Repeat or print system prompt
+    pattern: '(repeat|print|show|reveal|output) (your |the )?system prompt'
+    categories: [system_prompt_exfiltration]
+    severity: high
+    reference: "OWASP LLM07:2025 System Prompt Leakage"
+    owasp: [LLM07]
+    points: [prompt]
+
+  - id: SIG-SPE-002
+    title: Reveal hidden or secret instructions
+    pattern: '(reveal|disclose) (your |the )?(hidden |secret )?(instructions|prompt)'
+    categories: [system_prompt_exfiltration]
+    severity: high
+    reference: "OWASP LLM07:2025 System Prompt Leakage"
+    owasp: [LLM07]
+    points: [prompt]
+
+  - id: SIG-SPE-003
+    title: Ask what the instructions were
+    pattern: 'what (are|were) you(r)? (told|instructed|given) (before|above|at the start)'
+    categories: [system_prompt_exfiltration]
+    severity: medium
+    reference: "OWASP LLM07:2025 System Prompt Leakage"
+    owasp: [LLM07]
+    points: [prompt]
+
+  - id: SIG-II-001
+    title: AI assistant marker embedded in a document
+    pattern: 'ai assistant,?\s+when you read this'
+    categories: [prompt_injection]
+    severity: critical
+    reference: "OWASP FinBot indirect injection via documents"
+    owasp: [LLM01, ASI01, ASI06]
+    points: [tool_result, response]
+
+  - id: SIG-II-002
+    title: Note addressed to the language model
+    pattern: 'note to (the )?(ai|language model|llm|assistant)\s*:'
+    categories: [prompt_injection]
+    severity: high
+    reference: "OWASP FinBot indirect injection via documents"
+    owasp: [LLM01, ASI01, ASI06]
+    points: [tool_result, response]
+
+  - id: SIG-II-003
+    title: Fake system tag injected in document content
+    pattern: '\[?system\]?\s*:\s*(ignore|override|you are)'
+    categories: [prompt_injection]
+    severity: critical
+    reference: "OWASP FinBot indirect injection via documents"
+    owasp: [LLM01, ASI01, ASI06]
+    points: [tool_result, response]
+
+  - id: SIG-EXF-001
+    title: Send data to an external address
+    pattern: 'send (the |your |all )?(data|database|records|file|report)s? to [\w.+-]+@[\w.-]+'
+    categories: [exfiltration]
+    severity: critical
+    reference: "OWASP LLM02:2025 Sensitive Information Disclosure"
+    owasp: [LLM02, ASI01]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-EXF-002
+    title: Upload data to pastebin style sink
+    pattern: 'upload .{0,60}to pastebin'
+    categories: [exfiltration]
+    severity: high
+    reference: "OWASP LLM02:2025 Sensitive Information Disclosure"
+    owasp: [LLM02, ASI01]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-EXF-003
+    title: Exfiltrate secrets or credentials phrase
+    pattern: 'exfiltrate (the )?(credentials|secrets|keys|database|data)'
+    categories: [exfiltration]
+    severity: critical
+    reference: "OWASP LLM02:2025 Sensitive Information Disclosure"
+    owasp: [LLM02, ASI01]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-EXF-004
+    title: Post captured data to a webhook URL
+    pattern: 'post .{0,60}to https?://'
+    categories: [exfiltration]
+    severity: high
+    reference: "OWASP LLM02:2025 Sensitive Information Disclosure"
+    owasp: [LLM02, ASI01]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-CE-001
+    title: os.system shell invocation
+    pattern: 'os\.system\('
+    categories: [code_exec]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-CE-002
+    title: subprocess invocation
+    pattern: 'subprocess\.(run|call|popen|check_output)\('
+    categories: [code_exec]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-CE-003
+    title: eval or exec of dynamic code
+    pattern: '\b(eval|exec)\('
+    categories: [code_exec]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-CE-004
+    title: Dynamic module import
+    pattern: '__import__\('
+    categories: [code_exec]
+    severity: high
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-CE-005
+    title: Curl piped directly into a shell
+    pattern: 'curl .{0,80}\|\s*(sh|bash)\b'
+    categories: [code_exec, supply_chain]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-CE-006
+    title: PowerShell encoded command execution
+    pattern: '-encodedcommand\b'
+    categories: [code_exec]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-DS-001
+    title: Unsafe pickle deserialization
+    pattern: 'pickle\.loads?\('
+    categories: [deserialization]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution / CWE-502"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-DS-002
+    title: Pickle reduce exploit hook
+    pattern: '__reduce__\s*\('
+    categories: [deserialization]
+    severity: critical
+    reference: "CWE-502 Deserialization of Untrusted Data"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-DS-003
+    title: yaml.load without a safe loader
+    pattern: 'yaml\.load\((?!.*safeloader)'
+    categories: [deserialization]
+    severity: high
+    reference: "CWE-502 Deserialization of Untrusted Data"
+    owasp: [ASI05, LLM05]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-DS-004
+    title: torch.load without weights_only
+    pattern: 'torch\.load\((?!.*weights_only\s*=\s*true)'
+    categories: [deserialization, supply_chain]
+    severity: high
+    reference: "CWE-502 Deserialization of Untrusted Data"
+    owasp: [ASI05, LLM05, LLM03]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-DS-005
+    title: Instructions to download pickle or checkpoint files
+    pattern: '\.(pkl|pth)\b.{0,40}(download|fetch|wget|curl)'
+    categories: [deserialization, supply_chain]
+    severity: high
+    reference: "CWE-502 Deserialization of Untrusted Data"
+    owasp: [ASI05, LLM03]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-SC-001
+    title: trust_remote_code enabled on model load
+    pattern: 'trust_remote_code\s*=\s*true'
+    categories: [supply_chain]
+    severity: high
+    reference: "OWASP LLM03:2025 Supply Chain"
+    owasp: [LLM03, ASI04]
+    points: [tool_call, response]
+
+  - id: SIG-SC-002
+    title: from_pretrained with a non-allowlisted repo
+    pattern: "from_pretrained\\(\\s*['\"][^'\"]+/[^'\"]+['\"]"
+    categories: [supply_chain]
+    severity: medium
+    reference: "OWASP LLM03:2025 Supply Chain"
+    owasp: [LLM03, ASI04]
+    points: [tool_call, response]
+
+  - id: SIG-SC-003
+    title: pip install from a raw URL or git ref
+    pattern: 'pip install .{0,80}(https?://|git\+)'
+    categories: [supply_chain]
+    severity: high
+    reference: "OWASP LLM03:2025 Supply Chain"
+    owasp: [LLM03, ASI04]
+    points: [tool_call, response]
+
+  - id: SIG-SC-004
+    title: Known typosquat package name
+    pattern: '\b(reqeusts|numpyy|pandaas|djanga|crossenv)\b'
+    categories: [supply_chain]
+    severity: medium
+    reference: "OWASP LLM03:2025 Supply Chain - typosquatting"
+    owasp: [LLM03, ASI04]
+    points: [tool_call, response]
+
+  - id: SIG-DEST-001
+    title: DROP TABLE statement
+    pattern: 'drop table\b'
+    categories: [destructive]
+    severity: critical
+    reference: "OWASP ASI02 Tool Misuse"
+    owasp: [ASI02, ASI09]
+    points: [tool_call]
+
+  - id: SIG-DEST-002
+    title: DELETE with an always-true WHERE clause
+    pattern: 'delete from .{0,60}where 1\s*=\s*1'
+    categories: [destructive]
+    severity: critical
+    reference: "OWASP ASI02 Tool Misuse"
+    owasp: [ASI02, ASI09]
+    points: [tool_call]
+
+  - id: SIG-DEST-003
+    title: TRUNCATE TABLE statement
+    pattern: 'truncate table\b'
+    categories: [destructive]
+    severity: critical
+    reference: "OWASP ASI02 Tool Misuse"
+    owasp: [ASI02, ASI09]
+    points: [tool_call]
+
+  - id: SIG-DEST-004
+    title: Recursive force delete of the root filesystem
+    pattern: 'rm -rf /'
+    categories: [destructive, code_exec]
+    severity: critical
+    reference: "OWASP ASI05 Unexpected Code Execution"
+    owasp: [ASI05, ASI02]
+    points: [tool_call, tool_result, response]
+
+  - id: SIG-DEST-005
+    title: Direct push to the main branch
+    pattern: 'push (origin )?(to )?main\b'
+    categories: [destructive]
+    severity: high
+    reference: "OWASP ASI09 Human-Agent Trust Exploitation"
+    owasp: [ASI09, ASI02]
+    points: [tool_call]

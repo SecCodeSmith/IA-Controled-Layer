@@ -1,0 +1,67 @@
+# AI Control Layer - sample policy document (v3)
+#
+# profile: strict | balanced | permissive
+#   Presets the ML classifier / LLM judge thresholds used by the Policy stage (see
+#   WIKI/policy-reference.md): strict 0.7/0.4, balanced 0.85/0.5, permissive 0.95/0.7
+#   (block_at / escalate_at). Individual rules may still override thresholds via their
+#   own params. This file is hot-reloaded: the watcher polls mtime, a valid edit bumps
+#   `version` and invalidates caches, an invalid edit keeps the last good policy, shows
+#   ERROR on the Policy page and emits an alert.
+#
+# Each rule's `type` is inferred when omitted (match.action -> tool_match, match.sequence
+# -> sequence, detect -> detectors, otherwise the rule `id` itself). Each rule's pipeline
+# `stage` is inferred from its `type` unless `stage:` is given explicitly.
+
+version: 3
+profile: balanced
+
+models:
+  allowed: ["qwen2.5:7b", "qwen2.5:3b", "mock"]
+  pricing:
+    "qwen2.5:7b": { input_per_1k_usd: 0.0002, output_per_1k_usd: 0.0004 }
+    "qwen2.5:3b": { input_per_1k_usd: 0.0001, output_per_1k_usd: 0.0002 }
+    "mock": { input_per_1k_usd: 0.0, output_per_1k_usd: 0.0 }
+
+roles:
+  developer:
+    mcp_servers: [github, ci, logs-db, jira]
+  hr:
+    mcp_servers: [hr-db, calendar, mail]
+  finance:
+    mcp_servers: [payments, calendar]
+    transaction_limit: 5000
+    beneficiary_allowlist: [acct-eu-main, acct-eu-payroll]
+
+locations:
+  eu_customers:
+    allowed_regions: [PL, DE, FR]
+
+#
+# NOTE: every `on:` key below is quoted ("on":) deliberately. PyYAML's default (YAML 1.1)
+# resolver treats the bare scalar `on` as the boolean `true`, so an unquoted `on: response`
+# would be parsed as the dict key `True`, not the string "on", and the rule would silently
+# fall back to "all interception points". Quoting the key avoids that trap.
+rules:
+  - { id: direct_push_to_main, "on": tool_call, match: { action: [push_main] }, action: block, owasp: [ASI02, LLM06], severity: high }
+  - { id: destructive_requires_approval, "on": tool_call, match: { action: [delete_*, drop_*] }, action: require_approval, owasp: [ASI02, ASI09] }
+  - { id: pii_masking, "on": response, detect: [email, phone, pesel, iban, pan], action: mask, owasp: [LLM02] }
+  - { id: external_send_after_untrusted_read, "on": tool_call, match: { sequence: [read_external, send_external] }, action: block, owasp: [ASI01, LLM02] }
+  - { id: prompt_injection_signatures, "on": [prompt, tool_result], type: signatures, feed: attack_signatures, action: block, owasp: [LLM01, ASI01] }
+  - { id: prompt_injection_ml, "on": [prompt, tool_result], type: ml_classifier, block_at: 0.85, escalate_at: 0.5, escalate_to: llm_judge, owasp: [LLM01, ASI01] }
+  - { id: llm_judge, "on": [], type: llm_judge, model: "qwen2.5:7b", timeout_s: 20, on_timeout: flag, owasp: [ASI01] }
+  - { id: historical_exploits, "on": [prompt, tool_call, tool_result, response], type: signatures, feed: attack_signatures, categories: [code_exec, deserialization, supply_chain], action: block, owasp: [ASI05, LLM03, ASI04] }
+  - { id: secrets_detection, "on": [prompt, response, tool_result], detect: [api_key, private_key, jwt], action: mask, owasp: [LLM02] }
+  - { id: data_residency, "on": tool_call, type: residency, action: block, owasp: [ASI03, LLM02] }
+  - { id: role_provisioning, "on": tool_call, type: rbac, action: block, owasp: [ASI03, LLM06] }
+  - { id: rate_limit, "on": [prompt, tool_call], per_minute: 60, action: block, owasp: [LLM10, ASI08] }
+  - { id: loop_guard, "on": tool_call, identical_calls: 5, window_s: 60, action: block, owasp: [LLM10, ASI08] }
+  - { id: circuit_breaker, blocks: 5, window_s: 300, action: quarantine, owasp: [ASI10] }
+  - { id: anomaly_first_destructive_use, type: anomaly, "on": tool_call, action: flag, owasp: [ASI10] }
+
+budgets:
+  per_user_tokens: 10000
+  per_user_cost_usd: 1.00
+  max_tokens_per_request: 2048
+  upstream_timeout_s: 30
+  warn_at_percent: 80
+  on_exceeded: block
