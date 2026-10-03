@@ -30,17 +30,21 @@ Pop-Location
 Write-Host "`n[2/4] Setting up Frontend Node modules..." -ForegroundColor Yellow
 Push-Location Frontent
 if (Test-Path package-lock.json) {
-    npm ci 2>&1 | Out-Null
+    $npmOutput = npm ci 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Frontend npm ci failed" -ForegroundColor Red
+        $npmOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        Write-Host "    Close any running Vite/Node process using Frontent\node_modules and rerun the bootstrap." -ForegroundColor Yellow
         $skipped += "Frontend npm setup"
     } else {
         Write-Host "  ✓ Frontend dependencies installed (npm ci)" -ForegroundColor Green
     }
 } else {
-    npm install 2>&1 | Out-Null
+    $npmOutput = npm install 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Frontend npm install failed" -ForegroundColor Red
+        $npmOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        Write-Host "    Close any running Vite/Node process using Frontent\node_modules and rerun the bootstrap." -ForegroundColor Yellow
         $skipped += "Frontend npm setup"
     } else {
         Write-Host "  ✓ Frontend dependencies installed (npm install)" -ForegroundColor Green
