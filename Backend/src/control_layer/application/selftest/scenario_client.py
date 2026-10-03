@@ -4,8 +4,10 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from control_layer.domain.exceptions import ControlLayerError
+from control_layer.domain.exceptions import AgentUnavailableError
 from control_layer.domain.models.enums import CallStatus, StageName
+
+__all__ = ["AgentUnavailableError", "ScenarioClient", "StepObservation"]
 
 
 class StepObservation(BaseModel):
@@ -17,12 +19,6 @@ class StepObservation(BaseModel):
     rule_id: str | None = None
     reason: str | None = None
     approval_id: str | None = None
-
-
-class AgentUnavailableError(ControlLayerError):
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
 
 
 class ScenarioClient(Protocol):

@@ -59,6 +59,9 @@ class _FakeAlertStore:
     def subscribe(self):  # noqa: ANN201
         raise NotImplementedError
 
+    async def clear(self) -> None:
+        self.added.clear()
+
 
 class _FakeEventPublisher:
     def __init__(self) -> None:

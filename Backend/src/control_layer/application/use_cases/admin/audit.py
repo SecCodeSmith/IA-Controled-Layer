@@ -2,15 +2,11 @@ from __future__ import annotations
 
 from control_layer.application.use_cases.admin._shared import load_all_call_records
 from control_layer.application.use_cases.admin.feed import FeedQuery, apply_feed_filters
-from control_layer.domain.exceptions import ControlLayerError
+from control_layer.domain.exceptions import CallNotFoundError
 from control_layer.domain.models.audit import CallRecord
 from control_layer.domain.ports.audit_repository import AuditRepository
 
-
-class CallNotFoundError(ControlLayerError):
-    def __init__(self, call_id: str) -> None:
-        super().__init__(f"call not found: {call_id}")
-        self.call_id = call_id
+__all__ = ["CallNotFoundError", "GetCallDetailUseCase", "ListAuditUseCase"]
 
 
 class ListAuditUseCase:

@@ -131,3 +131,28 @@ async def test_accepts_real_domain_alert_model() -> None:
 
     assert len(items) == 1
     assert items[0].id == "al_real"
+
+
+async def test_clear_empties_the_store() -> None:
+    store = InMemoryAlertStore()
+    await store.add(_alert(id="al_1"))
+    await store.add(_alert(id="al_2"))
+
+    await store.clear()
+
+    assert await store.list_recent(limit=10) == []
+
+
+async def test_clear_keeps_subscribers_connected() -> None:
+    store = InMemoryAlertStore()
+    await store.add(_alert(id="al_before"))
+    subscription = store.subscribe()
+
+    await store.clear()
+    await store.add(_alert(id="al_after"))
+
+    received = await asyncio.wait_for(anext(subscription), timeout=1)
+    assert received["id"] == "al_after"
+
+    items = await store.list_recent(limit=10)
+    assert [item["id"] for item in items] == ["al_after"]

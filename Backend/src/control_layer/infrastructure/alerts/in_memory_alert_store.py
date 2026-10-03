@@ -28,6 +28,9 @@ class InMemoryAlertStore:
             items = [a for a in items if get_field(a, "rule_id") == rule_id]
         return items[:limit]
 
+    async def clear(self) -> None:
+        self._alerts.clear()
+
     def subscribe(self) -> AsyncIterator[Any]:
         queue: asyncio.Queue[Any] = asyncio.Queue()
         self._subscribers.append(queue)
