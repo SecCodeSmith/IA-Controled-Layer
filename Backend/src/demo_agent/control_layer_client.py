@@ -111,8 +111,11 @@ class ControlLayerClient:
         payload = await self._request("GET", "/v1/me", token=token, session_id=session_id)
         return MeResponse.model_validate(payload)
 
-    async def list_tools(self, token: str, session_id: str | None = None) -> list[ToolDescriptor]:
-        payload = await self._request("GET", "/v1/tools", token=token, session_id=session_id)
+    async def list_tools(
+        self, token: str, session_id: str | None = None, scope: str | None = None
+    ) -> list[ToolDescriptor]:
+        path = f"/v1/tools?scope={scope}" if scope else "/v1/tools"
+        payload = await self._request("GET", path, token=token, session_id=session_id)
         return [ToolDescriptor.model_validate(item) for item in payload["tools"]]
 
     async def chat_completion(

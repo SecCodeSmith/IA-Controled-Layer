@@ -15,6 +15,24 @@ services:
       - redis-data:/data
     command: redis-server --appendonly yes
 
+  # OLLAMA NETWORKING CONFIGURATION
+  # ================================
+  # Ollama must listen on all interfaces (not just 127.0.0.1) to be accessible from Docker.
+  # On Windows, before running docker compose:
+  #   1. Set environment variable: OLLAMA_HOST=0.0.0.0:11434
+  #   2. Quit Ollama from the system tray and restart it
+  #   3. Verify: netstat -ano | findstr 11434 (should show 0.0.0.0:11434)
+  #   4. Allow Windows Firewall (run as admin):
+  #      netsh advfirewall firewall add rule name="Ollama 11434" dir=in action=allow protocol=TCP localport=11434
+  #
+  # Then set CTRL_OLLAMA_BASE_URL based on your setup:
+  #   - Docker Desktop (Windows/macOS):     http://host.docker.internal:11434
+  #   - Docker Engine in WSL2 (NAT mode):   http://<windows-host-ip>:11434
+  #     (Get Windows IP inside WSL: ip route show default | awk '{print $3}')
+  #
+  # The environment variable below defaults to host.docker.internal (Docker Desktop).
+  # Override CTRL_OLLAMA_BASE_URL in .env or via command line for other setups.
+
   control-layer:
     build:
       context: .

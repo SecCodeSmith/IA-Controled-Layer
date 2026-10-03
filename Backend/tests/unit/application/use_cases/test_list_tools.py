@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from control_layer.application.services.tool_catalog import ProvisionedTool
 from control_layer.application.use_cases.list_tools import ListToolsUseCase
 from control_layer.domain.models.enums import Role
 from control_layer.domain.models.identity import Identity
@@ -7,16 +8,11 @@ from control_layer.domain.models.tool import ToolDescriptor
 
 
 class _FakeToolCatalog:
-    def __init__(self, tools: list[ToolDescriptor]) -> None:
+    def __init__(self, tools: list[ProvisionedTool]) -> None:
         self._tools = tools
-        self.calls: list[Identity] = []
 
-    async def provisioned_for(self, identity: Identity) -> list[ToolDescriptor]:
-        self.calls.append(identity)
+    async def all_tools(self, identity: Identity) -> list[ProvisionedTool]:
         return self._tools
-
-    async def descriptor(self, server: str, tool: str) -> ToolDescriptor:
-        raise NotImplementedError
 
 
 def _identity() -> Identity:
@@ -30,19 +26,28 @@ def _identity() -> Identity:
     )
 
 
-async def test_delegates_to_tool_catalog() -> None:
-    descriptor = ToolDescriptor(
-        server="github",
-        name="list_branches",
-        qualified_name="github.list_branches",
-        description="",
-        input_schema={},
-        tags=[],
-        scope="read",
+def _tool(name: str, provisioned: bool) -> ProvisionedTool:
+    return ProvisionedTool(
+        descriptor=ToolDescriptor(
+            server="github",
+            name=name,
+            qualified_name=f"github.{name}",
+            description="",
+            input_schema={},
+            tags=[],
+            scope="read",
+        ),
+        provisioned=provisioned,
     )
-    catalog = _FakeToolCatalog([descriptor])
-    use_case = ListToolsUseCase(catalog)
-    identity = _identity()
-    result = await use_case.execute(identity)
-    assert result == [descriptor]
-    assert catalog.calls == [identity]
+
+
+async def test_provisioned_scope_returns_only_provisioned_tools() -> None:
+    tools = [_tool("a", True), _tool("b", False)]
+    result = await ListToolsUseCase(_FakeToolCatalog(tools)).execute(_identity())
+    assert [t.descriptor.name for t in result] == ["a"]
+
+
+async def test_all_scope_returns_everything_flagged() -> None:
+    tools = [_tool("a", True), _tool("b", False)]
+    result = await ListToolsUseCase(_FakeToolCatalog(tools)).execute(_identity(), scope="all")
+    assert [(t.descriptor.name, t.provisioned) for t in result] == [("a", True), ("b", False)]

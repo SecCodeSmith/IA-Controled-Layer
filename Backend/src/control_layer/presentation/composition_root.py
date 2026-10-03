@@ -27,6 +27,7 @@ from control_layer.application.services.approval_service import ApprovalService
 from control_layer.application.services.audit_service import AuditService
 from control_layer.application.services.budget_service import BudgetService
 from control_layer.application.services.call_id_generator import CallIdGenerator
+from control_layer.application.services.call_id_seeding import highest_call_id
 from control_layer.application.services.circuit_breaker_service import CircuitBreakerService
 from control_layer.application.services.risk_service import RiskService
 from control_layer.application.services.session_service import SessionService
@@ -412,19 +413,7 @@ async def build_container(settings: Settings) -> Container:
 
 
 async def _seed_call_ids(container: Container) -> None:
-    rows = await container.audit_repository.export_rows()
-    highest = 0
-    for row in rows:
-        call_id = str(row.get("call_id", ""))
-        if call_id.startswith("c_") and call_id[2:].isdigit():
-            highest = max(highest, int(call_id[2:]))
-    seed = getattr(container.call_ids, "seed", None)
-    if seed is not None:
-        await seed(highest)
-        return
-    current = await container.cache.get("calls:seq")
-    if highest and (current is None or int(current) < highest):
-        await container.cache.set("calls:seq", str(highest))
+    await container.call_ids.seed(await highest_call_id(container.audit_repository))
 
 
 async def start(container: Container) -> None:

@@ -105,3 +105,27 @@ async def test_iteration_cap_exhausted(
     assert isinstance(events[-1], NoticeEvent)
     assert events[-1].status == "FLAGGED"
     assert "model turns" in (events[-1].reason or "")
+
+
+async def test_requests_all_tool_scope_and_injects_date_into_prompt(
+    control_layer_client, session_store, settings, backend: ScriptedBackend
+) -> None:
+    from datetime import date
+
+    loop = AgentLoop(
+        client=control_layer_client,
+        sessions=session_store,
+        settings=settings,
+        today=lambda: date(2026, 10, 3),
+    )
+    backend.tools_response = tools_body(tool_descriptor("ci", "get_run"))
+    backend.completion_queue.append(ok(completion_body(content="hi")))
+
+    await loop.run_turn("token-1", "s-scope", "why did login tests fail last night?")
+
+    assert backend.requests_to("/v1/tools")[0].url.query == b"scope=all"
+    system = json.loads(backend.requests_to("/v1/chat/completions")[0].content)["messages"][0]
+    assert "2026-10-03" in system["content"]
+    assert "2026-10-02" in system["content"]
+    assert "ci.get_run(pipeline, date)" in system["content"]
+    assert "logs-db.query(service, since)" in system["content"]

@@ -10,6 +10,8 @@ contract's HTTP/JSON shapes via `ControlLayerClient`.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from datetime import date, timedelta
 
 from demo_agent.control_layer_client import ControlLayerClient, ControlLayerDenied
 from demo_agent.schemas import (
@@ -36,11 +38,18 @@ class UnknownApprovalError(Exception):
         self.approval_id = approval_id
 
 
-def _system_prompt(identity: Identity) -> str:
+def _system_prompt(identity: Identity, today: date) -> str:
+    yesterday = today - timedelta(days=1)
     return (
         f"You are a bank employee assistant for {identity.name} "
         f"({identity.role}, {identity.location}). "
+        f"Today is {today.isoformat()}; use ISO dates (YYYY-MM-DD). "
+        f'"Last night" or "yesterday" means {yesterday.isoformat()}. '
         "Use the provided tools to answer the user's questions. "
+        "Tool hints: CI pipelines are named like e2e-login and runs are fetched with "
+        "ci.get_run(pipeline, date). Service logs are in logs-db.query(service, since) "
+        "with services auth, payments and web. HR approvals are looked up with "
+        "hr-db.find_approver(request). "
         "Calling one tool at a time is fine. "
         "If the control layer blocks or masks something, tell the user plainly "
         "and suggest what to do next. Be concise."
@@ -53,18 +62,23 @@ class AgentLoop:
         client: ControlLayerClient,
         sessions: SessionStore,
         settings: Settings,
+        today: Callable[[], date] = date.today,
     ) -> None:
         self._client = client
         self._sessions = sessions
         self._settings = settings
+        self._today = today
 
     async def run_turn(self, token: str, session_id: str, user_message: str) -> list[Event]:
         me = await self._client.me(token, session_id=session_id)
-        tool_descriptors = await self._client.list_tools(token, session_id=session_id)
+        tool_descriptors = await self._client.list_tools(
+            token, session_id=session_id, scope=self._settings.tool_scope
+        )
 
         session = self._sessions.get_or_create(session_id)
         if not session.messages:
-            session.add_message({"role": "system", "content": _system_prompt(me.identity)})
+            prompt = _system_prompt(me.identity, self._today())
+            session.add_message({"role": "system", "content": prompt})
         session.model = me.provider.model
         session.openai_tools = to_openai_tools(tool_descriptors)
         session.add_message({"role": "user", "content": user_message})

@@ -13,11 +13,19 @@ from demo.mcp.common import ascii_safe, create_server
 mcp = create_server("logs-db", "Fake logs database server for the AI Control Layer demo.")
 
 
+AUTH_ALIASES = ("auth", "login", "sso")
+
+
+def _is_auth_service(service: str) -> bool:
+    name = service.lower()
+    return any(alias in name for alias in AUTH_ALIASES)
+
+
 @mcp.tool()
 @ascii_safe
 def query(service: str, since: str, level: str = "error") -> dict[str, Any]:
-    """Query recent log lines for a service since a given time window."""
-    if service == "auth":
+    """Query recent error log lines. service: auth, payments or web. since: e.g. 24h."""
+    if _is_auth_service(service):
         lines = list(data.LOGS_AUTH_ERROR_LINES)
     else:
         lines = list(

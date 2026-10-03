@@ -52,6 +52,7 @@ class ToolDescriptor(BaseModel):
     tags: list[str] = Field(default_factory=list)
     data_region: str | None = None
     scope: str | None = None
+    provisioned: bool | None = None
 
 
 class MeResponse(BaseModel):

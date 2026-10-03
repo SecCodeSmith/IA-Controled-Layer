@@ -278,3 +278,4 @@ servers:
 - `ToolDescriptor.scope` is `"write"` when the tool carries the `destructive` tag, else `"read"`.
 - `policy.yaml` has 14 rules: `direct_push_to_main` (block) precedes `destructive_requires_approval`.
 - `POST /api/demo/reset?scope=behavior` (additive) clears only runtime state (rate limits, loop guard, circuit breaker, quarantine, budgets, sessions, risk, approvals) and keeps audit and alerts; the default `scope=all` is unchanged. The attack suite calls it before every scenario so scenarios do not influence each other.
+- `GET /v1/tools?scope=provisioned|all` (default `provisioned`): `scope=all` also lists tools the caller's role is not provisioned for; every item in `tools` carries `provisioned: bool` (additive). Calling an unprovisioned tool still returns 403 `role_provisioning`.

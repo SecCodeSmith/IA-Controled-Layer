@@ -118,3 +118,23 @@ async def test_descriptor_raises_unknown_tool_error() -> None:
     catalog = ToolCatalog(_FakeMcpGateway([]), _FakePolicyRepository(_policy()))
     with pytest.raises(UnknownToolError):
         await catalog.descriptor("github", "nonexistent")
+
+
+async def test_all_tools_flags_provisioned_and_keeps_the_rest() -> None:
+    descriptors = [
+        _descriptor("github", "list_branches"),
+        _descriptor("github", "delete_branch"),
+        _descriptor("hr-db", "query"),
+        _descriptor("ci", "eu_report", data_region="eu_customers"),
+    ]
+    catalog = ToolCatalog(_FakeMcpGateway(descriptors), _FakePolicyRepository(_policy()))
+    flags = {
+        t.descriptor.qualified_name: t.provisioned
+        for t in await catalog.all_tools(_identity(region="US"))
+    }
+    assert flags == {
+        "github.list_branches": True,
+        "github.delete_branch": False,
+        "hr-db.query": False,
+        "ci.eu_report": False,
+    }

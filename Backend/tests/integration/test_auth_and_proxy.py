@@ -165,3 +165,23 @@ async def test_health_shape_is_open(api: httpx.AsyncClient) -> None:
     assert body["policy"] == {"version": 3, "status": "LOADED"}
     assert body["provider"]["name"] == "mock"
     assert "loaded" in body["classifier"]
+
+
+async def test_tools_scope_all_marks_unprovisioned(api: httpx.AsyncClient) -> None:
+    token = await get_token(api, "anna.kowalska")
+    default = (await api.get("/v1/tools", headers=bearer(token))).json()["tools"]
+    assert all(t["provisioned"] is True for t in default)
+    assert not any(t["server"] == "hr-db" for t in default)
+
+    everything = (await api.get("/v1/tools?scope=all", headers=bearer(token))).json()["tools"]
+    hr = [t for t in everything if t["server"] == "hr-db"]
+    assert hr
+    assert all(t["provisioned"] is False for t in hr)
+    assert any(t["server"] == "github" and t["provisioned"] for t in everything)
+
+    blocked = await call_tool(api, token, "hr-db", "find_approver", {"request": "x"})
+    assert blocked.status_code == 403
+    assert blocked.json()["error"]["rule_id"] == "role_provisioning"
+
+    bad = await api.get("/v1/tools?scope=bogus", headers=bearer(token))
+    assert bad.status_code == 422

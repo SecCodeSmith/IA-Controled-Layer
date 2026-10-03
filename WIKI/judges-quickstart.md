@@ -287,6 +287,86 @@ python attack_suite.py --target http://localhost:8080 --agent ollama
 
 Expected: All scenarios pass (or NOT_ATTEMPTED for model non-compliance). Exit code 0.
 
+## Running with Docker (Alternative)
+
+If you prefer containerized deployment, follow these steps:
+
+### Prerequisites for Docker
+
+**Ollama must listen on all interfaces (not just 127.0.0.1) to be accessible from Docker containers.**
+
+On Windows, before running `docker compose`:
+
+1. **Set environment variable:**
+   ```powershell
+   $env:OLLAMA_HOST = "0.0.0.0:11434"
+   ```
+
+2. **Restart Ollama:**
+   - Quit Ollama from the system tray
+   - Start it again (the environment variable is now active)
+
+3. **Verify it's listening on all interfaces:**
+   ```powershell
+   netstat -ano | findstr 11434
+   ```
+   Expected output: `0.0.0.0:11434 LISTENING ...`
+
+4. **Allow Windows Firewall (run as admin):**
+   ```powershell
+   netsh advfirewall firewall add rule name="Ollama 11434" dir=in action=allow protocol=TCP localport=11434
+   ```
+
+### Configuration
+
+In `.env` or at the command line, set `CTRL_OLLAMA_BASE_URL` based on your Docker setup:
+
+- **Docker Desktop (Windows/macOS):** `http://host.docker.internal:11434`
+- **Docker Engine in WSL2 (NAT mode):** `http://<windows-host-ip>:11434`
+  - Get your Windows IP from inside WSL: `ip route show default | awk '{print $3}'`
+
+### Build and Run
+
+From the repo root:
+
+```bash
+docker compose build --no-cache
+docker compose up
+```
+
+This starts all services:
+- Redis cache (port 6379)
+- Control Layer (port 8080)
+- Demo Agent (port 8090)
+- Frontend (port 5173)
+
+### Verification
+
+From inside WSL or another terminal:
+
+```bash
+curl http://<ollama-ip>:11434/api/tags
+```
+
+Expected: JSON list with your pulled model (e.g., `qwen2.5:7b`)
+
+Then open **http://localhost:5173** and proceed with steps 3–10 above (Sign In through Self-Testing Suite).
+
+### Health Checks
+
+After containers are running, open:
+
+- **http://localhost:8080/health** — Check:
+  - `provider.name` = `ollama` (if Ollama is reachable) or `mock` (fallback)
+  - `mcp.servers[]` — Any `.error` values indicate MCP server connection issues
+  - Policy status should be `LOADED`
+
+### Docker Networking Notes
+
+- **Docker Desktop:** `host.docker.internal` automatically resolves to the Windows host
+- **Docker Engine in WSL2 (NAT mode):** `host.docker.internal` resolves to the WSL VM, not Windows. Use the Windows host IP instead
+- **Extra hosts:** `docker-compose.yml` sets `host.docker.internal:host-gateway` for compatibility, but for WSL2 NAT you must use the actual Windows IP
+
 ## Evaluation Checklist
 
 - [ ] Bootstrap completed without errors (or with acceptable Ollama skip)

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     max_iterations: int = 6
     temperature: float = 0.0
     request_timeout_s: float = 120.0
+    tool_scope: str = "all"
 
 
 @lru_cache

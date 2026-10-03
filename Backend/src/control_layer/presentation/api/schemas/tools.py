@@ -6,8 +6,12 @@ from control_layer.domain.models.enums import CallStatus, StageName
 from control_layer.domain.models.tool import ToolCallResult, ToolDescriptor
 
 
+class ProvisionedToolItem(ToolDescriptor):
+    provisioned: bool = True
+
+
 class ToolsListResponse(BaseModel):
-    tools: list[ToolDescriptor]
+    tools: list[ProvisionedToolItem]
 
 
 class ToolCallRequestBody(BaseModel):

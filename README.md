@@ -34,13 +34,17 @@ Every call flows through all stages in order. Stages can short-circuit (return e
 
 ## Quickstart
 
-### Prerequisites
+### Prerequisites (Native — Recommended for Live Demo)
 
 - Python 3.13+
 - Node 24+
 - Ollama (optional; mock fallback included)
 
-### 1. Bootstrap (2 min)
+### Option 1: Run Natively with Scripts (Recommended)
+
+**Why recommended:** Ollama and MCP servers work without extra network setup. Best for the live demo.
+
+#### 1. Bootstrap (2 min)
 
 ```bash
 ./scripts/bootstrap.sh    # PowerShell: .\scripts\bootstrap.ps1
@@ -48,7 +52,7 @@ Every call flows through all stages in order. Stages can short-circuit (return e
 
 Installs Python deps, Node modules, trains ML classifier, pulls Ollama model.
 
-### 2. Run Dev Servers (1 min)
+#### 2. Run Dev Servers (1 min)
 
 ```bash
 ./scripts/run_dev.sh      # PowerShell: .\scripts\run_dev.ps1
@@ -56,7 +60,7 @@ Installs Python deps, Node modules, trains ML classifier, pulls Ollama model.
 
 Starts Control Layer (:8080), Demo Agent (:8090), Dashboard (:5173).
 
-### 3. Sign In and Chat (2 min)
+#### 3. Sign In and Chat (2 min)
 
 Open **http://localhost:5173** → sign in as **Anna Kowalska** (Developer, Kraków).
 
@@ -67,13 +71,19 @@ Watch:
 2. `logs-db.query` → **MASKED** (3 emails masked)
 3. `hr-db.find_approver` → **BLOCKED** (not provisioned for Developer)
 
-### 4. Run Self-Testing Suite (1 min)
+#### 4. Run Self-Testing Suite (1 min)
 
 ```bash
 python attack_suite.py --target http://localhost:8080
 ```
 
 30+ scenarios pass → exit 0.
+
+### Option 2: Run with Docker
+
+For containerized deployment, see **[Running with Docker](WIKI/judges-quickstart.md#running-with-docker)** in the Judges Quickstart guide.
+
+**Prerequisites:** Ollama must listen on all interfaces (`OLLAMA_HOST=0.0.0.0:11434`), and Windows Firewall must allow inbound TCP 11434. See the guide for full setup.
 
 ## Documentation
 
@@ -102,6 +112,10 @@ python attack_suite.py --target http://localhost:8080 --agent ollama
 ```
 
 ## Docker Deployment
+
+For full Docker setup instructions, including Ollama network configuration, see **[Running with Docker](WIKI/judges-quickstart.md#running-with-docker)** in the Judges Quickstart guide.
+
+Quick start (after Ollama is configured):
 
 ```bash
 docker-compose up

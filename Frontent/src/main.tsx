@@ -25,7 +25,7 @@ const router = createBrowserRouter([
 ])
 
 async function enableMocking(): Promise<void> {
-  if (!import.meta.env.DEV) return
+  if (!import.meta.env.DEV || import.meta.env.VITE_USE_MOCKS !== 'true') return
   const { worker } = await import('./test/browser')
   await worker.start({ onUnhandledRequest: 'bypass' })
 }
