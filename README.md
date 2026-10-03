@@ -85,12 +85,38 @@ For containerized deployment, see **[Running with Docker](WIKI/judges-quickstart
 
 **Prerequisites:** Ollama must listen on all interfaces (`OLLAMA_HOST=0.0.0.0:11434`), and Windows Firewall must allow inbound TCP 11434. See the guide for full setup.
 
+## Use it as a gateway (VS Code Copilot, any Ollama or OpenAI client)
+
+The control layer is a drop-in replacement for an Ollama or OpenAI-compatible endpoint. Point a
+client at `http://localhost:8080` and every prompt and response runs through the seven-stage
+pipeline, is audited and shows up in the admin live feed:
+
+- Ollama-native API at the root: `GET /api/tags`, `POST /api/show`, `POST /api/chat` (NDJSON
+  streaming by default), `POST /api/generate`, `GET /api/version`, `GET /api/ps`.
+- OpenAI-compatible API: `POST /v1/chat/completions` (now with `stream: true`, SSE) and `GET /v1/models`.
+- Credentials: a mock-SSO JWT, one of the demo API keys from `Backend/config/users.yaml`
+  (for example `Authorization: Bearer ck-anna-dev-2026`), or no credentials at all, which maps to
+  `CTRL_GATEWAY_DEFAULT_USER` (default `anna.kowalska`; empty disables it).
+- Verdicts for streaming clients are delivered in-band as an assistant message
+  (`[BLOCKED by AI Control Layer] authorization · model_allowlist: ...`), because IDE clients hide
+  HTTP error bodies. The audit log and feed still record BLOCKED.
+
+```bash
+curl -N http://localhost:8080/api/chat -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"hello"}]}'
+```
+
+VS Code: open **Chat: Manage Language Models**, add a custom OpenAI-compatible endpoint with URL
+`http://localhost:8080/v1`, API key `ck-anna-dev-2026` and model `qwen2.5:7b` (older builds: set the
+Ollama endpoint to `http://localhost:8080`). Full steps, limitations and examples:
+**[WIKI/gateway.md](WIKI/gateway.md)**.
+
 ## Documentation
 
 - **[Judges Quickstart](WIKI/judges-quickstart.md)** — 10-minute getting-started guide
 - **[Demo Script](WIKI/demo-script.md)** — 6-minute presentation walkthrough
 - **[Architecture](WIKI/architecture.md)** — System design, Mermaid diagrams, pipeline details
 - **[API Contract](WIKI/api-contract.md)** — Endpoints, schemas, authentication
+- **[Gateway](WIKI/gateway.md)** — Ollama / OpenAI-compatible surfaces, API keys, VS Code Copilot setup
 - **[Policy Reference](WIKI/policy-reference.md)** — Policy.yaml syntax, rule types, examples
 - **[OWASP Mapping](WIKI/owasp-mapping.md)** — LLM Top 10 2025 + Agentic Top 10 2026 coverage
 

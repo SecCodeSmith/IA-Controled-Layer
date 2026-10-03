@@ -311,3 +311,14 @@ Admin token required on every route below. Full semantics: `WIKI/feature-protect
 - Feed rows (`GET /api/feed` items and the `feed` SSE event) and audit rows (`GET /api/audit` items, which now extend the feed row) gain `proxy_latency_ms`, `upstream_latency_ms` and `overhead_ms`.
 - `GET /api/metrics` gains `overhead: {"p50_ms", "p95_ms"}`; `GET /api/stats` `latency` gains `overhead_p50_ms` and `overhead_p95_ms`; `/metrics` (Prometheus text) gains `control_layer_overhead_ms{quantile="0.5|0.95"}`.
 - Dashboard: the live feed and audit tables show an "Added delay" column (`overhead_ms`, tooltip with total and upstream), the call detail shows it next to proxy and upstream latency, the live feed page shows added-delay p50/p95, and attack-suite rows show the wall-clock `duration_ms` of each scenario.
+
+## Addendum (gateway surfaces)
+
+Full description in `WIKI/gateway.md`.
+
+- Ollama-native surface at the root (no admin token): `GET /api/tags`, `POST /api/show`, `GET /api/version`, `GET /api/ps` (pass-through to `CTRL_OLLAMA_BASE_URL`, synthetic `mock` bodies when Ollama is unreachable or the active provider is mock), `POST /api/chat` (Ollama chat request; `stream` defaults to true; NDJSON chunks then a `done: true` line with `prompt_eval_count` / `eval_count`), `POST /api/generate`.
+- `POST /v1/chat/completions` accepts `stream: true` (SSE `chat.completion.chunk` frames, the `control_layer` extension on the final chunk, then `data: [DONE]`); `GET /v1/models` lists the installed Ollama models plus `mock` in the OpenAI list shape.
+- Credentials on both surfaces resolve in order: JWT, `api_key` from `users.yaml` (demo keys `ck-anna-dev-2026`, `ck-marek-hr-2026`, `ck-john-dev-2026`, `ck-ewa-fin-2026`), then `CTRL_GATEWAY_DEFAULT_USER` (default `anna.kowalska`; empty disables and yields 401). This also applies to `/v1/chat/completions`, which therefore no longer returns 401 for a missing header unless the default user is disabled. Session: `X-Session-Id` or `gateway-{sub}-{client}` derived from the User-Agent.
+- In-band verdicts: on every streaming request and on Ollama-native non-streaming requests, a block / quarantine / escalation / rate-limit / budget stop or an upstream failure is returned as HTTP 200 with an assistant message `[BLOCKED by AI Control Layer] {stage} · {rule_id}: {reason}` (or `[UPSTREAM ERROR] {reason}`), `done_reason` / `finish_reason` `blocked` (or `error`) and zero counts. Non-streaming `/v1/chat/completions` keeps the 403 / 502 envelopes. Identity failures stay 401.
+- `GET /health` gains `gateway: {"default_user", "ollama_api": true}`.
+- Rate limit: `rate_limit` now counts calls in a sliding 60-second window (10-second buckets per user) instead of a calendar minute.

@@ -312,7 +312,8 @@ Restricts which models the user may invoke (enforced at Authorization stage).
 
 #### 11. `rate_limit` (Per-Minute Throttle)
 
-Blocks user if they exceed calls per minute.
+Blocks a user who exceeds `per_minute` calls in a sliding 60-second window (counted in 10-second
+buckets per user, so a burst that straddles a clock-minute boundary is still limited).
 
 ```yaml
 - id: rate_limit

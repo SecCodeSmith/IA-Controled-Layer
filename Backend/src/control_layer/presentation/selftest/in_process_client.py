@@ -102,11 +102,17 @@ class InProcessScenarioClient:
         return await self._token_verifier.issue(past)
 
     async def chat(
-        self, token: str, session_id: str, message: str, model: str | None = None
+        self,
+        token: str,
+        session_id: str,
+        message: str,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> StepObservation:
         request = ChatCompletionRequest(
             model=model or self._model_provider.describe().model,
             messages=[ChatMessage(role="user", content=message)],
+            max_tokens=max_tokens,
         )
         try:
             outcome = await self._chat_completion.execute(token, session_id, request)

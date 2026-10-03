@@ -3,19 +3,22 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import ValidationError
 
 from control_layer.application.gateway.ollama_mapping import (
     control_layer_extension,
     openai_stream_frames,
 )
 from control_layer.domain.models.chat import ChatCompletionRequest
+from control_layer.domain.models.enums import CallStatus
 from control_layer.presentation.api.dependencies import (
     ContainerDep,
     GatewaySessionDep,
     GatewayTokenDep,
 )
+from control_layer.presentation.api.error_handlers import error_response
 from control_layer.presentation.api.gateway_support import run_gateway_chat
 
 router = APIRouter(prefix="/v1", tags=["proxy"])
@@ -29,11 +32,15 @@ async def _frames(frames: list[str]) -> AsyncIterator[str]:
 
 @router.post("/chat/completions")
 async def chat_completions(
-    request: ChatCompletionRequest,
+    http_request: Request,
     token: GatewayTokenDep,
     session: GatewaySessionDep,
     container: ContainerDep,
 ) -> Response:
+    try:
+        request = ChatCompletionRequest.model_validate_json(await http_request.body())
+    except ValidationError as exc:
+        return error_response(422, "validation_error", CallStatus.BLOCKED, str(exc))
     if request.stream:
         result = await run_gateway_chat(container, token, session, request)
         frames = openai_stream_frames(request.model, result.reply, result.control_layer)

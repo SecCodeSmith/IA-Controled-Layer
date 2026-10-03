@@ -63,6 +63,7 @@ class FakeScenarioClient:
     def __init__(self) -> None:
         self.tool_calls: list[tuple[str, str, str, str, dict]] = []
         self.chats: list[tuple[str, str, str, str | None]] = []
+        self.chat_max_tokens: list[int | None] = []
         self.approvals: list[tuple[str, str]] = []
         self.tampers: list[tuple[str, str, object]] = []
         self.expired_calls: list[str] = []
@@ -84,8 +85,14 @@ class FakeScenarioClient:
         return f"expired:{sub}"
 
     async def chat(
-        self, token: str, session_id: str, message: str, model: str | None = None
+        self,
+        token: str,
+        session_id: str,
+        message: str,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> StepObservation:
+        self.chat_max_tokens.append(max_tokens)
         if self.raise_on == "chat":
             raise RuntimeError("boom")
         self.chats.append((token, session_id, message, model))
@@ -541,3 +548,54 @@ async def test_scripted_tier_reports_via_scripted() -> None:
     result = await ScenarioExecutor(client).run(_positive_ci())
 
     assert result.via == "scripted"
+
+
+async def test_repeat_vary_suffixes_the_argument_with_the_iteration_index() -> None:
+    client = FakeScenarioClient()
+    scenario = _Scenario(
+        id="vary",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.BLOCKED),
+        steps=[
+            {
+                "action": "repeat",
+                "times": 3,
+                "vary": "query",
+                "step": {
+                    "action": "tool_call",
+                    "server": "jira",
+                    "tool": "search",
+                    "arguments": {"query": "ping"},
+                },
+            }
+        ],
+    )
+
+    await ScenarioExecutor(client).run(scenario)
+
+    assert [call[4] for call in client.tool_calls] == [
+        {"query": "ping-0"},
+        {"query": "ping-1"},
+        {"query": "ping-2"},
+    ]
+
+
+async def test_chat_step_passes_max_tokens_to_the_client() -> None:
+    client = FakeScenarioClient()
+    scenario = _Scenario(
+        id="mt",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.BLOCKED),
+        steps=[
+            {
+                "action": "repeat",
+                "times": 2,
+                "step": {"action": "chat", "message": "x", "max_tokens": 16},
+            },
+            {"action": "chat", "message": "y"},
+        ],
+    )
+
+    await ScenarioExecutor(client).run(scenario)
+
+    assert client.chat_max_tokens == [16, 16, None]

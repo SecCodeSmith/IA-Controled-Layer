@@ -114,12 +114,19 @@ class HttpScenarioClient:
         return edit_claims(token, {"exp": claims["iat"] - 3600, "iat": claims["iat"] - 7200})
 
     async def chat(
-        self, token: str, session_id: str, message: str, model: str | None = None
+        self,
+        token: str,
+        session_id: str,
+        message: str,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> StepObservation:
         body = {
             "model": model or await self._default_model(),
             "messages": [{"role": "user", "content": message}],
         }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         response = await self._client.post(
             f"{self._target}/v1/chat/completions",
             json=body,

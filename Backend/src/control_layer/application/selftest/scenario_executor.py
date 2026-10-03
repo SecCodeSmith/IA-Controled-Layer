@@ -70,6 +70,14 @@ def _step_target(step: dict[str, Any]) -> str | None:
     return None
 
 
+def _varied(step: dict[str, Any], vary: str | None, index: int) -> dict[str, Any]:
+    if vary is None:
+        return step
+    arguments = dict(step.get("arguments", {}))
+    arguments[vary] = f"{arguments.get(vary, '')}-{index}"
+    return {**step, "arguments": arguments}
+
+
 def expected_target(scenario: _ScenarioLike) -> str | None:
     targets = [target for step in scenario.steps if (target := _step_target(step))]
     return targets[-1] if targets else None
@@ -180,7 +188,7 @@ class ScenarioExecutor:
             return token, observed
         if action == "chat":
             observed = await self._client.chat(
-                token, session_id, step["message"], step.get("model")
+                token, session_id, step["message"], step.get("model"), step.get("max_tokens")
             )
             return token, observed
         if action == "approve":
@@ -199,8 +207,8 @@ class ScenarioExecutor:
             observed = observations[-1] if observations else previous
             return token, observed
         if action == "repeat":
-            inner = step["step"]
-            for _ in range(step["times"]):
+            for index in range(step["times"]):
+                inner = _varied(step["step"], step.get("vary"), index)
                 token, previous = await self._run_step(
                     inner, token, session_id, previous, scenario
                 )

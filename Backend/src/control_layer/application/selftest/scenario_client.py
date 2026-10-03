@@ -30,7 +30,9 @@ class ScenarioClient(Protocol):
     async def expired_token(self, sub: str) -> str: ...
 
     async def chat(
-        self, token: str, session_id: str, message: str, model: str | None = None
+        self, token: str, session_id: str, message: str,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> StepObservation: ...
 
     async def tool_call(
