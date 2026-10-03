@@ -62,6 +62,15 @@ def test_find_api_keys_detects_openai_style_key() -> None:
     assert len(matches) == 1
 
 
+def test_find_api_keys_detects_stripe_live_key() -> None:
+    matches = find_api_keys("stripe key sk_live_4eC39HqLyjWDarjtT1zdp7dc here")
+    assert [m.value for m in matches] == ["sk_live_4eC39HqLyjWDarjtT1zdp7dc"]
+
+
+def test_find_api_keys_detects_stripe_test_key() -> None:
+    assert len(find_api_keys("sk_test_4eC39HqLyjWDarjtT1zdp7dc")) == 1
+
+
 def test_find_api_keys_detects_github_token() -> None:
     text = "ghp_" + "a" * 36
     matches = find_api_keys(text)

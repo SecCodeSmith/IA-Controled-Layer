@@ -69,7 +69,7 @@ async def test_beneficiary_not_on_allowlist_is_matched() -> None:
         tool_call=make_tool_call(
             server="payments",
             tool="transfer",
-            arguments={"amount": 100, "beneficiary": "acct-unknown"},
+            arguments={"amount": 100, "to_iban": "acct-unknown"},
         ),
     )
 
@@ -97,7 +97,7 @@ async def test_beneficiary_on_allowlist_is_not_matched() -> None:
         tool_call=make_tool_call(
             server="payments",
             tool="transfer",
-            arguments={"amount": 100, "beneficiary": "acct-eu-main"},
+            arguments={"amount": 100, "to_iban": "acct-eu-main"},
         ),
     )
 
@@ -124,7 +124,7 @@ async def test_empty_allowlist_does_not_restrict_beneficiary() -> None:
         tool_call=make_tool_call(
             server="payments",
             tool="transfer",
-            arguments={"amount": 100, "beneficiary": "acct-anything"},
+            arguments={"amount": 100, "to_iban": "acct-anything"},
         ),
     )
 
@@ -176,3 +176,51 @@ async def test_non_tool_call_point_is_not_matched() -> None:
     outcome = await evaluator.evaluate(rule, ctx, policy)
 
     assert outcome.matched is False
+
+
+async def _amount_outcome(amount: object):
+    policy = make_policy(
+        roles={"finance": {"mcp_servers": ["payments"], "transaction_limit": 5000}}
+    )
+    ctx = make_context(
+        identity=make_identity(role=Role.finance),
+        point=InterceptionPoint.tool_call,
+        tool_call=make_tool_call(server="payments", tool="transfer", arguments={"amount": amount}),
+    )
+    return await TransactionLimitEvaluator().evaluate(make_rule(), ctx, policy)
+
+
+async def test_amount_accepts_int_float_and_numeric_string() -> None:
+    assert (await _amount_outcome(6000)).matched is True
+    assert (await _amount_outcome(6000.5)).matched is True
+    assert (await _amount_outcome("6000")).matched is True
+    assert (await _amount_outcome("100.25")).matched is False
+
+
+async def test_non_numeric_amount_is_not_matched() -> None:
+    assert (await _amount_outcome("lots")).matched is False
+
+
+async def test_beneficiary_argument_name_is_configurable() -> None:
+    policy = make_policy(
+        roles={
+            "finance": {
+                "mcp_servers": ["payments"],
+                "transaction_limit": 5000,
+                "beneficiary_allowlist": ["acct-eu-main"],
+            }
+        }
+    )
+    ctx = make_context(
+        identity=make_identity(role=Role.finance),
+        point=InterceptionPoint.tool_call,
+        tool_call=make_tool_call(
+            server="payments", tool="transfer", arguments={"amount": 1, "dest": "acct-x"}
+        ),
+    )
+    default_rule = make_rule()
+    custom_rule = make_rule(params={"beneficiary_arg": "dest"})
+
+    assert (await TransactionLimitEvaluator().evaluate(default_rule, ctx, policy)).matched is False
+    outcome = await TransactionLimitEvaluator().evaluate(custom_rule, ctx, policy)
+    assert outcome.reason == "Beneficiary not on the allowlist"

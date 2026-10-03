@@ -111,7 +111,7 @@ signatures:
 
   - id: SIG-II-001
     title: AI assistant marker embedded in a document
-    pattern: 'ai assistant,?\s+when you read this'
+    pattern: 'ai assistant\s*[:,\-]?\s+when you read this'
     categories: [prompt_injection]
     severity: critical
     reference: "OWASP FinBot indirect injection via documents"
@@ -179,7 +179,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-CE-002
     title: subprocess invocation
@@ -188,7 +188,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-CE-003
     title: eval or exec of dynamic code
@@ -197,7 +197,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-CE-004
     title: Dynamic module import
@@ -206,7 +206,7 @@ signatures:
     severity: high
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-CE-005
     title: Curl piped directly into a shell
@@ -215,7 +215,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-CE-006
     title: PowerShell encoded command execution
@@ -224,7 +224,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-DS-001
     title: Unsafe pickle deserialization
@@ -233,7 +233,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution / CWE-502"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-DS-002
     title: Pickle reduce exploit hook
@@ -242,7 +242,7 @@ signatures:
     severity: critical
     reference: "CWE-502 Deserialization of Untrusted Data"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-DS-003
     title: yaml.load without a safe loader
@@ -251,7 +251,7 @@ signatures:
     severity: high
     reference: "CWE-502 Deserialization of Untrusted Data"
     owasp: [ASI05, LLM05]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-DS-004
     title: torch.load without weights_only
@@ -260,7 +260,7 @@ signatures:
     severity: high
     reference: "CWE-502 Deserialization of Untrusted Data"
     owasp: [ASI05, LLM05, LLM03]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-DS-005
     title: Instructions to download pickle or checkpoint files
@@ -269,7 +269,7 @@ signatures:
     severity: high
     reference: "CWE-502 Deserialization of Untrusted Data"
     owasp: [ASI05, LLM03]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-SC-001
     title: trust_remote_code enabled on model load
@@ -278,7 +278,7 @@ signatures:
     severity: high
     reference: "OWASP LLM03:2025 Supply Chain"
     owasp: [LLM03, ASI04]
-    points: [tool_call, response]
+    points: [prompt, tool_call, response]
 
   - id: SIG-SC-002
     title: from_pretrained with a non-allowlisted repo
@@ -287,7 +287,7 @@ signatures:
     severity: medium
     reference: "OWASP LLM03:2025 Supply Chain"
     owasp: [LLM03, ASI04]
-    points: [tool_call, response]
+    points: [prompt, tool_call, response]
 
   - id: SIG-SC-003
     title: pip install from a raw URL or git ref
@@ -296,7 +296,7 @@ signatures:
     severity: high
     reference: "OWASP LLM03:2025 Supply Chain"
     owasp: [LLM03, ASI04]
-    points: [tool_call, response]
+    points: [prompt, tool_call, response]
 
   - id: SIG-SC-004
     title: Known typosquat package name
@@ -305,7 +305,7 @@ signatures:
     severity: medium
     reference: "OWASP LLM03:2025 Supply Chain - typosquatting"
     owasp: [LLM03, ASI04]
-    points: [tool_call, response]
+    points: [prompt, tool_call, response]
 
   - id: SIG-DEST-001
     title: DROP TABLE statement
@@ -341,7 +341,7 @@ signatures:
     severity: critical
     reference: "OWASP ASI05 Unexpected Code Execution"
     owasp: [ASI05, ASI02]
-    points: [tool_call, tool_result, response]
+    points: [prompt, tool_call, tool_result, response]
 
   - id: SIG-DEST-005
     title: Direct push to the main branch

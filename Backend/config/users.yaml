@@ -6,7 +6,7 @@ users:
     location: "Krakow, PL"
     region: PL
     agent_id: agent-anna-dev-7f3a
-    mcp_servers: [github, ci, logs-db, jira]
+    mcp_servers: [github, ci, logs-db, jira, mail]
 
   - sub: marek.nowak
     name: Marek Nowak
@@ -24,7 +24,7 @@ users:
     location: "New York, US"
     region: US
     agent_id: agent-john-dev-9b2e
-    mcp_servers: [github, ci, logs-db, jira]
+    mcp_servers: [github, ci, logs-db, jira, mail]
 
   - sub: ewa.zielinska
     name: Ewa Zielinska

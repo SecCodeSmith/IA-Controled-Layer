@@ -7,6 +7,15 @@ from control_layer.domain.models.policy import PolicyDocument
 from control_layer.domain.models.rule import Rule
 
 
+def _to_number(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _format_number(value: float) -> str:
     if float(value).is_integer():
         return str(int(value))
@@ -30,7 +39,7 @@ class TransactionLimitEvaluator:
         if role_config is None:
             return RuleOutcome(matched=False)
 
-        amount = ctx.tool_call.arguments.get("amount")
+        amount = _to_number(ctx.tool_call.arguments.get("amount"))
         limit = role_config.transaction_limit
         if amount is not None and limit is not None and amount > limit:
             return RuleOutcome(
@@ -39,10 +48,10 @@ class TransactionLimitEvaluator:
                     f"Transfer of {_format_number(amount)} exceeds the "
                     f"{_format_number(limit)} limit"
                 ),
-                evidence=[str(amount)],
+                evidence=[_format_number(amount)],
             )
 
-        beneficiary = ctx.tool_call.arguments.get("beneficiary")
+        beneficiary = ctx.tool_call.arguments.get(rule.params.get("beneficiary_arg", "to_iban"))
         allowlist = role_config.beneficiary_allowlist
         if allowlist and beneficiary is not None and beneficiary not in allowlist:
             return RuleOutcome(

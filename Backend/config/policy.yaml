@@ -24,13 +24,13 @@ models:
 
 roles:
   developer:
-    mcp_servers: [github, ci, logs-db, jira]
+    mcp_servers: [github, ci, logs-db, jira, mail]
   hr:
     mcp_servers: [hr-db, calendar, mail]
   finance:
     mcp_servers: [payments, calendar]
     transaction_limit: 5000
-    beneficiary_allowlist: [acct-eu-main, acct-eu-payroll]
+    beneficiary_allowlist: [PL61109010140000071219812874, DE89370400440532013000]
 
 locations:
   eu_customers:
@@ -45,12 +45,14 @@ rules:
   - { id: prompt_injection_ml, on: [prompt, tool_result], type: ml_classifier, block_at: 0.85, escalate_at: 0.5, escalate_to: llm_judge, owasp: [LLM01, ASI01] }
   - { id: llm_judge, on: [], type: llm_judge, model: "qwen2.5:7b", timeout_s: 20, on_timeout: flag, owasp: [ASI01] }
   - { id: historical_exploits, on: [prompt, tool_call, tool_result, response], type: signatures, feed: attack_signatures, categories: [code_exec, deserialization, supply_chain], action: block, owasp: [ASI05, LLM03, ASI04] }
+  - { id: transaction_limit, on: tool_call, type: transaction_limit, tool: payments.transfer, action: block, owasp: [ASI02, LLM06], severity: critical }
   - { id: secrets_detection, on: [prompt, response, tool_result], detect: [api_key, private_key, jwt], action: mask, owasp: [LLM02] }
+  - { id: model_allowlist, on: prompt, type: model_allowlist, action: block, owasp: [LLM03, ASI04], severity: medium }
   - { id: data_residency, on: tool_call, type: residency, action: block, owasp: [ASI03, LLM02] }
   - { id: role_provisioning, on: tool_call, type: rbac, action: block, owasp: [ASI03, LLM06] }
   - { id: rate_limit, on: [prompt, tool_call], per_minute: 60, action: block, owasp: [LLM10, ASI08] }
   - { id: loop_guard, on: tool_call, identical_calls: 5, window_s: 60, action: block, owasp: [LLM10, ASI08] }
-  - { id: circuit_breaker, blocks: 5, window_s: 300, action: quarantine, owasp: [ASI10] }
+  - { id: circuit_breaker, stage: authorization, blocks: 5, window_s: 300, action: quarantine, owasp: [ASI10, ASI08] }
   - { id: anomaly_first_destructive_use, type: anomaly, on: tool_call, action: flag, owasp: [ASI10] }
 
 budgets:

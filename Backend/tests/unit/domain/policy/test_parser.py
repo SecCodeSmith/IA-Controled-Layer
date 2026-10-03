@@ -33,11 +33,11 @@ def _minimal_document(**overrides: object) -> dict:
     return base
 
 
-def test_parses_sample_policy_file_into_15_rules_with_expected_stages() -> None:
+def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
     data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
     document = parse_policy_document(data, source_hash="abc123")
 
-    assert len(document.rules) == 15
+    assert len(document.rules) == 17
     stages_by_id = {rule.id: rule.stage for rule in document.rules}
     assert stages_by_id == {
         "direct_push_to_main": StageName.policy,
@@ -53,7 +53,9 @@ def test_parses_sample_policy_file_into_15_rules_with_expected_stages() -> None:
         "role_provisioning": StageName.authorization,
         "rate_limit": StageName.behavior,
         "loop_guard": StageName.behavior,
-        "circuit_breaker": StageName.behavior,
+        "circuit_breaker": StageName.authorization,
+        "model_allowlist": StageName.authorization,
+        "transaction_limit": StageName.policy,
         "anomaly_first_destructive_use": StageName.behavior,
     }
     assert document.version == 3
