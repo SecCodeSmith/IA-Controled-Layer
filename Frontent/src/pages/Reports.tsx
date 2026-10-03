@@ -46,7 +46,9 @@ export function Reports() {
         {report.data ? (
           <>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
-              {Object.entries(report.data.summary).map(([label, value]) => (
+              {Object.entries(report.data.summary)
+                .filter(([, value]) => typeof value !== 'object' || value === null)
+                .map(([label, value]) => (
                 <div key={label} className="flex flex-col gap-1.5 rounded-[10px] border border-border bg-white px-5 py-4.5">
                   <span className="text-sm text-muted">{formatSummaryLabel(label)}</span>
                   <span className="text-[28px] font-semibold tracking-tight">{String(value)}</span>

@@ -17,7 +17,7 @@ mcp = create_server("ci", "Fake CI server for the AI Control Layer demo.")
 @mcp.tool()
 @ascii_safe
 def get_run(pipeline: str, date: str) -> dict[str, Any]:
-    """Get a CI run. pipeline: e2e-login, e2e-checkout, nightly-build or deploy-staging. date: YYYY-MM-DD."""
+    """Get a CI run. pipeline: e2e-login, e2e-checkout, nightly-build. date: YYYY-MM-DD."""
     run = data.CI_RUNS.get((pipeline, date))
     if run is None and "login" in pipeline.lower():
         run = {**data.CI_RUNS[("e2e-login", "2026-10-02")], "pipeline": pipeline, "date": date}

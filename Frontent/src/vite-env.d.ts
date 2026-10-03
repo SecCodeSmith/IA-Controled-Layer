@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_AGENT_URL?: string
   readonly VITE_ADMIN_TOKEN?: string
   readonly VITE_USE_MOCKS?: string
+  readonly VITE_AGENT_PROXY_TARGET?: string
 }
 
 interface ImportMeta {

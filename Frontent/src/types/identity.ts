@@ -52,6 +52,7 @@ export interface ToolDescriptor {
   tags: string[]
   data_region: string | null
   scope: string
+  provisioned?: boolean
 }
 
 export interface BudgetUsage {

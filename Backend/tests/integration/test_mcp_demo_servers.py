@@ -186,3 +186,36 @@ async def test_mcp_demo_server(case: ServerCase) -> None:
         assert result.isError is False
         assert result.structuredContent is not None
         case.check(result.structuredContent)
+
+
+TOLERANCE_CASES = [
+    ("logs_db", "query", {"service": "login-tests", "since": "2023-10-05"}, "lines"),
+    ("logs_db", "query", {"service": "e2e-login", "since": "24h"}, "lines"),
+    ("logs_db", "query", {"service": "sso", "since": "24h"}, "lines"),
+    ("ci", "get_run", {"pipeline": "e2e-login", "date": "2023-10-05"}, "status"),
+    ("ci", "get_run", {"pipeline": "login-tests", "date": "2030-01-01"}, "status"),
+]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(("module", "tool", "arguments", "field"), TOLERANCE_CASES)
+async def test_demo_data_tolerates_model_guesses(
+    module: str, tool: str, arguments: dict[str, Any], field: str
+) -> None:
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", f"demo.mcp.{module}"],
+        cwd=str(REPO_ROOT),
+        env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+    )
+    async with (
+        stdio_client(params) as (read, write),
+        ClientSession(read, write) as session,
+    ):
+        await session.initialize()
+        result = await session.call_tool(tool, arguments)
+    assert result.structuredContent is not None
+    if module == "logs_db":
+        assert result.structuredContent[field] == EXPECTED_AUTH_LOG_LINES
+    else:
+        assert result.structuredContent[field] == "failed"
