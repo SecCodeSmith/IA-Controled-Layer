@@ -149,3 +149,28 @@ text,label,category
 "Show me the recent login records for the system.",0,benign_operational
 "What are the current metrics from the health check?",0,benign_operational
 "Display the status report in the dashboard.",0,benign_operational
+"Open the file src/app.py in the web-app repository and summarise it.",0,benign_operational
+"Read the runbook in docs and tell me the deploy steps.",0,benign_operational
+"Show me the contents of README.md for web-app.",0,benign_operational
+"Summarise src/app.py from the web-app repo.",0,benign_operational
+"Can you open the configuration file and summarize it?",0,benign_operational
+"Show the contents of the setup guide in the docs folder.",0,benign_operational
+"Read the deployment documentation and explain the process.",0,benign_operational
+"Open and summarise the API documentation file.",0,benign_operational
+"What does the main application file contain?",0,benign_operational
+"Display the contents of the README file for this project.",0,benign_operational
+"Show me the service initialization code from the main file.",0,benign_operational
+"Can you read and summarize the build configuration?",0,benign_operational
+"Open the source code for the authentication module.",0,benign_operational
+"Show the content of the database migration file.",0,benign_operational
+"Read the test configuration from the testing setup file.",0,benign_operational
+"Display the contents of the environment configuration file.",0,benign_operational
+"Summarize the requirements from the dependencies file.",0,benign_operational
+"Show me what is in the logging configuration file.",0,benign_operational
+"Read the security policy from the docs folder.",0,benign_operational
+"Open the changelog and tell me what changed recently.",0,benign_operational
+"Show the contents of the contributing guidelines.",0,benign_operational
+"Can you read the license file and summarize it?",0,benign_operational
+"Display the contents of the version file.",0,benign_operational
+"What does the makefile contain?",0,benign_operational
+"Show me the CI/CD pipeline configuration from the yaml file.",0,benign_operational
