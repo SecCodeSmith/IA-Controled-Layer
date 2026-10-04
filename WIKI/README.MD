@@ -8,6 +8,10 @@ This directory contains the complete documentation for the AI Control Layer proj
 - **[Judges Quickstart](judges-quickstart.md)** — 10-minute getting-started guide. Start here.
 - **[Demo Script](demo-script.md)** — 6-minute live demo walkthrough with talking points.
 
+### For Engineers (Development Guide)
+- **[CLAUDE.md](../CLAUDE.md)** — Development guide: architecture rules, engineering practices, commands, team org, environment setup.
+- **[Team Journal](team-journal.md)** — Decision log, hand-off notes, verified facts, risk mitigations, phase checkpoints.
+
 ### For Understanding the System
 - **[Architecture](architecture.md)** — Component diagram, seven-stage pipeline, Mermaid diagrams, directory structure.
 - **[API Contract](api-contract.md)** — Full API specification: endpoints, request/response shapes, authentication, error codes.
