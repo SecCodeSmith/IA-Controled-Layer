@@ -24,6 +24,8 @@ $cmd = @(
     "--dataset", "src/control_layer/ml/dataset/prompt_injection_dataset.csv",
     "--out", "src/control_layer/ml/artifacts/prompt_injection_classifier.joblib",
     "--extra", "src/control_layer/ml/dataset/security_education.csv",
+    "--extra", "src/control_layer/ml/dataset/benign_operational.csv",
+    "--extra", "src/control_layer/ml/dataset/benign_tool_results.csv",
     "--model", "logreg"
 )
 
@@ -47,6 +49,7 @@ $cmd = @(
     "python", "-m", "control_layer.ml.train",
     "--dataset", "src/control_layer/ml/dataset/prompt_injection_dataset.csv",
     "--extra", "src/control_layer/ml/dataset/benign_operational.csv",
+    "--extra", "src/control_layer/ml/dataset/benign_tool_results.csv",
     "--out", "src/control_layer/ml/artifacts/prompt_injection_tree.joblib",
     "--model", "tree"
 )
