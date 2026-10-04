@@ -1,7 +1,8 @@
-import type { CallStatus, PipelineStage } from './common'
+import type { CallStatus, PipelineStage, RuleAction } from './common'
 
 export type TraceKind = 'prompt' | 'tool_call'
-export type ClassifierBand = 'block' | 'inconclusive' | 'allow'
+export type ClassifierBand = 'block' | 'escalate' | 'allow'
+export type JudgeVerdict = 'allow' | 'flag' | 'block'
 
 export interface TraceToolCall {
   server: string
@@ -19,7 +20,7 @@ export interface TraceRequest {
 
 export interface TraceViolation {
   rule_id: string
-  action: string
+  action: RuleAction
   confidence: number
   reason: string | null
   evidence: string[]
@@ -27,7 +28,7 @@ export interface TraceViolation {
 
 export interface TraceStage {
   stage: PipelineStage
-  action: string
+  action: RuleAction
   timing_ms: number
   cache_hit: boolean
   violations: TraceViolation[]
@@ -60,20 +61,20 @@ export interface ClassifierTrace {
   band: ClassifierBand
   sampled: boolean
   forced: boolean
-  explanation: ClassifierExplanation
+  explanation: ClassifierExplanation | null
 }
 
 export interface JudgeTrace {
-  verdict: string
+  verdict: JudgeVerdict
   confidence: number
   reason: string | null
 }
 
 export interface TraceResponse {
   call_id: string
-  kind: string
+  kind: TraceKind
   status: CallStatus
-  action: string
+  action: RuleAction
   stage: PipelineStage | null
   rule_id: string | null
   reason: string | null
@@ -82,13 +83,13 @@ export interface TraceResponse {
   classifier_trace: ClassifierTrace | null
   judge: JudgeTrace | null
   training_sample_id: string | null
-  raw_result: string | null
-  delivered_result: string | null
+  raw_result: unknown
+  delivered_result: unknown
 }
 
 export interface ResourceGrantView {
-  paths: { allow: string[]; deny: string[] } | null
-  columns: { allow: string[] | null; deny: string[] } | null
+  paths: { allow: string[]; deny: string[] }
+  columns: { allow: string[] | null; deny: string[] }
   rows: Record<string, string | string[]>
 }
 

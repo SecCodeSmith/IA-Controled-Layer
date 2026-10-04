@@ -18,7 +18,7 @@ export const workbenchHandlers = [
   http.get(`${CONTROL_LAYER_URL}/api/classifier/samples`, ({ request }) => {
     const status = new URL(request.url).searchParams.get('status')
     const samples = status ? SAMPLES_FIXTURE.filter((sample) => sample.status === status) : SAMPLES_FIXTURE
-    return HttpResponse.json({ samples })
+    return HttpResponse.json({ items: samples })
   }),
 
   http.patch(`${CONTROL_LAYER_URL}/api/classifier/samples/:sampleId`, async ({ params, request }) => {

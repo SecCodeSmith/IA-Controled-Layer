@@ -6,6 +6,7 @@ import { ResourceSimulator } from './ResourceSimulator'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { server } from '../../test/server'
 import { CONTROL_LAYER_URL } from '../../api/client'
+import { PROJECTION_TRACE_FIXTURE } from '../../test/workbenchFixtures'
 
 async function fillForm(user: ReturnType<typeof userEvent.setup>, args = '{"query": "all"}') {
   await screen.findByRole('option', { name: 'Marek Nowak' })
@@ -81,6 +82,34 @@ describe('ResourceSimulator', () => {
       tool_call: { server: 'hr-db', tool: 'query', arguments: { path: '.env' } },
     })
     expect(screen.queryByText(/Redacted columns/)).not.toBeInTheDocument()
+  })
+
+  it('shows string results verbatim and reads redactions from the reason when evidence is absent', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(`${CONTROL_LAYER_URL}/api/workbench/trace`, () =>
+        HttpResponse.json({
+          ...PROJECTION_TRACE_FIXTURE,
+          stages: [
+            {
+              ...PROJECTION_TRACE_FIXTURE.stages[1],
+              violations: [{ ...PROJECTION_TRACE_FIXTURE.stages[1].violations[0], evidence: [] }],
+            },
+          ],
+          raw_result: 'plain {text} body',
+          delivered_result: 'plain body',
+        }),
+      ),
+    )
+    renderWithProviders(<ResourceSimulator />)
+
+    await fillForm(user)
+    await user.click(screen.getByRole('button', { name: 'Simulate' }))
+
+    expect(await screen.findByText('plain {text} body')).toBeInTheDocument()
+    expect(screen.getByText('plain body')).toBeInTheDocument()
+    expect(screen.getByText('Redacted columns: salary')).toBeInTheDocument()
+    expect(screen.getByText('Rows filtered: 1')).toBeInTheDocument()
   })
 
   it('rejects invalid argument JSON without calling the backend', async () => {

@@ -3,7 +3,7 @@ import { useTrace } from '../../api/workbench'
 import { useActorChoice } from '../../hooks/useActorChoice'
 import { errorMessage } from '../../lib/errorMessage'
 import { parseProjection } from '../../lib/parseProjection'
-import { prettyJson } from '../../lib/prettyJson'
+import { formatResult } from '../../lib/formatResult'
 import type { TraceResponse } from '../../types/workbench'
 import { ErrorBanner } from '../common/ErrorBanner'
 import { PreBlock } from '../common/PreBlock'
@@ -25,11 +25,11 @@ function parseArguments(text: string): Record<string, unknown> | null {
   }
 }
 
-function ResultBlock({ testId, title, text, tone }: { testId: string; title: string; text: string | null; tone?: 'danger' | 'success' }) {
+function ResultBlock({ testId, title, text, tone }: { testId: string; title: string; text: unknown; tone?: 'danger' | 'success' }) {
   return (
     <div data-testid={testId} className="flex min-w-0 flex-1 basis-[280px] flex-col gap-1.5">
       <span className="text-xs text-muted">{title}</span>
-      <PreBlock tone={tone}>{text ? prettyJson(text) : '(none)'}</PreBlock>
+      <PreBlock tone={tone}>{formatResult(text)}</PreBlock>
     </div>
   )
 }

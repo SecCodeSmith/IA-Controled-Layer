@@ -1,4 +1,6 @@
 export type SampleLabel = 0 | 1
+import type { InterceptionPoint } from './common'
+
 export type SampleSource = 'judge' | 'workbench' | 'curation' | 'manual'
 export type SampleStatus = 'pending' | 'accepted' | 'rejected'
 export type RetrainJobStatus = 'running' | 'complete' | 'failed'
@@ -18,6 +20,7 @@ export interface SampleCounts {
   pending: number
   accepted: number
   rejected: number
+  total: number
 }
 
 export interface TrainingSample {
@@ -27,10 +30,10 @@ export interface TrainingSample {
   label: SampleLabel
   source: SampleSource
   status: SampleStatus
-  confidence: number
+  confidence: number | null
   reason: string | null
   tree_probability: number | null
-  point: string | null
+  point: InterceptionPoint | null
   call_id: string | null
   created_at: string
   reviewed_by: string | null
@@ -54,7 +57,7 @@ export interface ClassifierStatusResponse {
 }
 
 export interface SampleListResponse {
-  samples: TrainingSample[]
+  items: TrainingSample[]
 }
 
 export interface SamplePatch {
@@ -72,6 +75,7 @@ export interface CurationSummary {
   rejected: number
   relabelled: number
   refused: number
+  error: string | null
 }
 
 export interface RetrainRequest {
@@ -83,6 +87,7 @@ export interface RetrainJobResponse {
   job_id: string
   status: RetrainJobStatus
   started_at: string
+  finished_at: string | null
   result: RetrainResult | null
   error: string | null
 }
