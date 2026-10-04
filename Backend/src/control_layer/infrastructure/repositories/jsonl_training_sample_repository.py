@@ -45,7 +45,6 @@ class JsonlTrainingSampleRepository:
         await self._ensure_loaded()
         assert self._samples is not None
 
-        # Check for duplicates by text_sha256 among pending/accepted
         for existing in self._samples.values():
             if existing.text_sha256 == sample.text_sha256 and existing.status in (
                 SampleStatus.pending,
@@ -53,7 +52,6 @@ class JsonlTrainingSampleRepository:
             ):
                 return existing
 
-        # Add new sample
         self._samples[sample.id] = sample
         await asyncio.to_thread(self._append_to_file, sample)
         return sample
@@ -87,7 +85,6 @@ class JsonlTrainingSampleRepository:
         if status is not None:
             samples = [s for s in samples if s.status == status]
 
-        # Reverse to get newest first
         samples.reverse()
 
         return samples[:limit]

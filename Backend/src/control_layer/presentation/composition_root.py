@@ -429,6 +429,7 @@ async def build_container(settings: Settings) -> Container:
         call_ids=call_ids,
         policy_repository=policy_repository,
         classifier_module=classifier_module,
+        model_provider=model_provider,
     )
 
     return Container(
