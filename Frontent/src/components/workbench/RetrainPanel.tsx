@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useInvalidateClassifier, useStartRetrain } from '../../api/classifier'
+import { useClassifierStatus, useInvalidateClassifier, useStartRetrain } from '../../api/classifier'
 import { useRetrainStream } from '../../hooks/useRetrainStream'
 import { errorMessage } from '../../lib/errorMessage'
 import type { RetrainResult } from '../../types/classifier'
@@ -13,6 +13,7 @@ export function RetrainPanel() {
   const [result, setResult] = useState<RetrainResult | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const start = useStartRetrain()
+  const status = useClassifierStatus()
   const invalidateClassifier = useInvalidateClassifier()
 
   useRetrainStream(
@@ -50,7 +51,7 @@ export function RetrainPanel() {
         <button
           type="button"
           onClick={handleRetrain}
-          disabled={start.isPending || running}
+          disabled={start.isPending || running || status.isError}
           className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50"
         >
           Retrain tree

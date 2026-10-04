@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -115,4 +115,80 @@ describe('TrainingSetPanel', () => {
 
     expect(await screen.findByText('Sample store unavailable')).toBeInTheDocument()
   })
+
+  describe.each([
+    ['a 404 response', () => HttpResponse.json({ error: { code: 'not_found', reason: 'Not Found' } }, { status: 404 })],
+    ['a network error', () => HttpResponse.error()],
+  ])('when the classifier endpoints fail with %s', (_name, failure) => {
+    beforeEach(() => {
+      server.use(
+        http.get(`${CONTROL_LAYER_URL}/api/classifier`, failure),
+        http.get(`${CONTROL_LAYER_URL}/api/classifier/samples`, failure),
+      )
+    })
+
+    it('shows one banner with the hint instead of loading forever', async () => {
+      renderWithProviders(<TrainingSetPanel />)
+
+      const banner = await screen.findByRole('alert')
+      expect(banner).toHaveTextContent(
+        'The control layer does not expose /api/classifier. Restart it with the current code.',
+      )
+      expect(screen.getAllByRole('alert')).toHaveLength(1)
+      expect(screen.queryByText('Loading samples…')).not.toBeInTheDocument()
+    })
+
+    it('disables curation', async () => {
+      renderWithProviders(<TrainingSetPanel />)
+
+      await screen.findByRole('alert')
+      expect(screen.getByRole('button', { name: 'Curate with judge' })).toBeDisabled()
+    })
+  })
+
+  it('names the reason of a 404 in the banner', async () => {
+    server.use(
+      http.get(`${CONTROL_LAYER_URL}/api/classifier`, () =>
+        HttpResponse.json({ error: { code: 'not_found', reason: 'Not Found' } }, { status: 404 }),
+      ),
+    )
+    renderWithProviders(<TrainingSetPanel />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Not Found/)
+  })
+
+  it('shows the samples error and no endless loading when only the samples request fails', async () => {
+    server.use(
+      http.get(`${CONTROL_LAYER_URL}/api/classifier/samples`, () =>
+        HttpResponse.json({ error: { code: 'not_found', reason: 'Not Found' } }, { status: 404 }),
+      ),
+    )
+    renderWithProviders(<TrainingSetPanel />)
+
+    const banner = await screen.findByRole('alert')
+    expect(banner).toHaveTextContent('Not Found')
+    expect(banner).toHaveTextContent(
+      'The control layer does not expose /api/classifier/samples. Restart it with the current code.',
+    )
+    expect(screen.queryByText('Loading samples…')).not.toBeInTheDocument()
+    expect(await screen.findByText('tree')).toBeInTheDocument()
+  })
+
+  it('recovers on its own once the backend serves the endpoints again', async () => {
+    let healthy = false
+    server.use(
+      http.get(`${CONTROL_LAYER_URL}/api/classifier/samples`, () =>
+        healthy
+          ? HttpResponse.json({ items: SAMPLES_FIXTURE })
+          : HttpResponse.json({ error: { code: 'not_found', reason: 'Not Found' } }, { status: 404 }),
+      ),
+    )
+    renderWithProviders(<TrainingSetPanel />)
+
+    await screen.findByRole('alert')
+    healthy = true
+
+    expect(await screen.findByText(/Summarise the sprint backlog/, undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  }, 10000)
 })

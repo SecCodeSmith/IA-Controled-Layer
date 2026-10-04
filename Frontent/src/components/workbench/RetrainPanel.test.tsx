@@ -89,4 +89,15 @@ describe('RetrainPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('A retrain is already running')
     expect(MockEventSource.latest()).toBeUndefined()
   })
+
+  it('disables the retrain button while the classifier status is unavailable', async () => {
+    server.use(
+      http.get(`${CONTROL_LAYER_URL}/api/classifier`, () =>
+        HttpResponse.json({ error: { code: 'not_found', reason: 'Not Found' } }, { status: 404 }),
+      ),
+    )
+    renderWithProviders(<RetrainPanel />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Retrain tree' })).toBeDisabled())
+  })
 })

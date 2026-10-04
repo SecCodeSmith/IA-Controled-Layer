@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useTrace } from '../../api/workbench'
+import { useTrace, WORKBENCH_TRACE_PATH } from '../../api/workbench'
 import { useActorChoice } from '../../hooks/useActorChoice'
-import { errorMessage } from '../../lib/errorMessage'
 import type { TraceResponse } from '../../types/workbench'
-import { ErrorBanner } from '../common/ErrorBanner'
 import { ActorSelect } from './ActorSelect'
 import { DecisionTreeCard } from './DecisionTreeCard'
+import { EndpointErrorBanner } from './EndpointErrorBanner'
 import { JudgeCard } from './JudgeCard'
 import { TraceVerdict } from './TraceVerdict'
 
@@ -58,7 +57,7 @@ export function PromptLab({ onTrace }: PromptLabProps) {
         </button>
       </div>
 
-      {trace.isError ? <ErrorBanner message={errorMessage(trace.error)} /> : null}
+      {trace.isError ? <EndpointErrorBanner error={trace.error} endpoint={WORKBENCH_TRACE_PATH} /> : null}
 
       {result ? (
         <div className="flex flex-col gap-3">

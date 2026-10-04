@@ -153,6 +153,24 @@ describe('Workbench', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Unknown actor ghost')
   })
 
+  it.each([
+    ['a 404 response', () => HttpResponse.json({ error: { code: 'not_found', reason: 'Not Found' } }, { status: 404 })],
+    ['a network error', () => HttpResponse.error()],
+  ])('shows the trace banner with the hint on %s', async (_name, failure) => {
+    const user = userEvent.setup()
+    server.use(http.post(`${CONTROL_LAYER_URL}/api/workbench/trace`, failure))
+    renderWithProviders(<Workbench />, { route: '/admin/workbench' })
+
+    await actorReady('Anna Kowalska')
+    await user.type(screen.getByLabelText('Prompt'), 'hello')
+    await user.click(screen.getByRole('button', { name: 'Trace' }))
+
+    const banner = await screen.findByRole('alert')
+    expect(banner).toHaveTextContent(
+      'The control layer does not expose /api/workbench/trace. Restart it with the current code.',
+    )
+  })
+
   it('feeds the stage strip with both passes of a simulated tool call', async () => {
     const user = userEvent.setup()
     renderWithProviders(<Workbench />, { route: '/admin/workbench' })

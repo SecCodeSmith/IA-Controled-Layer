@@ -1,10 +1,9 @@
-import { useResourceMatrix } from '../../api/workbench'
-import { errorMessage } from '../../lib/errorMessage'
+import { useResourceMatrix, WORKBENCH_RESOURCES_PATH } from '../../api/workbench'
 import { roleLabel } from '../../lib/roleLabel'
 import { summarizeGrant } from '../../lib/summarizeGrant'
 import type { ResourceGrantView, ResourceView } from '../../types/workbench'
-import { ErrorBanner } from '../common/ErrorBanner'
 import { Spinner } from '../common/Spinner'
+import { EndpointErrorBanner } from './EndpointErrorBanner'
 
 const DEFAULT_ROLE = '*'
 
@@ -37,7 +36,7 @@ export function ResourceMatrix() {
   const matrix = useResourceMatrix()
 
   if (matrix.isLoading) return <Spinner label="Loading resources…" />
-  if (matrix.isError) return <ErrorBanner message={errorMessage(matrix.error)} />
+  if (matrix.isError) return <EndpointErrorBanner error={matrix.error} endpoint={WORKBENCH_RESOURCES_PATH} />
   if (!matrix.data) return null
 
   const { roles, resources } = matrix.data
