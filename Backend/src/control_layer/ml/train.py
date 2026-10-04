@@ -2,7 +2,7 @@ import argparse
 import csv
 import json
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import joblib
@@ -104,7 +104,7 @@ def _write_meta(
 ) -> None:
     meta = {
         "model_type": model_type,
-        "trained_at": datetime.utcnow().isoformat() + "Z",
+        "trained_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "f1": f1,
         "n_base": n_base,
         "n_feedback": n_feedback,

@@ -1,7 +1,7 @@
 import json
 import os
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import joblib
@@ -56,7 +56,7 @@ class SklearnTreeTrainer:
             f1=f1,
             n_base=len(base_rows),
             n_feedback=len(all_feedback),
-            trained_at=datetime.utcnow(),
+            trained_at=datetime.now(UTC),
         )
 
     def publish(self, model: TrainedModel, *, version: int) -> SklearnPromptClassifier:

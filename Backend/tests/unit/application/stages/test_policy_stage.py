@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from control_layer.application.pipeline.stages.policy import PolicyStage
 from control_layer.application.rules.registry import EvaluatorRegistry
-from control_layer.domain.models.classifier import CLASSIFIER_TRACE_KEY, ClassifierTrace
+from control_layer.domain.models.classifier import (
+    CLASSIFIER_TRACE_KEY,
+    FORCE_VERIFY_KEY,
+    ClassifierTrace,
+)
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import RuleOutcome
 from control_layer.domain.models.enums import InterceptionPoint, RuleAction, StageName
@@ -283,6 +287,26 @@ async def test_escalation_is_skipped_behind_a_signature_block() -> None:
         "prompt_injection_signatures",
         "prompt_injection_tree",
     ]
+
+
+async def test_forced_verification_escalates_even_behind_a_signature_block() -> None:
+    judge = _CountingEvaluator(_JUDGE_BLOCK)
+    stage = PolicyStage(
+        _registry(
+            signatures=_ScriptedEvaluator(RuleOutcome(matched=True, reason="signature")),
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=judge,
+        )
+    )
+    ctx = _ctx()
+    ctx.metadata[FORCE_VERIFY_KEY] = True
+
+    result = await stage.process(ctx, _policy([_SIGNATURE_RULE, _TREE_RULE, _JUDGE_RULE]))
+
+    assert judge.calls == 1
+    assert result.action == RuleAction.block
+    assert [v.rule_id for v in result.violations] == ["prompt_injection_signatures", "llm_judge"]
+    assert ctx.metadata["judge_verdict"]["verdict"] == "block"
 
 
 async def test_judge_is_called_once_for_two_escalating_rules() -> None:

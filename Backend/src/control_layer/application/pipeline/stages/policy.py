@@ -3,7 +3,7 @@ from __future__ import annotations
 from control_layer.application.pipeline.stage_base import BaseStage
 from control_layer.application.rules.registry import EvaluatorRegistry
 from control_layer.application.rules.rule_runner import RuleEvaluation, RuleRunner
-from control_layer.domain.models.classifier import CLASSIFIER_TRACE_KEY
+from control_layer.domain.models.classifier import CLASSIFIER_TRACE_KEY, FORCE_VERIFY_KEY
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import RuleOutcome, StageResult
 from control_layer.domain.models.enums import RuleAction, StageName
@@ -52,7 +52,7 @@ class PolicyStage(BaseStage):
         if rule.type not in _ESCALATING_RULE_TYPES or not outcome.inconclusive:
             return evaluation
 
-        if terminal:
+        if terminal and not ctx.metadata.get(FORCE_VERIFY_KEY):
             settled = outcome.model_copy(update={"inconclusive": False})
             return RuleEvaluation(rule=rule, outcome=settled)
 
