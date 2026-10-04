@@ -55,15 +55,7 @@ export interface AuditTokens {
   total: number
 }
 
-export interface AuditLatencyStages {
-  identity: number
-  authorization: number
-  dlp: number
-  policy: number
-  behavior: number
-  resource: number
-  audit: number
-}
+export type AuditLatencyStages = Partial<Record<PipelineStage, number>>
 
 export interface AuditLatency {
   proxy_ms: number

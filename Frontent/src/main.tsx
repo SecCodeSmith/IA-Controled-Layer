@@ -11,12 +11,13 @@ import { CallDetail } from './pages/CallDetail'
 import { Policy } from './pages/Policy'
 import { Reports } from './pages/Reports'
 import { Workbench } from './pages/Workbench'
+import { RouteErrorPage } from './components/common/RouteErrorPage'
 import { shouldRetryQuery } from './lib/retryPolicy'
 import './index.css'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetryQuery } } })
 
-const router = createBrowserRouter([
+const routes = [
   { path: '/', element: <SignIn /> },
   { path: '/chat', element: <Chat /> },
   { path: '/admin', element: <LiveFeed /> },
@@ -25,7 +26,9 @@ const router = createBrowserRouter([
   { path: '/admin/policy', element: <Policy /> },
   { path: '/admin/reports', element: <Reports /> },
   { path: '/admin/workbench', element: <Workbench /> },
-])
+]
+
+const router = createBrowserRouter(routes.map((route) => ({ ...route, errorElement: <RouteErrorPage /> })))
 
 async function enableMocking(): Promise<void> {
   if (!import.meta.env.DEV || import.meta.env.VITE_USE_MOCKS !== 'true') return
