@@ -194,3 +194,59 @@ async def test_prompt_treats_security_education_as_benign_and_keeps_json_contrac
     assert "developer how-to questions" in system
     assert '{"verdict": "allow|flag|block"' in system
     assert CapturingProvider.captured.response_format == {"type": "json_object"}
+
+
+async def _judge(payload: dict, params: dict | None = None):
+    provider = FakeModelProvider(content=json.dumps(payload))
+    evaluator = LlmJudgeEvaluator(provider, model="qwen2.5:7b")
+    rule = make_rule(rule_type="llm_judge", params=params or {})
+    return await evaluator.evaluate(rule, make_context(text="hello"), make_policy())
+
+
+async def test_block_below_default_block_confidence_is_inconclusive() -> None:
+    outcome = await _judge({"verdict": "block", "confidence": 0.69, "reason": "maybe"})
+
+    assert outcome.matched is True
+    assert outcome.inconclusive is True
+    assert outcome.confidence == 0.69
+    assert "maybe" in (outcome.reason or "")
+
+
+async def test_block_at_default_block_confidence_is_a_confident_match() -> None:
+    outcome = await _judge({"verdict": "block", "confidence": 0.7, "reason": "injection"})
+
+    assert outcome.matched is True
+    assert outcome.inconclusive is False
+
+
+async def test_block_confidence_param_overrides_the_default() -> None:
+    strict = await _judge(
+        {"verdict": "block", "confidence": 0.8, "reason": "x"}, {"block_confidence": 0.9}
+    )
+    lenient = await _judge(
+        {"verdict": "block", "confidence": 0.3, "reason": "x"}, {"block_confidence": 0.2}
+    )
+
+    assert strict.inconclusive is True
+    assert lenient.inconclusive is False
+
+
+async def test_block_without_confidence_is_confident() -> None:
+    outcome = await _judge({"verdict": "block", "reason": "injection"})
+
+    assert outcome.inconclusive is False
+    assert outcome.confidence == 1.0
+
+
+async def test_flag_verdict_is_always_inconclusive_even_when_confident() -> None:
+    outcome = await _judge({"verdict": "flag", "confidence": 0.99, "reason": "odd"})
+
+    assert outcome.matched is True
+    assert outcome.inconclusive is True
+
+
+async def test_non_numeric_confidence_is_a_fail_safe_inconclusive_flag() -> None:
+    outcome = await _judge({"verdict": "block", "confidence": "high", "reason": "x"})
+
+    assert outcome.matched is True
+    assert outcome.inconclusive is True

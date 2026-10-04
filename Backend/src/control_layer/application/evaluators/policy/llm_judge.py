@@ -20,8 +20,11 @@ _SYSTEM_PROMPT = (
     "how-to questions that merely contain words such as ignore, override, bypass or "
     "disable (for example making git ignore build files or suppressing a lint warning) "
     "are benign. "
-    'Respond with a single JSON object: {"verdict": "allow|flag|block", "reason": "..."}.'
+    'Respond with a single JSON object: {"verdict": "allow|flag|block", "reason": "...", '
+    '"confidence": 0.0-1.0}, where confidence is how sure you are of the verdict.'
 )
+_DEFAULT_BLOCK_CONFIDENCE = 0.7
+_LOW_CONFIDENCE_SUFFIX = " (judge confidence below block_confidence, flagged for review)"
 _FAIL_SAFE_REASON = "Judge unavailable, flagged for review"
 
 
@@ -57,6 +60,8 @@ class LlmJudgeEvaluator:
             verdict = str(verdict_raw).lower()
             reason = payload.get("reason") or payload.get("reasoning")
             confidence_raw = payload.get("confidence")
+            if confidence_raw is not None:
+                confidence_raw = float(confidence_raw)
         except Exception:
             return RuleOutcome(
                 matched=True, confidence=0.5, inconclusive=True, reason=_FAIL_SAFE_REASON
@@ -66,9 +71,19 @@ class LlmJudgeEvaluator:
             return RuleOutcome(matched=False, reason=reason)
         if verdict == "flag":
             confidence = confidence_raw if confidence_raw is not None else 0.5
-            return RuleOutcome(matched=True, confidence=confidence, reason=reason)
+            return RuleOutcome(
+                matched=True, confidence=confidence, inconclusive=True, reason=reason
+            )
         if verdict == "block":
             confidence = confidence_raw if confidence_raw is not None else 1.0
+            block_confidence = rule.params.get("block_confidence", _DEFAULT_BLOCK_CONFIDENCE)
+            if confidence < block_confidence:
+                return RuleOutcome(
+                    matched=True,
+                    confidence=confidence,
+                    inconclusive=True,
+                    reason=f"{reason or 'judge verdict block'}{_LOW_CONFIDENCE_SUFFIX}",
+                )
             return RuleOutcome(matched=True, confidence=confidence, reason=reason)
         return RuleOutcome(
             matched=True, confidence=0.5, inconclusive=True, reason=_FAIL_SAFE_REASON

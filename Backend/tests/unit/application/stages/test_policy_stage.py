@@ -352,3 +352,32 @@ async def test_conclusive_decision_tree_match_sets_injection_detected() -> None:
 
     assert [v.rule_id for v in result.violations] == ["prompt_injection_tree"]
     assert ctx.metadata.get("injection_detected") is True
+
+
+async def test_inconclusive_judge_under_block_action_rule_still_only_flags() -> None:
+    block_judge_rule = {**_JUDGE_RULE, "action": "block"}
+    stage = PolicyStage(
+        _registry(
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=_CountingEvaluator(_JUDGE_UNAVAILABLE),
+        )
+    )
+
+    result = await stage.process(_ctx(), _policy([_TREE_RULE, block_judge_rule]))
+
+    assert [v.rule_id for v in result.violations] == ["llm_judge"]
+    assert result.action == RuleAction.flag
+
+
+async def test_confident_judge_block_under_block_action_rule_blocks() -> None:
+    block_judge_rule = {**_JUDGE_RULE, "action": "block"}
+    stage = PolicyStage(
+        _registry(
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=_CountingEvaluator(_JUDGE_BLOCK),
+        )
+    )
+
+    result = await stage.process(_ctx(), _policy([_TREE_RULE, block_judge_rule]))
+
+    assert result.action == RuleAction.block

@@ -29,6 +29,7 @@ _POLICY_TYPES = {
     "transaction_limit",
 }
 _BEHAVIOR_TYPES = {"rate_limit", "loop_guard", "circuit_breaker", "anomaly"}
+_BLOCK_BY_DEFAULT_TYPES = {"ml_classifier", "decision_tree", "llm_judge"}
 
 _KNOWN_RULE_KEYS = {
     "id",
@@ -84,9 +85,11 @@ def _parse_on(rule_dict: dict[str, Any]) -> list[InterceptionPoint]:
     return [InterceptionPoint(point) for point in on_raw]
 
 
-def _parse_action(rule_dict: dict[str, Any]) -> RuleAction:
+def _parse_action(rule_dict: dict[str, Any], rule_type: str) -> RuleAction:
     action_raw = rule_dict.get("action")
     if action_raw is None:
+        if rule_type in _BLOCK_BY_DEFAULT_TYPES:
+            return RuleAction.block
         return RuleAction.flag
     try:
         return RuleAction(action_raw)
@@ -122,7 +125,7 @@ def _parse_rule(rule_dict: dict[str, Any], seen_ids: set[str]) -> Rule:
     seen_ids.add(rule_id)
 
     rule_type = infer_rule_type(rule_dict)
-    action = _parse_action(rule_dict)
+    action = _parse_action(rule_dict, rule_type)
     stage = _parse_stage(rule_type, rule_dict)
     on = _parse_on(rule_dict)
     params = {k: v for k, v in rule_dict.items() if k not in _KNOWN_RULE_KEYS}

@@ -4,15 +4,15 @@ from control_layer.domain.models.enums import CallStatus, StageName
 from control_layer.selftest.scenarios import SCENARIOS
 
 
-def test_scenarios_catalogue_has_69_entries() -> None:
-    assert len(SCENARIOS) == 69
+def test_scenarios_catalogue_has_71_entries() -> None:
+    assert len(SCENARIOS) == 71
 
 
-def test_scenarios_has_20_positive_and_49_negative() -> None:
+def test_scenarios_has_20_positive_and_51_negative() -> None:
     positive = [s for s in SCENARIOS if s.kind == "positive"]
     negative = [s for s in SCENARIOS if s.kind == "negative"]
     assert len(positive) == 20
-    assert len(negative) == 49
+    assert len(negative) == 51
 
 
 def test_scenario_ids_are_unique() -> None:

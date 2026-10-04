@@ -1,1 +1,1 @@
-{"model_type": "tree", "trained_at": "2026-10-04T05:32:21.574515Z", "f1": 0.8771929824561403, "n_base": 635, "n_feedback": 185, "version": 11}
+{"model_type": "tree", "trained_at": "2026-10-04T08:26:49.669608Z", "f1": 0.9074074074074074, "n_base": 635, "n_feedback": 175, "version": 1}

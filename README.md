@@ -27,7 +27,7 @@ Every call flows through all stages in order. Stages can short-circuit (return e
 | **Identity** | JWT verification (HS256), signature check, expiry validation, tampering detection → 401 |
 | **Authorization** | RBAC (roles → tools mapping), data residency, destructive-action approval gates → 403 / 202 |
 | **DLP** | PII detection (email, phone, PESEL, IBAN, PAN), secrets (API key, JWT, private key), exfiltration sequences → masked or blocked; optional session vault restores masked e-mails/phones into allowed tool calls (e.g. `mail.send`) without the model ever seeing them |
-| **Policy** | Signature-based injection (feed-driven), ML classifier (Scikit-learn, F1 ≥0.85), LLM judge (Ollama), restricted topics → 403 or escalate |
+| **Policy** | Signature-based injection (feed-driven), ML classifier (Scikit-learn, F1 ≥0.85), LLM judge (Ollama; confident verdicts block, low-confidence ones flag), restricted topics → 403 or escalate |
 | **Behavior** | Rate limit (60/min), loop guard (5 identical), circuit breaker (5 blocks → quarantine), risk scoring → 429/403 or quarantine |
 | **Resource** | Per-user token budgets (10k/day), cost limits ($1/day), max tokens/request (2k), upstream timeout (30s) → 403 if exceeded |
 | **Audit** | Call logging (JSONL), alerting (Excel + SSE), per-stage timing, raw vs delivered response → always |
@@ -77,7 +77,7 @@ Watch:
 python attack_suite.py --target http://localhost:8080
 ```
 
-68 scenarios (19 positive, 49 negative) pass → exit 0.
+71 scenarios (20 positive, 51 negative) pass → exit 0.
 
 ### Option 2: Run with Docker
 
@@ -112,6 +112,7 @@ Ollama endpoint to `http://localhost:8080`). Full steps, limitations and example
 
 ## Documentation
 
+- **[Judges Basics](WIKI/judges-basics.md)** — 5-minute plain-language explanation of the problem, the pipeline and the verdicts
 - **[Judges Quickstart](WIKI/judges-quickstart.md)** — 10-minute getting-started guide
 - **[Demo Script](WIKI/demo-script.md)** — 6-minute presentation walkthrough
 - **[Architecture](WIKI/architecture.md)** — System design, Mermaid diagrams, pipeline details
@@ -212,7 +213,7 @@ No restart needed.
 
 1. **Signatures** — Regex patterns (fast, zero false positives)
 2. **ML Models** — Decision tree and logistic regression (F1 ≥0.85); tree positives are randomly sampled for judge verification (20% rate)
-3. **LLM Judge** — Ollama for escalated cases (context-aware, 20s timeout → flag). Judge verdict is final when tree positive is sampled, preventing benign false positives from turning FLAGGED. Judge verdicts feed back as training samples for tree retraining.
+3. **LLM Judge** — Ollama for escalated cases (context-aware, 20s timeout → flag; a block verdict below `block_confidence` 0.7 only flags). Judge verdict is final when tree positive is sampled, preventing benign false positives from turning FLAGGED. Judge verdicts feed back as training samples for tree retraining.
 
 ### OWASP Coverage
 

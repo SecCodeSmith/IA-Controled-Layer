@@ -144,18 +144,22 @@ Matches text against a set of regex patterns from a feed file.
 ```
 
 - **`feed`**: Local file key (e.g., `attack_signatures` → `config/attack_signatures.yaml`), or HTTP URL via `CTRL_SIGNATURE_FEED_URL` (P1)
+- `SIG-PI-001` covers paraphrased overrides (`ignore|disregard|forget|override|bypass` + optional `all/any (of)` + optional `my/your/the/these` + `previous|prior|above|earlier|preceding` + `instruction(s)|prompt(s)|rule(s)|guideline(s)`); `SIG-JB-005` (jailbreak, high) covers coercion such as `do not refuse`, `must run it exactly as written` and `without restrictions`. "Ignore my previous message" is deliberately not matched (a message is not an instruction override).
 - **`categories`** (optional): Filter signatures by category. Common categories:
   - `prompt_injection`, `jailbreak`, `system_prompt_exfiltration`, `exfiltration` (injection tier)
   - `code_exec`, `deserialization`, `supply_chain`, `destructive` (exploit tier)
 
 #### 2. `ml_classifier` (ML First-Pass Detection)
 
-Runs text through the Scikit-learn prompt injection classifier. Inconclusive scores escalate to the LLM judge.
+Runs text through the Scikit-learn prompt injection classifier. Scores in the escalate band go to the LLM judge.
+
+Bands: a score at or above `block_at` is a confident match and **blocks** (default `action: block`); a score in `[escalate_at, block_at)` is inconclusive and escalates to the judge; below `escalate_at` the text is allowed. If the rule omits `action:`, `ml_classifier`, `decision_tree` and `llm_judge` rules default to `block` (every other rule type defaults to `flag`); an explicit `action:` always wins.
 
 ```yaml
 - id: prompt_injection_ml
   on: [prompt, tool_result]
   type: ml_classifier
+  action: block
   block_at: 0.85
   escalate_at: 0.5
   escalate_to: llm_judge
@@ -170,10 +174,13 @@ Runs text through the Scikit-learn prompt injection classifier. Inconclusive sco
 
 Runs text through a Scikit-learn decision tree classifier (depth 12, balanced classes). Positive verdicts are randomly sampled and re-evaluated by the LLM judge. Judge verdict is final, preventing benign false positives from turning FLAGGED.
 
+Bands match `ml_classifier`: an unsampled score at or above `block_at` **blocks** (default `action: block` when `action:` is omitted); a sampled or forced positive stays inconclusive and is escalated to the judge as a verification path; `[escalate_at, block_at)` escalates; below `escalate_at` allows.
+
 ```yaml
 - id: prompt_injection_tree
   on: [prompt, tool_result]
   type: decision_tree
+  action: block
   block_at: 0.85
   escalate_at: 0.5
   verify_sample_rate: 0.2
@@ -190,14 +197,16 @@ Runs text through a Scikit-learn decision tree classifier (depth 12, balanced cl
 
 #### 3. `llm_judge` (LLM-Driven Safety Assessment)
 
-Runs inconclusive or escalated text through an LLM judge (default: Ollama). Timeout → FLAG. Note: `on: []` means this rule runs only when escalated by another rule (e.g., `prompt_injection_ml`), not automatically at any interception point.
+Runs inconclusive or escalated text through an LLM judge (default: Ollama). Timeout or an unparseable reply → FLAG (inconclusive). A `block` verdict whose `confidence` reaches `block_confidence` **blocks** (default `action: block`); a `block` verdict below it, and any `flag` verdict, is inconclusive and only flags. The judge replies with `{"verdict": "allow|flag|block", "reason": "...", "confidence": 0.0-1.0}`; a missing confidence counts as 1.0 for `block`. Note: `on: []` means this rule runs only when escalated by another rule (e.g., `prompt_injection_ml`), not automatically at any interception point.
 
 ```yaml
 - id: llm_judge
   on: []
   type: llm_judge
+  action: block
   model: qwen2.5:7b
   timeout_s: 20
+  block_confidence: 0.7
   on_timeout: flag
   owasp: [ASI01]
 ```
@@ -205,6 +214,7 @@ Runs inconclusive or escalated text through an LLM judge (default: Ollama). Time
 - **`on`**: Empty list `[]` means this rule is only invoked via escalation from another rule
 - **`model`**: Override default judge model (defaults to `CTRL_JUDGE_MODEL`)
 - **`timeout_s`**: Hard timeout in seconds
+- **`block_confidence`** (optional, default `0.7`): minimum judge confidence for a `block` verdict to block; lower confidence downgrades the outcome to a flag for review
 - **`on_timeout`**: Action on timeout: `flag`, `block`, or `allow` (default: `flag`)
 
 #### 4. `detectors` (PII & Secrets Detection)

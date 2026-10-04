@@ -3,7 +3,7 @@ updated_at: "2026-10-03"
 signatures:
   - id: SIG-PI-001
     title: Ignore previous instructions
-    pattern: 'ignore (all |any )?(the )?(previous|prior|above) instructions'
+    pattern: '\b(ignore|disregard|forget|override|bypass) ((all|any)( of)? )?(my |your |the |these )?(previous|prior|above|earlier|preceding) (instructions?|prompts?|rules?|guidelines?)'
     categories: [prompt_injection]
     severity: high
     reference: "OWASP LLM01:2025 Prompt Injection"
@@ -78,6 +78,15 @@ signatures:
     pattern: 'respond (as|in) an? (unrestricted|uncensored|unfiltered) (ai|mode|way)'
     categories: [jailbreak]
     severity: medium
+    reference: "OWASP LLM01:2025 Prompt Injection"
+    owasp: [LLM01, ASI01]
+    points: [prompt, tool_result]
+
+  - id: SIG-JB-005
+    title: Coercion to execute regardless of policy
+    pattern: '\b(do not|don''t|never) refuse\b|\b(must|need(ed)?|have to)( it| this)?( to)?( be)? (execute|executed|run) (it |this )?(exactly )?as (written|given)\b|\bwithout (any )?(restrictions|safety (rules|filters|checks)|content filters)\b'
+    categories: [jailbreak]
+    severity: high
     reference: "OWASP LLM01:2025 Prompt Injection"
     owasp: [LLM01, ASI01]
     points: [prompt, tool_result]

@@ -247,10 +247,32 @@ def test_duplicate_rule_ids_raise() -> None:
         parse_policy_document(data, source_hash="h")
 
 
-def test_rule_action_default_is_flag_when_action_omitted() -> None:
-    data = _minimal_document(rules=[{"id": "llm_judge", "type": "llm_judge"}])
+@pytest.mark.parametrize("rule_type", ["ml_classifier", "decision_tree", "llm_judge"])
+def test_learned_rule_types_default_to_block_when_action_omitted(rule_type: str) -> None:
+    data = _minimal_document(rules=[{"id": "r1", "type": rule_type}])
+    document = parse_policy_document(data, source_hash="h")
+    assert document.rules[0].action == RuleAction.block
+
+
+@pytest.mark.parametrize("rule_type", ["ml_classifier", "decision_tree", "llm_judge"])
+def test_explicit_action_overrides_learned_rule_default(rule_type: str) -> None:
+    data = _minimal_document(rules=[{"id": "r1", "type": rule_type, "action": "flag"}])
     document = parse_policy_document(data, source_hash="h")
     assert document.rules[0].action == RuleAction.flag
+
+
+@pytest.mark.parametrize("rule_type", ["signatures", "restricted_topics", "unsafe_output"])
+def test_other_rule_types_still_default_to_flag_when_action_omitted(rule_type: str) -> None:
+    data = _minimal_document(rules=[{"id": "r1", "type": rule_type}])
+    document = parse_policy_document(data, source_hash="h")
+    assert document.rules[0].action == RuleAction.flag
+
+
+def test_sample_policy_learned_rules_block_explicitly() -> None:
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    for rule in parse_policy_document(data, source_hash="h").rules:
+        if rule.id in {"prompt_injection_tree", "prompt_injection_ml", "llm_judge"}:
+            assert rule.action == RuleAction.block
 
 
 @pytest.mark.parametrize("key", ["on", "'on'"])
@@ -283,7 +305,7 @@ def test_sample_policy_tree_rule_params_and_resource_rule_actions() -> None:
 
     tree = rules["prompt_injection_tree"]
     assert tree.type == "decision_tree"
-    assert tree.action == RuleAction.flag
+    assert tree.action == RuleAction.block
     assert tree.params == {
         "block_at": 0.85,
         "escalate_at": 0.5,

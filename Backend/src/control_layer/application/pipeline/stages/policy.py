@@ -71,6 +71,8 @@ class PolicyStage(BaseStage):
             return RuleEvaluation(rule=rule, outcome=overruled)
 
         evidence = [*judge_outcome.evidence, *_escalation_evidence(rule, ctx)]
+        if judge_outcome.matched and judge_outcome.inconclusive:
+            target_rule = target_rule.model_copy(update={"action": RuleAction.flag})
         return RuleEvaluation(
             rule=target_rule, outcome=judge_outcome.model_copy(update={"evidence": evidence})
         )
@@ -89,7 +91,7 @@ class PolicyStage(BaseStage):
         if judge_outcome.masked_text is not None:
             ctx.masked_text = judge_outcome.masked_text
         if not judge_outcome.inconclusive:
-            ctx.metadata[JUDGE_VERDICT_KEY] = _verdict_summary(judge_outcome)
+            ctx.metadata[JUDGE_VERDICT_KEY] = _verdict_summary(judge_outcome, target_rule)
         return judge_outcome
 
     @staticmethod
@@ -120,10 +122,10 @@ def _escalation_evidence(rule: Rule, ctx: ProcessingContext) -> list[str]:
     return evidence
 
 
-def _verdict_summary(outcome: RuleOutcome) -> dict[str, object]:
+def _verdict_summary(outcome: RuleOutcome, rule: Rule) -> dict[str, object]:
     if not outcome.matched:
         verdict = "allow"
-    elif outcome.confidence >= 1.0:
+    elif outcome.confidence >= 1.0 or rule.action in _TERMINAL_ACTIONS:
         verdict = "block"
     else:
         verdict = "flag"
