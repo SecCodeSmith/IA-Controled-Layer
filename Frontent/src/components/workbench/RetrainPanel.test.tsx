@@ -100,4 +100,50 @@ describe('RetrainPanel', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Retrain tree' })).toBeDisabled())
   })
+
+  it('stops listening after the result and keeps it on screen', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RetrainPanel />)
+
+    await user.click(screen.getByRole('button', { name: 'Retrain tree' }))
+    await waitFor(() => expect(MockEventSource.latest()).toBeDefined())
+    const source = MockEventSource.latest()
+    act(() => {
+      source?.emit('retrain_complete', RETRAIN_RESULT_FIXTURE)
+    })
+    expect(await screen.findByText('0.912')).toBeInTheDocument()
+
+    vi.useFakeTimers()
+    try {
+      act(() => source?.onerror?.())
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(source?.closed).toBe(true)
+    expect(MockEventSource.instances).toHaveLength(1)
+    expect(screen.getByText('0.912')).toBeInTheDocument()
+  })
+
+  it('stops listening after a failure and starts a fresh job on the next click', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RetrainPanel />)
+
+    await user.click(screen.getByRole('button', { name: 'Retrain tree' }))
+    await waitFor(() => expect(MockEventSource.latest()).toBeDefined())
+    const first = MockEventSource.latest()
+    act(() => {
+      first?.emit('retrain_failed', { error: 'training crashed' })
+    })
+    await screen.findByText('training crashed')
+    expect(first?.closed).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: 'Retrain tree' }))
+
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(2))
+    expect(screen.queryByText('training crashed')).not.toBeInTheDocument()
+  })
 })

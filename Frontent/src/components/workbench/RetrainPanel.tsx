@@ -21,12 +21,16 @@ export function RetrainPanel() {
     (event) => setSteps((previous) => [...previous, event.step]),
     (event) => {
       setResult(event)
+      setJobId(null)
       void invalidateClassifier()
     },
-    (event) => setFailure(event.error),
+    (event) => {
+      setFailure(event.error)
+      setJobId(null)
+    },
   )
 
-  const running = jobId !== null && result === null && failure === null
+  const running = jobId !== null
 
   function handleRetrain() {
     setSteps([])
@@ -37,9 +41,9 @@ export function RetrainPanel() {
       { include_pending: includePending },
       {
         onSuccess: (job) => {
-          setJobId(job.job_id)
           if (job.result) setResult(job.result)
-          if (job.error) setFailure(job.error)
+          else if (job.error) setFailure(job.error)
+          else setJobId(job.job_id)
         },
       },
     )
