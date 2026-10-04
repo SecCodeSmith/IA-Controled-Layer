@@ -5,7 +5,7 @@ export interface AuditFilterValue {
 }
 
 const STATUS_OPTIONS = ['', 'ALLOWED', 'MASKED', 'BLOCKED', 'ESCALATED', 'FLAGGED']
-const KIND_OPTIONS = ['', 'tool_call', 'chat']
+const KIND_OPTIONS = ['', 'tool_call', 'chat', 'workbench']
 
 export function AuditFilters({
   value,
