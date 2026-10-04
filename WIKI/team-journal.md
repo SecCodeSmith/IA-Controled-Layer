@@ -2,7 +2,7 @@
 
 **Project:** HackYeah 2026 — AI Control Layer  
 **Deadline:** 2026-10-04 23:00  
-**Last updated:** 2026-10-04 02:40
+**Last updated:** 2026-10-04 09:15
 
 ## Decision Log
 
@@ -44,27 +44,31 @@
 
 ## Hand-off Notes (From Streams)
 
-*(This section will be filled as each stream (W1, W2, W3, J1, J2) completes and submits its hand-off note.)*
+### Phase 0 — Shared Contracts (Opus, Fable review)
+
+[phase0.md](../../scratchpad/reports/phase0.md): All frozen domain models, protocols, parser updates, schemas, and stub evaluators. 992 pytest passed, ruff clean. Decision-tree type added to parser, 20 rules total (17 existing + 3 new), `CallKind.workbench` added.
 
 ### W1 — F1 Backend (Opus)
 
-*Pending — expected ~11:00 checkpoint*
+*Completed in feat--mentor-advice branch (merged 2026-10-04)*
+
+Implemented decision_tree evaluator with sampled positive verification, retrain job manager with F1 gate (≥0.85), curation service with "training-set curator" LLM prompt, feedback recording decorator, switchable classifier, decision-cache flush on swap, `/api/classifier` endpoints with SSE for retrain progress. Judge verdict is final for sampled positives. Full feature documented in [feature-decision-tree-feedback-loop.md](../feature-decision-tree-feedback-loop.md).
 
 ### W2 — F2 Backend + Workbench API (Sonnet)
 
-*Pending — expected ~10:00 checkpoint*
+[w2b-workbench-api.md](../../scratchpad/reports/w2b-workbench-api.md): Implemented resource scope (path glob checking with deny-wins, allow-required, normalization) and resource projection (row filtering with `$identity.*` substitution, column redaction). Fixed decision-cache key to compute lazily from post-authorization `current_text + resolved_role` (prevents cross-identity leak). Set `ToolCallOutcome.decision` on all error paths. Implemented `/api/workbench/trace` (prompt and tool_call kinds) and `/api/workbench/resources` endpoints. Full feature documented in [feature-resource-scope.md](../feature-resource-scope.md) and [feature-workbench.md](../feature-workbench.md).
 
 ### W3 — F3 Frontend (Sonnet)
 
-*Pending — expected ~11:30 checkpoint*
+[w3-frontend.md](../../scratchpad/reports/w3-frontend.md): Implemented Workbench page (`/admin/workbench`) with three cards: Prompt Lab (actor select, text input, force judge toggle, trace button), Decision-Tree Card (probability bar, band badge, path steps with highlighting, leaf info), Judge Card (verdict badge, confidence, reason, sample link), Training-Set Panel (status row, samples table with accept/reject/flip buttons, curate button), Retrain Panel (include_pending checkbox, SSE progress with `retrain_progress`/`retrain_complete`/`retrain_failed` events, error banner on 409), Resource Matrix (table of resources with grants), Resource Simulator (post trace, raw vs delivered JSON side-by-side with redaction highlighting). Audit kind filter includes `workbench`, feed/audit render kind. Vitest: 57 passed.
 
 ### J1 — ML + Adapters + Scripts (Haiku)
 
-*Pending — expected ~07:15 checkpoint*
+[j1-ml-part1.md](../../scratchpad/reports/j1-ml-part1.md) (PART 1) + PART 2 (not separate file): Implemented `train_with_feedback()` function (holdout-only F1, duplicate feedback drop), DecisionTreeClassifier model (depth 12, balanced), benign operational dataset (175 rows covering CI logs, branch ops, HR queries, file operations), CLI `--extra` option for feedback datasets, meta.json sidecar with f1/n_base/n_feedback/version/trained_at. Infrastructure: HashSampler (deterministic salt-based, 0.2 rate ≈20%), JsonlTrainingSampleRepository (async, atomic, deduping on text_sha256), SklearnTreeTrainer (atomic publish via .tmp + replace, meta written last). Scripts: train_ml.sh/ps1 with PYTHONPATH=src, bootstrap.sh/ps1 calling train_ml. Tree F1: 0.919 (exceeds 0.85 gate).
 
 ### J2 — Demo Data + Scenarios (Haiku)
 
-*Pending — expected ~07:15 checkpoint*
+[j2-demo-scenarios.md](../../scratchpad/reports/j2-demo-scenarios.md): Implemented GitHub `read_file` tool (repo, path arguments → {repo, path, content} or {found: false}), GITHUB_FILES dict (web-app repo with README.md, src/app.py, docs/runbook.md, .env with fake API key, secrets/deploy.pem with fake key), HR data updates (E-1042/E-2001 region: PL; E-2001/E-2101 salary fields). Three new scenarios: `dev_reads_allowed_repo_file` (ALLOWED), `dev_reads_env_file_blocked` (BLOCKED, resource_scope), `hr_query_projected` (MASKED, resource_projection). Total: 27 scenarios (6 positive, 21 negative). Scenario catalogue test: 7 passed.
 
 ---
 
