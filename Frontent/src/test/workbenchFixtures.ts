@@ -5,7 +5,8 @@ import type {
   RetrainResult,
   TrainingSample,
 } from '../types/classifier'
-import type { ResourceMatrixResponse, TraceResponse } from '../types/workbench'
+import type { PipelineStage } from '../types/common'
+import type { ResourceMatrixResponse, TracePoint, TraceResponse, TraceStage } from '../types/workbench'
 
 export const CLASSIFIER_STATUS_FIXTURE: ClassifierStatusResponse = {
   tree: {
@@ -109,10 +110,11 @@ export const PROMPT_TRACE_FIXTURE: TraceResponse = {
   reason: 'Judge confirmed prompt injection',
   masked_text: null,
   stages: [
-    { stage: 'identity', action: 'allow', timing_ms: 0.4, cache_hit: false, violations: [] },
-    { stage: 'authorization', action: 'allow', timing_ms: 0.6, cache_hit: false, violations: [] },
-    { stage: 'dlp', action: 'allow', timing_ms: 1.2, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'identity', action: 'allow', timing_ms: 0.4, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'authorization', action: 'allow', timing_ms: 0.6, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'dlp', action: 'allow', timing_ms: 1.2, cache_hit: false, violations: [] },
     {
+      point: 'prompt',
       stage: 'policy',
       action: 'flag',
       timing_ms: 412.5,
@@ -127,9 +129,9 @@ export const PROMPT_TRACE_FIXTURE: TraceResponse = {
         },
       ],
     },
-    { stage: 'behavior', action: 'allow', timing_ms: 0.8, cache_hit: false, violations: [] },
-    { stage: 'resource', action: 'allow', timing_ms: 0.3, cache_hit: false, violations: [] },
-    { stage: 'audit', action: 'allow', timing_ms: 0.5, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'behavior', action: 'allow', timing_ms: 0.8, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'resource', action: 'allow', timing_ms: 0.3, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'audit', action: 'allow', timing_ms: 0.5, cache_hit: false, violations: [] },
   ],
   classifier_trace: {
     rule_id: 'prompt_injection_tree',
@@ -165,8 +167,9 @@ export const SHORT_CIRCUIT_TRACE_FIXTURE: TraceResponse = {
   reason: 'Role is not provisioned for this server',
   masked_text: null,
   stages: [
-    { stage: 'identity', action: 'allow', timing_ms: 0.3, cache_hit: false, violations: [] },
+    { point: 'prompt', stage: 'identity', action: 'allow', timing_ms: 0.3, cache_hit: false, violations: [] },
     {
+      point: 'prompt',
       stage: 'authorization',
       action: 'block',
       timing_ms: 0.7,
@@ -181,12 +184,27 @@ export const SHORT_CIRCUIT_TRACE_FIXTURE: TraceResponse = {
         },
       ],
     },
+    { point: 'prompt', stage: 'audit', action: 'allow', timing_ms: 0.2, cache_hit: false, violations: [] },
   ],
   classifier_trace: null,
   judge: null,
   training_sample_id: null,
   raw_result: null,
   delivered_result: null,
+}
+
+const PASS_ORDER: PipelineStage[] = [
+  'identity',
+  'authorization',
+  'dlp',
+  'policy',
+  'behavior',
+  'resource',
+  'audit',
+]
+
+function allowedStage(point: TracePoint, stage: PipelineStage): TraceStage {
+  return { point, stage, action: 'allow', timing_ms: 0.5, cache_hit: false, violations: [] }
 }
 
 export const PROJECTION_TRACE_FIXTURE: TraceResponse = {
@@ -199,22 +217,27 @@ export const PROJECTION_TRACE_FIXTURE: TraceResponse = {
   reason: '1 row(s) filtered, 1 column(s) redacted: salary',
   masked_text: null,
   stages: [
-    { stage: 'identity', action: 'allow', timing_ms: 0.3, cache_hit: false, violations: [] },
-    {
-      stage: 'authorization',
-      action: 'mask',
-      timing_ms: 1.1,
-      cache_hit: false,
-      violations: [
-        {
-          rule_id: 'resource_projection',
-          action: 'mask',
-          confidence: 1,
-          reason: '1 row(s) filtered, 1 column(s) redacted: salary',
-          evidence: ['resource:hr_directory_rows', 'rows_filtered:1', 'column_redacted:salary'],
-        },
-      ],
-    },
+    ...PASS_ORDER.map((stage) => allowedStage('tool_call', stage)),
+    ...PASS_ORDER.map((stage) =>
+      stage === 'authorization'
+        ? {
+            point: 'tool_result' as const,
+            stage,
+            action: 'mask' as const,
+            timing_ms: 1.1,
+            cache_hit: false,
+            violations: [
+              {
+                rule_id: 'resource_projection',
+                action: 'mask' as const,
+                confidence: 1,
+                reason: '1 row(s) filtered, 1 column(s) redacted: salary',
+                evidence: ['resource:hr_directory_rows', 'rows_filtered:1', 'column_redacted:salary'],
+              },
+            ],
+          }
+        : allowedStage('tool_result', stage),
+    ),
   ],
   classifier_trace: null,
   judge: null,

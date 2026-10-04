@@ -4,6 +4,7 @@ import type { TraceStage, TraceViolation } from '../types/workbench'
 
 function stageWith(violation: Partial<TraceViolation>): TraceStage {
   return {
+    point: 'tool_result',
     stage: 'authorization',
     action: 'mask',
     timing_ms: 1,

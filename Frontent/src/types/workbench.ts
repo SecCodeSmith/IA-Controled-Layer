@@ -1,6 +1,7 @@
 import type { CallStatus, PipelineStage, RuleAction } from './common'
 
 export type TraceKind = 'prompt' | 'tool_call'
+export type TracePoint = 'prompt' | 'tool_call' | 'tool_result'
 export type ClassifierBand = 'block' | 'escalate' | 'allow'
 export type JudgeVerdict = 'allow' | 'flag' | 'block'
 
@@ -27,6 +28,7 @@ export interface TraceViolation {
 }
 
 export interface TraceStage {
+  point: TracePoint
   stage: PipelineStage
   action: RuleAction
   timing_ms: number

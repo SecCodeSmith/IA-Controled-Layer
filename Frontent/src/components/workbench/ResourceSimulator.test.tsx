@@ -19,6 +19,8 @@ async function fillForm(user: ReturnType<typeof userEvent.setup>, args = '{"quer
   await user.paste(args)
 }
 
+const projectionStage = PROJECTION_TRACE_FIXTURE.stages.find((stage) => stage.violations.length > 0)!
+
 describe('ResourceSimulator', () => {
   it('posts a tool_call trace and shows status, raw vs delivered and the redactions', async () => {
     const user = userEvent.setup()
@@ -90,12 +92,7 @@ describe('ResourceSimulator', () => {
       http.post(`${CONTROL_LAYER_URL}/api/workbench/trace`, () =>
         HttpResponse.json({
           ...PROJECTION_TRACE_FIXTURE,
-          stages: [
-            {
-              ...PROJECTION_TRACE_FIXTURE.stages[1],
-              violations: [{ ...PROJECTION_TRACE_FIXTURE.stages[1].violations[0], evidence: [] }],
-            },
-          ],
+          stages: [{ ...projectionStage, violations: [{ ...projectionStage.violations[0], evidence: [] }] }],
           raw_result: 'plain {text} body',
           delivered_result: 'plain body',
         }),
