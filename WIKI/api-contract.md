@@ -303,6 +303,7 @@ Admin token required on every route below. Full semantics: `WIKI/feature-protect
 - `POST /api/attack-suite/run`, `GET /api/attack-suite/runs/{id}` gain `provider` (name), `model` and `protection_mode` (`enforce|monitor|off`) of the target when the run started; `summary` gains `error: int` (it is also in the `run_complete` summary).
 - `attack_suite.py` prints a header `target <url> · provider <name>/<model> · protection <mode> · agent <tier>` before the table, adds a `via` column, and warns on stderr when protection is not `enforce` ("attacks are expected to get through") or when `--agent ollama` runs against a non-Ollama provider. NOT_ATTEMPTED never fails the run.
 - Call ids no longer restart at `c_000001` between scenarios: the sequence lives under cache key `audit:call_seq`, outside the flushed `calls:` prefix (it is still reset by `POST /api/logs/clear`).
+- Every attack-suite run uses its own demo-agent session ids (`selftest-{scenario id}-{run token}`), so the agent's conversation memory from a previous run cannot make the model answer from context instead of calling tools (which showed up as NOT_ATTEMPTED on repeated runs). `token_budget_overrun` sends 16 short completions (`max_tokens: 16`) and `rate_limit_burst` 61 varied `jira.search` calls, so both are fast and deterministic with a real model.
 - Demo agent CORS now allows any localhost origin (`AGENT_CORS_ORIGIN_REGEX`, default same regex as the control layer).
 
 ## Addendum (added delay / processing time)

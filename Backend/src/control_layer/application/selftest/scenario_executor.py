@@ -4,6 +4,7 @@ import time
 from collections.abc import Callable
 from enum import StrEnum
 from typing import Any, Literal, Protocol
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
@@ -109,10 +110,18 @@ class _Outcome(BaseModel):
 
 class ScenarioExecutor:
     def __init__(
-        self, client: ScenarioClient, *, clock: Callable[[], float] = time.perf_counter
+        self,
+        client: ScenarioClient,
+        *,
+        clock: Callable[[], float] = time.perf_counter,
+        run_token: str | None = None,
     ) -> None:
         self._client = client
         self._clock = clock
+        self._run_token = run_token or uuid4().hex[:8]
+
+    def _session_for(self, scenario: _ScenarioLike) -> str:
+        return f"selftest-{scenario.id}-{self._run_token}"
 
     async def run(self, scenario: _ScenarioLike, tier: str = "scripted") -> ScenarioResult:
         start = self._clock()
@@ -166,7 +175,7 @@ class ScenarioExecutor:
 
     async def _run_steps(self, scenario: _ScenarioLike) -> StepObservation | None:
         token = await self._client.token_for(scenario.actor)
-        session_id = f"selftest-{scenario.id}"
+        session_id = self._session_for(scenario)
         observed: StepObservation | None = None
         for step in scenario.steps:
             token, observed = await self._run_step(step, token, session_id, observed, scenario)
@@ -217,7 +226,7 @@ class ScenarioExecutor:
 
     async def _run_agent(self, scenario: _ScenarioLike) -> _Outcome:
         token = await self._client.token_for(scenario.actor)
-        session_id = f"selftest-{scenario.id}"
+        session_id = self._session_for(scenario)
         observations = await self._client.agent_chat(token, session_id, scenario.prompt)
         target = expected_target(scenario)
         attempts = [o for o in observations if o.target == target]
