@@ -17,6 +17,11 @@ This directory contains the complete documentation for the AI Control Layer proj
 - **[API Contract](api-contract.md)** — Full API specification: endpoints, request/response shapes, authentication, error codes.
 - **[Policy Reference](policy-reference.md)** — Complete `policy.yaml` structure, rule types, hot-reload mechanism, worked examples.
 
+### Feature Contracts
+- **[Decision-Tree Feedback Loop](feature-decision-tree-feedback-loop.md)** — Tree classifier with sampled judge verification, judge-managed training set, hot-swap retraining.
+- **[Resource Scope](feature-resource-scope.md)** — Path, row, and column filtering per role; per-tool argument and result projection.
+- **[Workbench](feature-workbench.md)** — Live trace of prompts and tool calls through the pipeline; training-set curation and retrain interface; resource simulator.
+
 ### For Security and Compliance
 - **[OWASP Mapping](owasp-mapping.md)** — Coverage table for LLM Top 10 2025 and Agentic Top 10 2026, with demo scenario proof for each threat.
 
@@ -52,8 +57,8 @@ Stages 1, 2, 6, 7 always run. Stages 3–4 (DLP, Policy) are cacheable.
 ### Three-Tier Defence
 
 1. **Deterministic rules** (RBAC, budgets, signatures) — Fast, certain
-2. **ML classifier** (Scikit-learn) — Detects subtle injection patterns
-3. **LLM judge** (Ollama) — Context-aware decisions for edge cases
+2. **Decision tree with sampled judge verification** (Scikit-learn, 20% sample) — Detects subtle injection patterns; positive tree verdicts randomly sampled and re-evaluated by LLM judge for final verdict
+3. **LLM judge** (Ollama) — Context-aware decisions for edge cases and feedback loop curation
 
 ### OWASP Grounded
 

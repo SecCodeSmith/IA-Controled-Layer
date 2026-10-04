@@ -187,11 +187,35 @@ shape (`id`, `object`, `created`, `model`, `choices[{index, message{role, conten
 `GET /api/attack-suite/runs/{run_id}` → same with live statuses and `{"summary": {"stopped", "passed", "succeeded", "not_attempted", "running", "pending"}}`
 `GET /api/attack-suite/runs/{run_id}/stream` — SSE events `scenario` (`{"id", "status", "observed": {"status", "stage", "rule_id"}, "duration_ms"}`) and `run_complete` (summary).
 
+## Control layer — admin classifier (`X-Admin-Token`)
+
+`GET /api/classifier` → `{"tree": {"loaded": true, "path": "...", "model_type": "tree", "version": 1, "trained_at": "...", "f1": 0.919, "n_base": 635, "n_feedback": 175}, "counts": {"pending": 3, "accepted": 12, "rejected": 2, "total": 17}, "retrain_running": false, "last_retrain": {...}}`
+
+`GET /api/classifier/samples?status=pending&limit=100` → `{"items": [{"id": "uuid", "text": "...", "text_sha256": "...", "label": 1, "source": "judge|workbench", "status": "pending|accepted|rejected", "confidence": 0.92, "reason": "...", "tree_probability": 0.87, "point": "prompt", "call_id": "c_...", "created_at": "...", "reviewed_by": null}]}`
+
+`PATCH /api/classifier/samples/{id}` body `{"label": 0, "status": "accepted"}` (at least one required) → updated sample (201 errors: 422 when neither field given).
+
+`POST /api/classifier/samples/curate` body `{"limit": 20}` → `{"reviewed": 20, "accepted": 12, "rejected": 5, "relabelled": 3, "refused": 0, "error": null}`
+
+`POST /api/classifier/retrain` body `{"include_pending": false, "seed": 42}` → `{"job_id": "...", "status": "running", "started_at": "...", "finished_at": null, "result": null, "error": null}` (409 when already running: `{"job_id": "...", "status": "running", "started_at": "...", "error": "retrain already in progress"}`)
+
+`GET /api/classifier/retrain/{job_id}` → same response shape (with result filled when complete).
+
+`GET /api/classifier/retrain/{job_id}/stream` — SSE events: `{"type": "retrain_started"}`, `{"type": "retrain_progress", "status": "training|evaluating|publishing", "percent": 30}`, `{"type": "retrain_complete", "result": {"f1": 0.92, "passed_gate": true, "swapped": true, "n_base": 635, "n_feedback": 175, "version": 2, "trained_at": "..."}}`, `{"type": "retrain_failed", "error": "..."}`
+
+## Control layer — admin workbench (`X-Admin-Token`)
+
+`POST /api/workbench/trace` body `{"actor": "anna.kowalska", "kind": "prompt", "text": "...", "force_verify": false}` or `{"actor": "marek.nowak", "kind": "tool_call", "tool_call": {"server": "github", "tool": "read_file", "arguments": {"repo": "web-app", "path": "src/app.py"}}}` → `{"call_id": "...", "kind": "prompt|tool_call", "status": "ALLOWED|BLOCKED|MASKED|FLAGGED", "action": "allowed|block|mask|flag", "stage": "authorization|dlp|policy", "rule_id": "role_provisioning", "reason": "...", "masked_text": null, "stages": [{"stage": "identity", "action": "allowed", "timing_ms": 1.2, "cache_hit": false, "violations": []}], "classifier_trace": {...}, "judge": {...}, "training_sample_id": "...", "raw_result": null, "delivered_result": null}` (401 if actor unknown; 422 if prompt without text or tool_call without spec).
+
+`GET /api/workbench/resources` → `{"roles": ["developer", "hr", "finance", "*"], "resources": [{"id": "github_repo_files", "server": "github", "tools": ["read_file"], "path_argument": "path", "records": null, "grants": {"developer": {...}}}]}`
+
+`GET /api/workbench` → `{"status": "ok", "endpoints": [...]}`
+
 `POST /api/demo/reset` → `{"ok": true}` (clears feed, audit, alerts, budgets, sessions, approvals, risk, counters; keeps policy).
 
 `GET /health` (no auth) → `{"status": "ok", "stages": ["identity", "authorization", "dlp", "policy", "behavior", "resource", "audit"],
 "cache": {"mode": "redis" | "memory"}, "mcp": {"servers": [{"name": "github", "status": "connected", "tools": 4}]},
-"classifier": {"loaded": true, "path": "..."}, "provider": {"name": "ollama", "model": "qwen2.5:7b"}, "policy": {"version": 3, "status": "LOADED"}}`
+"classifier": {"loaded": true, "path": "..."}, "tree": {"loaded": true, "path": "...", "model_type": "tree", "version": 1}, "provider": {"name": "ollama", "model": "qwen2.5:7b"}, "policy": {"version": 3, "status": "LOADED"}}`
 
 ## Configuration (environment, prefix `CTRL_`)
 
@@ -211,6 +235,12 @@ shape (`id`, `object`, `created`, `model`, `choices[{index, message{role, conten
 | `CTRL_ALERTS_XLSX` | `alerts/alerts.xlsx` | |
 | `CTRL_AUDIT_JSONL` | `audit/calls.jsonl` | |
 | `CTRL_ML_MODEL_PATH` | `src/control_layer/ml/artifacts/prompt_injection_classifier.joblib` | |
+| `CTRL_ML_TREE_PATH` | `src/control_layer/ml/artifacts/prompt_injection_tree.joblib` | decision tree artifact (gitignored, rebuilt by bootstrap) |
+| `CTRL_ML_DATASET_PATH` | `src/control_layer/ml/dataset/prompt_injection_dataset.csv` | base dataset for training |
+| `CTRL_ML_TREE_SUPPLEMENT_PATH` | `src/control_layer/ml/dataset/benign_operational.csv` | benign phrasings for tree training |
+| `CTRL_TRAINING_SAMPLES_PATH` | `data/judge_samples.jsonl` | judge-curated training samples (gitignored) |
+| `CTRL_VERIFY_SAMPLE_SALT` | `dev-salt` | salt for deterministic sampling of tree positives for judge verification |
+| `CTRL_RETRAIN_MIN_F1` | `0.85` | F1 gate for retrain: only publish model if F1 ≥ this value (measured on base holdout) |
 | `CTRL_JWT_SECRET` | `dev-secret-change-me` | |
 | `CTRL_ADMIN_TOKEN` | `admin-dev-token` | |
 | `CTRL_CORS_ORIGINS` | `http://localhost:5173` | |

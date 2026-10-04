@@ -38,9 +38,9 @@ Every intercepted call (prompt → model, model response, tool call → MCP, too
 graph TD
     Start["Request"]
     Stage1["1. Identity<br/>Verify JWT<br/>Resolve claims"]
-    Stage2["2. Authorization<br/>Role provisioning<br/>Residency check<br/>Approval gate"]
+    Stage2["2. Authorization<br/>Role provisioning<br/>Resource scope (paths)<br/>Residency check<br/>Approval gate"]
     Stage3["3. DLP<br/>PII/secrets detection<br/>Exfiltration rules<br/>Sequence rules"]
-    Stage4["4. Policy<br/>Injection signatures<br/>ML classifier<br/>LLM judge<br/>Topic restrictions<br/>Custom rules"]
+    Stage4["4. Policy<br/>Injection signatures<br/>Decision tree (sampled judge verification)<br/>ML classifier<br/>LLM judge<br/>Topic restrictions<br/>Custom rules"]
     Stage5["5. Behavior Analytics<br/>Rate limit<br/>Loop guard<br/>Circuit breaker<br/>Risk scoring"]
     Stage6["6. Resource Governance<br/>Token budgets<br/>Cost limits<br/>Timeouts"]
     Stage7["7. Audit & Telemetry<br/>Logging<br/>Alerting<br/>Metrics"]
@@ -174,6 +174,8 @@ Four points where the pipeline intercepts traffic:
 | `tool_call` | Before MCP tool execution | `sha256(role\|point\|tool_args_hash)\|policy_v` | DLP, Policy |
 | `tool_result` | After MCP tool returns | `sha256(role\|point\|result_hash)\|policy_v` | DLP, Policy |
 
+**Cache key computation:** Cache key is computed lazily right before the first cacheable stage (DLP), using the resolved role (post-Authorization) and the current context text (post-projection). This prevents cross-identity leaks where user B could read user A's projected data from cache.
+
 **Cache invalidation:** Policy version change (bump on file reload) automatically invalidates all cache entries. Stages 1, 2, 5, 6, 7 always run (uncacheable).
 
 ## Hot-Reload Mechanism
@@ -271,16 +273,18 @@ Backend/
     │  │  └─ stages/                 (7 stage implementations)
     │  ├─ evaluators/                (rule evaluators)
     │  ├─ detectors/                 (PII, secrets, patterns)
+    │  ├─ resources/                 (path scope, projection, resolver)
     │  ├─ rules/                     (registry, type inference)
     │  ├─ budgets/
     │  ├─ sessions/
     │  ├─ approvals/
     │  ├─ behavior/
+    │  ├─ classifier/                (retrain job manager, curation service)
     │  └─ use_cases/                 (chat, tools, admin endpoints)
     ├─ infrastructure/
     │  ├─ providers/                 (Ollama, Mock, OpenAI-compatible)
-    │  ├─ repositories/              (Redis, In-memory, YAML, Excel)
-    │  ├─ ml/                        (classifier, features)
+    │  ├─ repositories/              (Redis, In-memory, YAML, Excel, training samples)
+    │  ├─ ml/                        (classifier, features, hash sampler, tree trainer)
     │  ├─ mcp_gateway/
     │  ├─ signature_feed/
     │  └─ adapters/
@@ -288,14 +292,18 @@ Backend/
     │  ├─ main.py                   (FastAPI app, lifespan)
     │  ├─ routers/                  (v1/*, api/*)
     │  ├─ schemas/                  (Pydantic models)
+    │  ├─ wiring/                   (classifier module, workbench module)
     │  ├─ composition_root.py        (DI container)
     │  └─ errors.py                 (handlers)
+    ├─ data/
+    │  └─ judge_samples.jsonl        (generated, judge-curated training samples, gitignored)
     └─ ml/
        ├─ train.py                   (CLI entry for training)
        ├─ features.py                (TF-IDF)
        ├─ classifier.py              (wrapper)
        ├─ dataset/
-       │  └─ prompt_injection_dataset.csv
+       │  ├─ prompt_injection_dataset.csv
+       │  └─ benign_operational.csv   (supplement for tree training)
        └─ artifacts/
           └─ prompt_injection_classifier.joblib
   src/demo_agent/
