@@ -1,1 +1,1 @@
-{"model_type": "logreg", "trained_at": "2026-10-04T08:19:19.325593Z", "f1": 0.9911504424778761, "n_base": 635, "n_feedback": 42, "version": 0}
+{"model_type": "logreg", "trained_at": "2026-10-04T08:52:00.821037Z", "f1": 0.9911504424778761, "n_base": 635, "n_feedback": 122, "version": 0}
