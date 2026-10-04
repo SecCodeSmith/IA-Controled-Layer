@@ -100,6 +100,19 @@ class ProcessingPipeline:
         digest = hashlib.sha256(f"{role}|{point}|{normalized}".encode()).hexdigest()
         return f"decision:{policy.version}:{digest}"
 
+    @staticmethod
+    async def _load_bundle(
+        cache: CacheRepository, cache_key: str
+    ) -> dict[StageName, StageResult] | None:
+        raw = await cache.get(cache_key)
+        if raw is None:
+            return None
+        bundle: dict[StageName, StageResult] = {}
+        for item in json.loads(raw):
+            cached_result = StageResult.model_validate(item).model_copy(update={"cache_hit": True})
+            bundle[cached_result.stage] = cached_result
+        return bundle
+
     async def run(self, ctx: ProcessingContext) -> Decision:
         policy = await self._policy_repository.current()
         mode = await self._protection.get_mode() if self._protection else ProtectionMode.enforce
@@ -114,16 +127,6 @@ class ProcessingPipeline:
 
         cached_bundle: dict[StageName, StageResult] | None = None
         cache_key: str | None = None
-        if cache is not None:
-            cache_key = self._build_cache_key(ctx, policy)
-            raw = await cache.get(cache_key)
-            if raw is not None:
-                cached_bundle = {}
-                for item in json.loads(raw):
-                    cached_result = StageResult.model_validate(item).model_copy(
-                        update={"cache_hit": True}
-                    )
-                    cached_bundle[cached_result.stage] = cached_result
 
         stage_results: list[StageResult] = []
         violations: list[Violation] = []
@@ -132,6 +135,9 @@ class ProcessingPipeline:
         newly_computed_cacheable: list[StageResult] = []
 
         for stage in non_audit_stages:
+            if cache is not None and cache_key is None and stage.name in self._cacheable_stages:
+                cache_key = self._build_cache_key(ctx, policy)
+                cached_bundle = await self._load_bundle(cache, cache_key)
             is_cacheable_hit = (
                 cached_bundle is not None
                 and stage.name in self._cacheable_stages

@@ -70,6 +70,16 @@ def _outcome_fields(
     return None, None, None, []
 
 
+def _structured_content(tool_result: ToolCallResult, masked_text: str | None) -> dict | None:
+    if masked_text is None:
+        return tool_result.structured_content
+    try:
+        parsed = json.loads(masked_text)
+    except ValueError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def _had_policy_stage_violation(decision: Decision) -> bool:
     return any(v.stage == StageName.policy for v in decision.violations)
 
@@ -159,6 +169,7 @@ class HandleToolCallUseCase:
                 items_masked=0,
                 result=None,
                 approval=approval,
+                decision=decision1,
             )
 
         if decision1.action in _BLOCKING_ACTIONS:
@@ -229,7 +240,7 @@ class HandleToolCallUseCase:
 
         result = ToolCallResult(
             content_text=delivered_text,
-            structured_content=tool_result.structured_content,
+            structured_content=_structured_content(tool_result, ctx2.masked_text),
             is_error=tool_result.is_error,
         )
         return ToolCallOutcome(
@@ -241,6 +252,7 @@ class HandleToolCallUseCase:
             items_masked=items_masked,
             result=result,
             approval=None,
+            decision=combined,
         )
 
     async def _audit(
@@ -303,4 +315,5 @@ class HandleToolCallUseCase:
         else:
             error = QuarantinedError("Request blocked")
         error.call_id = call_id
+        error.decision = decision
         return error
