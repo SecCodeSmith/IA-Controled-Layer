@@ -61,9 +61,13 @@
 
 **JSON-escaped false email match:** Demo fixture `demo/mcp/data.py::GITHUB_FILES[web-app][src/app.py]` contained `@app.get(...)` decorators; when tool result is JSON-escaped, the text contains `\n@app.get`, and DLP email detector reads `n@app.get` as an email. Fix: replace decorators with `app.add_api_route(...)` calls (patch applied by W2a, all 30 attack-suite tests pass).
 
-**Broken-commit lesson:** Edit scripts via file paths (bash, powershell), not inline heredocs (breaks when commits are squashed/rebased). Scripts now stable.
+**Broken-commit lesson:** the shell layer used by the lead's Bash tool rewrites backslash escapes inside quoted heredocs, so an inline Python edit turned `\n` into real newlines and a syntactically broken `demo/mcp/data.py` was committed (53b3f64, fixed in 2359d4b). Edits that contain escape sequences go through a script file in the scratchpad or the Edit tool, verified with `py_compile` before committing.
 
 **Tool-call traces:** Pipeline returns two passes per tool call: `tool_call` (first pass, decision before execution) and `tool_result` (second pass, decision on the result). Both are included in `stages` array, each tagged with `point` field. Trace query returns the combined decision (`tool_result` if it short-circuited, else merged action).
+
+**Force-verify overrides the latency guard:** the Policy stage skips judge escalation when another rule in the stage already blocked (no 20 s Ollama call behind a signature hit). The Workbench "force judge" flag (`FORCE_VERIFY_KEY`) now overrides that skip so the judge verdict and the recorded sample can be demonstrated on a classic injection (commit b9c8ae9).
+
+**Published meta timestamp:** the tree trainer wrote `trained_at` as `...+00:00Z` after the timezone fix; `ClassifierInfo` could not parse it and `describe()` fell back to version 0, which the retrain integration test caught. The sidecar now uses the same `%Y-%m-%dT%H:%M:%S.%fZ` format as the CLI (commit ee7252d).
 
 ---
 
