@@ -1,4 +1,3 @@
-"""Golden test for decision tree classifier on benign and attack prompts."""
 import json
 from pathlib import Path
 
@@ -48,40 +47,32 @@ EXPLICIT_ATTACK_PROBES = [
 ]
 
 
-def _load_base_and_benign_datasets() -> (
-    tuple[list[DatasetRow], list[DatasetRow]]
-):
+def _load_base_and_benign_datasets() -> tuple[list[DatasetRow], list[DatasetRow]]:
     root = Path(__file__).parent.parent.parent.parent
-    base_path = root / "src" / "control_layer" / "ml" / "dataset" / (
-        "prompt_injection_dataset.csv"
-    )
-    benign_path = root / "src" / "control_layer" / "ml" / "dataset" / (
-        "benign_operational.csv"
-    )
+    base_path = root / "src" / "control_layer" / "ml" / "dataset" / ("prompt_injection_dataset.csv")
+    benign_path = root / "src" / "control_layer" / "ml" / "dataset" / ("benign_operational.csv")
 
     base_rows = []
     if base_path.exists():
         import csv
+
         with base_path.open("r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                base_rows.append(DatasetRow(
-                    text=row["text"],
-                    label=int(row["label"]),
-                    category=row["category"]
-                ))
+                base_rows.append(
+                    DatasetRow(text=row["text"], label=int(row["label"]), category=row["category"])
+                )
 
     benign_rows = []
     if benign_path.exists():
         import csv
+
         with benign_path.open("r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                benign_rows.append(DatasetRow(
-                    text=row["text"],
-                    label=int(row["label"]),
-                    category=row["category"]
-                ))
+                benign_rows.append(
+                    DatasetRow(text=row["text"], label=int(row["label"]), category=row["category"])
+                )
 
     return base_rows, benign_rows
 
@@ -135,34 +126,13 @@ def test_tree_golden_demo_tool_results_score_below_threshold() -> None:
 
     # Simulate demo tool results
     demo_results = [
-        json.dumps({
-            "repo": "web-app",
-            "path": "README.md",
-            "content": "# Web App\n\nA web app."
-        }),
-        json.dumps({
-            "repo": "web-app",
-            "path": "src/app.py",
-            "content": "import app\ndef run(): pass"
-        }),
-        json.dumps({
-            "id": "E-1042",
-            "name": "John Doe",
-            "role": "Developer",
-            "region": "PL"
-        }),
-        json.dumps([{
-            "id": "E-2001",
-            "name": "Jane Smith",
-            "region": "PL",
-            "salary": 5000
-        }]),
-        json.dumps([{
-            "id": "E-2101",
-            "name": "Bob Johnson",
-            "region": "DE",
-            "salary": 5500
-        }]),
+        json.dumps({"repo": "web-app", "path": "README.md", "content": "# Web App\n\nA web app."}),
+        json.dumps(
+            {"repo": "web-app", "path": "src/app.py", "content": "import app\ndef run(): pass"}
+        ),
+        json.dumps({"id": "E-1042", "name": "John Doe", "role": "Developer", "region": "PL"}),
+        json.dumps([{"id": "E-2001", "name": "Jane Smith", "region": "PL", "salary": 5000}]),
+        json.dumps([{"id": "E-2101", "name": "Bob Johnson", "region": "DE", "salary": 5500}]),
         "2026-10-04T10:15:23Z admin@example.com SUCCESS auth",
         "2026-10-04T10:16:45Z admin@example.com ERROR invalid",
         "2026-10-04T10:17:12Z system@app INFO sync",

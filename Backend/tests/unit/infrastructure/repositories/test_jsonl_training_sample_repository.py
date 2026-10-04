@@ -1,4 +1,5 @@
 """Tests for JsonlTrainingSampleRepository."""
+
 import asyncio
 from datetime import datetime
 from pathlib import Path

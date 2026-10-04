@@ -1,4 +1,5 @@
 """Tests for SklearnTreeTrainer."""
+
 import json
 from datetime import datetime
 from pathlib import Path
@@ -18,7 +19,7 @@ def base_dataset_csv(tmp_path: Path) -> Path:
     """Create a minimal base dataset CSV."""
     path = tmp_path / "base.csv"
     path.write_text(
-        'text,label,category\n'
+        "text,label,category\n"
         '"attack text 1",1,attack\n'
         '"benign text 1",0,benign\n'
         '"attack text 2",1,attack\n'
@@ -38,7 +39,7 @@ def supplement_dataset_csv(tmp_path: Path) -> Path:
     """Create a supplement dataset CSV."""
     path = tmp_path / "supplement.csv"
     path.write_text(
-        'text,label,category\n'
+        "text,label,category\n"
         '"benign operational 1",0,operational\n'
         '"benign operational 2",0,operational\n'
         '"benign operational 3",0,operational\n'
@@ -231,6 +232,4 @@ def test_sklearn_tree_trainer_train_with_feedback_increases_feedback_count(
     trained_with_feedback = trainer.train(feedback, seed=42)
 
     # Feedback count should increase by 1
-    assert (
-        trained_with_feedback.n_feedback == trained_no_feedback.n_feedback + 1
-    )
+    assert trained_with_feedback.n_feedback == trained_no_feedback.n_feedback + 1

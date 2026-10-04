@@ -7,7 +7,6 @@ from control_layer.ml.train import train_model, train_with_feedback
 
 
 def _fixture_rows(count_each: int = 40) -> list[DatasetRow]:
-    """Generate fixture rows for testing."""
     BENIGN_TEMPLATES = [
         "Can you check the CI run status for build {n}",
         "Please show me the HR approval ticket number {n}",
@@ -30,13 +29,12 @@ def _fixture_rows(count_each: int = 40) -> list[DatasetRow]:
 
 
 def test_tree_model_in_models_dict() -> None:
-    """Test that 'tree' is registered in _MODELS."""
     from control_layer.ml.train import _MODELS
+
     assert "tree" in _MODELS
 
 
 def test_train_with_feedback_returns_pipeline_and_f1() -> None:
-    """Test that train_with_feedback returns (Pipeline, float)."""
     base_rows = _fixture_rows(20)
     feedback_rows = _fixture_rows(10)
     pipeline, f1 = train_with_feedback(base_rows, feedback_rows, model="tree", seed=42)
@@ -46,7 +44,6 @@ def test_train_with_feedback_returns_pipeline_and_f1() -> None:
 
 
 def test_train_with_feedback_f1_measured_on_base_holdout_only() -> None:
-    """Test that F1 is measured only on the base holdout, not feedback."""
     base_rows = _fixture_rows(20)
     # Feedback rows that are entirely different
     feedback_rows = [
@@ -63,7 +60,6 @@ def test_train_with_feedback_f1_measured_on_base_holdout_only() -> None:
 
 
 def test_train_with_feedback_drops_duplicate_texts() -> None:
-    """Test that feedback rows duplicating holdout texts are dropped."""
     base_rows = _fixture_rows(20)
     # Get a text from the base rows
     base_text = base_rows[0].text
@@ -81,7 +77,6 @@ def test_train_with_feedback_drops_duplicate_texts() -> None:
 
 
 def test_train_with_feedback_same_seed_reproducible() -> None:
-    """Test that same seed produces same F1."""
     base_rows = _fixture_rows(20)
     feedback_rows = _fixture_rows(10)
 
@@ -92,7 +87,6 @@ def test_train_with_feedback_same_seed_reproducible() -> None:
 
 
 def test_train_cli_accepts_extra_option(tmp_path) -> None:
-    """Test that CLI accepts --extra option."""
     # Create base dataset
     base_path = tmp_path / "base.csv"
     base_rows = _fixture_rows(20)
@@ -136,7 +130,6 @@ def test_train_cli_accepts_extra_option(tmp_path) -> None:
 
 
 def test_train_cli_writes_meta_sidecar(tmp_path) -> None:
-    """Test that CLI writes <out>.meta.json sidecar."""
     base_path = tmp_path / "base.csv"
     base_rows = _fixture_rows(20)
     with base_path.open("w", encoding="utf-8", newline="") as f:
@@ -183,7 +176,6 @@ def test_train_cli_writes_meta_sidecar(tmp_path) -> None:
 
 
 def test_train_cli_meta_with_extra(tmp_path) -> None:
-    """Test that meta sidecar includes feedback count when --extra is used."""
     base_path = tmp_path / "base.csv"
     base_rows = _fixture_rows(20)
     with base_path.open("w", encoding="utf-8", newline="") as f:

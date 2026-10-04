@@ -19,9 +19,7 @@ from control_layer.ml.features import build_features
 _LOGREG_C = 64.0
 
 _MODELS = {
-    "logreg": lambda: LogisticRegression(
-        class_weight="balanced", max_iter=2000, C=_LOGREG_C
-    ),
+    "logreg": lambda: LogisticRegression(class_weight="balanced", max_iter=2000, C=_LOGREG_C),
     "mlp": lambda: MLPClassifier(hidden_layer_sizes=(64,), max_iter=500),
     "tree": lambda: DecisionTreeClassifier(
         max_depth=12, min_samples_leaf=2, class_weight="balanced"
@@ -65,11 +63,6 @@ def train_with_feedback(
     seed: int = 42,
     verbose: bool = False,
 ) -> tuple[Pipeline, float]:
-    """Train model with base dataset and optional feedback, evaluating F1 on base holdout only.
-
-    Feedback rows that duplicate base texts are dropped before training.
-    F1 is computed only on the base holdout set.
-    """
     base_texts = [row.text for row in base_rows]
     base_labels = [row.label for row in base_rows]
 
@@ -109,7 +102,6 @@ def _write_meta(
     n_feedback: int,
     version: int = 0,
 ) -> None:
-    """Write metadata sidecar file."""
     meta = {
         "model_type": model_type,
         "trained_at": datetime.utcnow().isoformat() + "Z",
@@ -139,8 +131,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--model", choices=sorted(_MODELS), default="logreg")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--min-f1", type=float, default=0.85)
-    parser.add_argument("--extra", type=Path, action="append", dest="extra_datasets", default=[],
-                        help="Optional extra dataset CSV (repeatable)")
+    parser.add_argument(
+        "--extra",
+        type=Path,
+        action="append",
+        dest="extra_datasets",
+        default=[],
+        help="Optional extra dataset CSV (repeatable)",
+    )
     return parser.parse_args(argv)
 
 
