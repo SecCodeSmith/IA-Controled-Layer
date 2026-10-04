@@ -18,13 +18,13 @@ A policy-enforcing proxy gateway that sits between AI agents and backend service
 - **Infrastructure:** `infrastructure/{ml,providers,repositories,audit}` — Database/ML/HTTP adapters, SOLID
 - **Presentation:** `presentation/{api,wiring,main.py}` — FastAPI routes, schema mapping, no business logic
 
-**Seven-stage order** (validated at startup, frozen in `application/pipeline/stages/`): Identity → Authorization → DLP → Policy → Behavior → Resource → Audit. Stages 1, 2, 6, 7 always run. Stages 3–4 cacheable.
+**Seven-stage order** (validated at startup via `ProcessingPipeline._validate_stage_order` against `StageName.ordered()`): Identity → Authorization → DLP → Policy → Behavior → Resource → Audit. Stages 1, 2, 6, 7 always run. Stages 3–4 (DLP, Policy) cacheable.
 
-**Rule type → evaluator:** Each rule in `policy.yaml` has a `type` field (e.g., `jwt_verify`, `role_provisioning`, `pii_masking`, `signature`, `ml_classifier`, `decision_tree`, `resource_scope`, `resource_projection`, `rate_limit`). The `domain/policy/parser.py::_RULE_TYPE_STAGES` dict maps type → stage. The `application/evaluators/build_evaluators()` function instantiates the right evaluator class per type and stage.
+**Rule type → evaluator:** Each rule in `policy.yaml` has a `type` field (e.g., `rbac`, `residency`, `model_allowlist`, `tool_match`, `resource_scope`, `resource_projection`, `detectors`, `sequence`, `canary_token`, `signatures`, `ml_classifier`, `decision_tree`, `llm_judge`, `restricted_topics`, `unsafe_output`, `transaction_limit`, `rate_limit`, `loop_guard`, `circuit_breaker`, `anomaly`). The `domain/policy/parser.py` defines type sets (`_DLP_TYPES`, `_AUTHORIZATION_TYPES`, `_POLICY_TYPES`, `_BEHAVIOR_TYPES`) and `infer_rule_type()`, `infer_stage()` functions. The `application/evaluators/build_evaluators()` function instantiates the right evaluator class per type and stage.
 
 **Interception points:** `prompt` (agent text), `response` (model output), `tool_call` (agent → tool), `tool_result` (tool → agent). Each rule's `on: [...]` declares which points apply.
 
-**Decision cache:** `ProcessingPipeline._build_cache_key()` runs before DLP/Policy stages, keyed on `(role, policy_version, context_text_hash)`. Cache stores full `DLP + Policy` bundle (`masked_text`, violations). **Must be fixed for resource projection:** key computed lazily from `post-authorization current_text + resolved role` (not `anonymous` pre-auth text), so user B cannot see user A's projected rows from cache.
+**Decision cache:** Implemented via `ProcessingPipeline._build_cache_key()`, keyed on `decision:{policy_version}:{sha256(role|point|normalized current_text)}`. Key is computed lazily right before the first cacheable stage (after Authorization), using the resolved role and post-authorization `current_text`, preventing cross-identity cache leaks. Cache stores full `DLP + Policy` bundle. `cache.flush("decision:")` runs on policy reload, protection changes, and classifier hot-swap.
 
 **Hot-reload:** `config/policy.yaml` watched every 1 s. Valid YAML → version bumps, cache clears, new rules active. Invalid → ERROR badge, last good kept, alert emitted. No restart needed.
 
@@ -44,7 +44,11 @@ A policy-enforcing proxy gateway that sits between AI agents and backend service
 
 **Additive contracts:** Frozen Pydantic models and Protocol ports after Phase 0. New fields → optional + default, never breaking existing code. `evaluators.get("type_name")` reads params with `.get` and defaults, not required fields.
 
-**New rule types:** Need (1) parser entry in `domain/policy/parser.py::_RULE_TYPE_STAGES`, (2) evaluator in `application/evaluators/{stage}/*.py`, (3) factory call in `build_evaluators()`, (4) EXPECTED_TYPES assertion in `tests/unit/domain/policy/test_parser.py:36-61`.
+**New rule types:** Need (1) type in correct set in `domain/policy/parser.py` (`_DLP_TYPES`, `_AUTHORIZATION_TYPES`, `_POLICY_TYPES`, or `_BEHAVIOR_TYPES`), (2) evaluator in `application/evaluators/{stage}/*.py`, (3) entry in `application/evaluators/__init__.py::build_evaluators`, (4) `EXPECTED_TYPES` in `tests/unit/application/evaluators/test_build_evaluators.py` and parametrized stage case in `tests/unit/domain/policy/test_parser.py`.
+
+**No unnecessary comments:** No docstrings or comments restating the name or narrating the code; no section banners. A comment only explains a non-obvious why. Exception: `demo/mcp/*` tool docstrings are MCP tool descriptions (FastMCP exposes them) and must stay.
+
+**Pytest:** Run without double `-q` (`pyproject.toml` already sets `-q`; `-qq` hides the summary line).
 
 **Delivered content never changes silently:** When content is blocked or masked, the reason is logged and visible. Projection masking is reported as `Authorization · resource_projection, status MASKED`, not silent.
 
@@ -72,35 +76,31 @@ python attack_suite.py --target http://localhost:8080
 python attack_suite.py --target http://localhost:8081 --agent ollama
 ```
 
-## Environment Gotchas
+## Environment
 
-**Ports held by docker-compose:** On this machine (WSL + Docker Desktop), ports 8080, 8090, 5173, 6379 are held by `docker-compose` services. For native runs, use 8081, 8091, 5174 and set:
-```
-VITE_CONTROL_LAYER_URL=http://localhost:8081
-AGENT_CONTROL_LAYER_URL=http://localhost:8081
-CTRL_PORT=8081
-AGENT_PORT=8091
-```
+**Docker + WSL:** Machine runs Docker Engine inside WSL2 (NAT), not Docker Desktop. `host.docker.internal` does not resolve. Ports 8080, 8090, 5173, 6379 are held by `docker-compose` via wslrelay. For native runs, use next available pair (8081, 8091) and set `CTRL_PORT=8081 AGENT_PORT=8091 VITE_CONTROL_LAYER_URL=http://localhost:8081 AGENT_CONTROL_LAYER_URL=http://localhost:8081`. Never kill wslrelay; if 8081/8091 busy, pick the next free pair.
 
-**Ollama:** Native `.env` must use `CTRL_OLLAMA_BASE_URL=http://localhost:11434` (not `host.docker.internal`). On Windows, ensure Ollama listens on `0.0.0.0:11434` (set `OLLAMA_HOST=0.0.0.0:11434` and restart tray app).
+**Ollama:** Native runs talk to `127.0.0.1:11434`. `OLLAMA_HOST=0.0.0.0` is only needed for Docker containers → Ollama on the host. `qwen2.5:7b` is pulled by bootstrap; mock provider is automatic fallback.
 
-**Model:** `qwen2.5:7b` (pulled by bootstrap). Mock provider is automatic fallback.
+**ML artifacts:** Stored in `Backend/src/control_layer/ml/artifacts/` (`prompt_injection_tree.joblib`, `prompt_injection_classifier.joblib`, `.meta.json`); gitignored. Built by `scripts/bootstrap.ps1` and `scripts/train_ml.ps1`. Training samples: `Backend/data/judge_samples.jsonl` (gitignored). Tests train in-session or skip; artifact paths point to temp dirs via `conftest.py`.
 
-**ML artifacts:** `*.joblib` files under `Backend/ml/artifacts/` are gitignored. Built by `scripts/bootstrap.ps1` and `scripts/train_ml.ps1`. Tests train in-session or skip; `tests/conftest.py::make_settings` points artifact paths to temp directories. Worktrees running pytest must use `PYTHONPATH=src` because the package is installed editable from the main checkout.
-
-**Check before judging a run:** POST `/health` and inspect `provider` (should be `ollama` or `mock`, not `error`) and `protection_mode` (should be `enforce` or `warn`, not `off`).
+**Check before run:** `GET /health` → inspect `provider.name` (`ollama` or `mock`) and `GET /api/protection` → inspect mode (`enforce`, `monitor`, or `off`).
 
 ## Team Org & Delegation
 
-**Fable (lead):** Design, architecture decisions, integration briefs, final verification, full test suite, all checkpoints, deployment.
+**Model levels:** Opus = senior, Sonnet = mid, Haiku = junior + one journalist.
 
-**Opus (senior Opus worker, if present):** Architecture-sensitive backend (F1 classifier logic, stage orchestration, judge integration, critical evaluators). Owns file-sharing contracts with other streams.
+**Fable (lead):** Design, integration briefs, final verification, all checkpoints, deployment.
 
-**Sonnet (mid):** Multi-file implementations (F2 resource evaluators + pipeline fixes, F3 Workbench API + frontend, both tiers of integration tests).
+**Opus (senior):** Architecture-sensitive backend (classifier, orchestration, judge, critical evaluators).
 
-**Haiku (junior):** Mechanical, well-bounded tasks (ML training + adapters, demo data, scripts, docs). One Haiku journalist collects hand-off notes and maintains CLAUDE.md, WIKI, team journal.
+**Sonnet (mid):** Multi-file implementations (resource evaluators, pipeline fixes, Workbench API, integration tests).
 
-**File ownership (per stream, per phase):** One owner per file per phase. Shared contracts (`policy.yaml`, `composition_root.py`, `conftest.py`, frozen domain models) are written and reviewed once, then read-only for other streams. Each stream commits on its own branch with explicit `git add <owned-files>` and reports raw test output + diff stats + a hand-off note (decisions, gotchas, commands) for the journalist.
+**Haiku (junior):** Mechanical tasks (ML training, demo data, scripts, docs); one journalist collects hand-off notes, maintains CLAUDE.md/WIKI/team-journal.md.
+
+**Subagent cap:** 12 per session. Each stream uses own worktree branch; lead merges.
+
+**File ownership:** One owner per file per phase. Shared contracts (`policy.yaml`, `composition_root.py`, `conftest.py`, frozen domain models) are written once, then read-only. Each stream commits on its branch with explicit `git add <owned-files>` and submits hand-off note (decisions, gotchas, commands) to journalist.
 
 ## Definition of Done
 
