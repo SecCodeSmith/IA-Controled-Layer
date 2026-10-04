@@ -52,20 +52,15 @@ if ((Test-Path package-lock.json) -and -not (Test-Path node_modules)) {
 }
 Pop-Location
 
-# 3. Train ML classifier
-Write-Host "`n[3/4] Training ML classifier..." -ForegroundColor Yellow
-Push-Location Backend
-python -m control_layer.ml.train `
-    --dataset "src/control_layer/ml/dataset/prompt_injection_dataset.csv" `
-    --out "src/control_layer/ml/artifacts/prompt_injection_classifier.joblib" `
-    --model logreg 2>&1 | Out-Null
+# 3. Train ML classifiers
+Write-Host "`n[3/4] Training ML classifiers..." -ForegroundColor Yellow
+& ./scripts/train_ml.ps1 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ✗ ML classifier training failed" -ForegroundColor Red
     $skipped += "ML classifier training"
 } else {
-    Write-Host "  ✓ ML classifier trained" -ForegroundColor Green
+    Write-Host "  ✓ ML classifiers trained" -ForegroundColor Green
 }
-Pop-Location
 
 # 4. Ollama setup
 Write-Host "`n[4/4] Setting up Ollama..." -ForegroundColor Yellow

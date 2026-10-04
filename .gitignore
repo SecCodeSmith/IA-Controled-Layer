@@ -16,7 +16,9 @@ build/
 # Generated runtime data
 Backend/alerts/*.xlsx
 Backend/audit/*.jsonl
+Backend/data/*.jsonl
 Backend/src/control_layer/ml/artifacts/*.joblib
+Backend/src/control_layer/ml/artifacts/*.meta.json
 attack_report.json
 presentation/*.pdf
 
