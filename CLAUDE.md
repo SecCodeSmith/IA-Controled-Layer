@@ -28,7 +28,7 @@ A policy-enforcing proxy gateway that sits between AI agents and backend service
 
 **Hot-reload:** `config/policy.yaml` watched every 1 s. Valid YAML → version bumps, cache clears, new rules active. Invalid → ERROR badge, last good kept, alert emitted. No restart needed.
 
-## Three New Features (In Progress 2026-10-04)
+## Three New Features (Landed 2026-10-04)
 
 1. **Decision-tree feedback loop** (`/api/classifier`, `/admin/workbench`): A Scikit-learn decision tree (depth 12, min-leaf 2, F1 ≥0.85) runs alongside the existing logreg rule; positive verdicts are randomly sampled and re-evaluated by the LLM judge (judge verdict is final); the judge's verdicts are recorded as labelled samples and curated by a "training-set curator" prompt; accepted samples retrain the tree, which is hot-swapped without restart. Prevents benign false positives (e.g., "Delete the stale branch") from turning FLAGGED. Tree positive + judge allow → ALLOWED + label-0 sample recorded for future learning.
 
@@ -67,6 +67,10 @@ A policy-enforcing proxy gateway that sits between AI agents and backend service
 # Or per-module:
 cd Backend && python -m pytest -q && python -m ruff check src tests
 cd Frontent && npm test -- --run && npm run build && npm run lint
+# Note: MCP server logs may swallow the pytest summary line. Use `-o addopts=""` or a junit report if needed.
+
+# Native run on free ports (8082/8092/5175, no Docker compose needed)
+CTRL_PORT=8082 AGENT_PORT=8092 VITE_CONTROL_LAYER_URL=http://localhost:8082 AGENT_CONTROL_LAYER_URL=http://localhost:8082 npm run dev -- --port 5175
 
 # Train ML classifier and decision tree
 ./scripts/train_ml.ps1

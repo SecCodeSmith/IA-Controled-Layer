@@ -44,31 +44,26 @@
 
 ## Hand-off Notes (From Streams)
 
-### Phase 0 — Shared Contracts (Opus, Fable review)
+| Stream | Branch | Commit | Tests | Notes | Deviations |
+|--------|--------|--------|-------|-------|-----------|
+| **Phase 0** | `feat--mentor-advice` | d85e0302 | 992 passed, ruff clean | Shared contracts: domain models, protocols, parser, schemas, evaluator stubs. Decision-tree type, 20 rules (17+3 new), `CallKind.workbench`. | — |
+| **W1a** (tree evaluator) | `worktree-af98127` → merged | b0b543c | 1053 passed, 8 skipped, 6 pre-existing failures | Decision-tree evaluator, sampled verification (20% HashSampler), feedback recording, switchable classifier. | 4 attack-suite failures from W2 base (resource scope gaps). |
+| **W1b** (classifier API) | `worktree-a817602` → merged | 39eb3aa | 1165 passed (incl. 4 failures from W2 base), 9 skipped | Judge-curated training set, LLM curator, retrain job with F1 ≥0.85 gate, hot-swap, `/api/classifier` with SSE. | Frontend/backend SampleListResponse mismatch (items vs samples). |
+| **W2a** (resource scope) | `worktree-a52fc8714` → merged | — | 10 integration passed; 30/30 attack suite pass after data fix | Resource scope/projection, cache-key lazy computation, structured_content fix. | Data fix needed: demo/mcp/data.py `src/app.py` decorators cause false email match. |
+| **W2b** (workbench API) | `worktree-aaecfc2b` → merged | — | integration skipped (pending W2a) | `/api/workbench/trace` (prompt, tool_call), resource matrix, actor identity via token. | `model_provider` not passed to workbench builder (recommended one-line fix). |
+| **W3** (frontend) | `worktree-a45a3af3` → merged | 9fa6ab8 | 57 passed, npm build/lint clean | Workbench page, Decision/Judge cards, Training/Retrain panels, Resource Matrix & Simulator, SSE hooks. | `SampleListResponse.items` ←→ `.samples` type mismatch with Phase 0 contract. |
+| **J1** (ML + scripts) | `feat--mentor-advice` | — | 51 unit (ML), tree F1 0.919 | Tree classifier (depth 12, balanced), benign supplement (175 rows), train_with_feedback (holdout-only F1), CLI `--extra`, meta.json, HashSampler, JsonlRepository, scripts with PYTHONPATH=src. | `datetime.utcnow()` DeprecationWarning (use UTC). |
+| **J2** (demo + scenarios) | `feat--mentor-advice` | — | 7 catalogue passed, 2 read_file tool tests | GitHub `read_file` tool, GITHUB_FILES (web-app: README.md, src/app.py, .env, secrets/deploy.pem), HR region/salary fields. 27 scenarios (6 pos, 21 neg). | Data fix: src/app.py decorators block `dev_reads_allowed_repo_file` (pii_masking false match). |
 
-[phase0.md](../../scratchpad/reports/phase0.md): All frozen domain models, protocols, parser updates, schemas, and stub evaluators. 992 pytest passed, ruff clean. Decision-tree type added to parser, 20 rules total (17 existing + 3 new), `CallKind.workbench` added.
+### Lead integration notes
 
-### W1 — F1 Backend (Opus)
+**Comment-sweep workflow:** Reviewer caught that FastMCP tool docstrings in `demo/mcp/*` are tool descriptions (exposed by FastMCP), not implementation comments—these must stay.
 
-*Completed in feat--mentor-advice branch (merged 2026-10-04)*
+**JSON-escaped false email match:** Demo fixture `demo/mcp/data.py::GITHUB_FILES[web-app][src/app.py]` contained `@app.get(...)` decorators; when tool result is JSON-escaped, the text contains `\n@app.get`, and DLP email detector reads `n@app.get` as an email. Fix: replace decorators with `app.add_api_route(...)` calls (patch applied by W2a, all 30 attack-suite tests pass).
 
-Implemented decision_tree evaluator with sampled positive verification, retrain job manager with F1 gate (≥0.85), curation service with "training-set curator" LLM prompt, feedback recording decorator, switchable classifier, decision-cache flush on swap, `/api/classifier` endpoints with SSE for retrain progress. Judge verdict is final for sampled positives. Full feature documented in [feature-decision-tree-feedback-loop.md](../feature-decision-tree-feedback-loop.md).
+**Broken-commit lesson:** Edit scripts via file paths (bash, powershell), not inline heredocs (breaks when commits are squashed/rebased). Scripts now stable.
 
-### W2 — F2 Backend + Workbench API (Sonnet)
-
-[w2b-workbench-api.md](../../scratchpad/reports/w2b-workbench-api.md): Implemented resource scope (path glob checking with deny-wins, allow-required, normalization) and resource projection (row filtering with `$identity.*` substitution, column redaction). Fixed decision-cache key to compute lazily from post-authorization `current_text + resolved_role` (prevents cross-identity leak). Set `ToolCallOutcome.decision` on all error paths. Implemented `/api/workbench/trace` (prompt and tool_call kinds) and `/api/workbench/resources` endpoints. Full feature documented in [feature-resource-scope.md](../feature-resource-scope.md) and [feature-workbench.md](../feature-workbench.md).
-
-### W3 — F3 Frontend (Sonnet)
-
-[w3-frontend.md](../../scratchpad/reports/w3-frontend.md): Implemented Workbench page (`/admin/workbench`) with three cards: Prompt Lab (actor select, text input, force judge toggle, trace button), Decision-Tree Card (probability bar, band badge, path steps with highlighting, leaf info), Judge Card (verdict badge, confidence, reason, sample link), Training-Set Panel (status row, samples table with accept/reject/flip buttons, curate button), Retrain Panel (include_pending checkbox, SSE progress with `retrain_progress`/`retrain_complete`/`retrain_failed` events, error banner on 409), Resource Matrix (table of resources with grants), Resource Simulator (post trace, raw vs delivered JSON side-by-side with redaction highlighting). Audit kind filter includes `workbench`, feed/audit render kind. Vitest: 57 passed.
-
-### J1 — ML + Adapters + Scripts (Haiku)
-
-[j1-ml-part1.md](../../scratchpad/reports/j1-ml-part1.md) (PART 1) + PART 2 (not separate file): Implemented `train_with_feedback()` function (holdout-only F1, duplicate feedback drop), DecisionTreeClassifier model (depth 12, balanced), benign operational dataset (175 rows covering CI logs, branch ops, HR queries, file operations), CLI `--extra` option for feedback datasets, meta.json sidecar with f1/n_base/n_feedback/version/trained_at. Infrastructure: HashSampler (deterministic salt-based, 0.2 rate ≈20%), JsonlTrainingSampleRepository (async, atomic, deduping on text_sha256), SklearnTreeTrainer (atomic publish via .tmp + replace, meta written last). Scripts: train_ml.sh/ps1 with PYTHONPATH=src, bootstrap.sh/ps1 calling train_ml. Tree F1: 0.919 (exceeds 0.85 gate).
-
-### J2 — Demo Data + Scenarios (Haiku)
-
-[j2-demo-scenarios.md](../../scratchpad/reports/j2-demo-scenarios.md): Implemented GitHub `read_file` tool (repo, path arguments → {repo, path, content} or {found: false}), GITHUB_FILES dict (web-app repo with README.md, src/app.py, docs/runbook.md, .env with fake API key, secrets/deploy.pem with fake key), HR data updates (E-1042/E-2001 region: PL; E-2001/E-2101 salary fields). Three new scenarios: `dev_reads_allowed_repo_file` (ALLOWED), `dev_reads_env_file_blocked` (BLOCKED, resource_scope), `hr_query_projected` (MASKED, resource_projection). Total: 27 scenarios (6 positive, 21 negative). Scenario catalogue test: 7 passed.
+**Tool-call traces:** Pipeline returns two passes per tool call: `tool_call` (first pass, decision before execution) and `tool_result` (second pass, decision on the result). Both are included in `stages` array, each tagged with `point` field. Trace query returns the combined decision (`tool_result` if it short-circuited, else merged action).
 
 ---
 
