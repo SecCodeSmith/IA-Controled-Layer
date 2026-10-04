@@ -102,9 +102,10 @@ class AgentLoop:
             session.add_message({"role": "system", "content": prompt})
         session.model = me.provider.model
         session.openai_tools = to_openai_tools(tool_descriptors)
+        turn_start = len(session.messages)
         session.add_message({"role": "user", "content": user_message})
 
-        return notices + await self._drive_loop(token, session_id, session)
+        return notices + await self._drive_loop(token, session_id, session, turn_start)
 
     async def resume_after_approval(
         self,
@@ -170,7 +171,13 @@ class AgentLoop:
             )
         return event
 
-    async def _drive_loop(self, token: str, session_id: str, session: SessionState) -> list[Event]:
+    async def _drive_loop(
+        self,
+        token: str,
+        session_id: str,
+        session: SessionState,
+        turn_start: int | None = None,
+    ) -> list[Event]:
         events: list[Event] = []
         for _ in range(self._settings.max_iterations):
             request = ChatCompletionRequest(
@@ -185,6 +192,8 @@ class AgentLoop:
                     token, request, session_id=session_id
                 )
             except ControlLayerDenied as denied:
+                if turn_start is not None:
+                    session.rollback_to(turn_start)
                 events.append(
                     NoticeEvent(
                         status=denied.status or "BLOCKED",

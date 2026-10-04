@@ -40,6 +40,9 @@ class SessionState:
         self.messages = []
         self.pending_approval = None
 
+    def rollback_to(self, length: int) -> None:
+        del self.messages[length:]
+
     def add_message(
         self, message: dict[str, Any], max_messages: int = DEFAULT_MAX_MESSAGES
     ) -> None:
