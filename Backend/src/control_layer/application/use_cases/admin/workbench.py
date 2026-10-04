@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -40,6 +41,8 @@ from control_layer.domain.models.tool import ToolCallRequest
 from control_layer.domain.ports.audit_repository import AuditRepository
 
 SESSION_PREFIX = "workbench:"
+_PROMPT_PASSES = (InterceptionPoint.prompt,)
+_TOOL_PASSES = (InterceptionPoint.tool_call, InterceptionPoint.tool_result)
 PROMPT_TARGET = "workbench:prompt"
 JUDGE_VERDICT_KEY = "judge_verdict"
 _SUMMARY_CHARS = 80
@@ -83,10 +86,24 @@ def _primary_fields(decision: Decision) -> tuple[StageName | None, str | None, s
     return None, None, None
 
 
-def _stage_views(decision: Decision) -> list[StageView]:
+def _stage_points(
+    decision: Decision, passes: Sequence[InterceptionPoint]
+) -> list[InterceptionPoint]:
+    points: list[InterceptionPoint] = []
+    index = 0
+    for position, result in enumerate(decision.stage_results):
+        if position > 0 and result.stage is StageName.identity:
+            index = min(index + 1, len(passes) - 1)
+        points.append(passes[index])
+    return points
+
+
+def _stage_views(decision: Decision, passes: Sequence[InterceptionPoint]) -> list[StageView]:
+    points = _stage_points(decision, passes)
     return [
         StageView(
             stage=result.stage,
+            point=point,
             action=result.action,
             timing_ms=result.timing_ms,
             cache_hit=result.cache_hit,
@@ -101,11 +118,11 @@ def _stage_views(decision: Decision) -> list[StageView]:
                 for violation in result.violations
             ],
         )
-        for result in decision.stage_results
+        for result, point in zip(decision.stage_results, points, strict=True)
     ]
 
 
-def _verdict_from_decision(decision: Decision) -> _Verdict:
+def _verdict_from_decision(decision: Decision, passes: Sequence[InterceptionPoint]) -> _Verdict:
     stage, rule_id, reason = _primary_fields(decision)
     return _Verdict(
         status=decision.status,
@@ -113,13 +130,13 @@ def _verdict_from_decision(decision: Decision) -> _Verdict:
         stage=stage,
         rule_id=rule_id,
         reason=reason,
-        stages=_stage_views(decision),
+        stages=_stage_views(decision, passes),
     )
 
 
 def _verdict_from_outcome(outcome: ToolCallOutcome) -> _Verdict:
     if outcome.decision is not None:
-        return _verdict_from_decision(outcome.decision)
+        return _verdict_from_decision(outcome.decision, _TOOL_PASSES)
     return _Verdict(
         status=outcome.status,
         action=_ACTION_BY_STATUS[outcome.status],
@@ -132,7 +149,7 @@ def _verdict_from_outcome(outcome: ToolCallOutcome) -> _Verdict:
 def _verdict_from_error(error: ControlLayerError) -> _Verdict:
     decision = getattr(error, "decision", None)
     if decision is not None:
-        return _verdict_from_decision(decision)
+        return _verdict_from_decision(decision, _TOOL_PASSES)
     violation = getattr(error, "violation", None)
     return _Verdict(
         status=getattr(error, "status", CallStatus.BLOCKED),
@@ -202,7 +219,7 @@ class WorkbenchTraceUseCase:
         )
         decision = await self._pipeline.run(ctx)
         await self._audit_prompt(ctx, decision, time.perf_counter() - start)
-        verdict = _verdict_from_decision(decision)
+        verdict = _verdict_from_decision(decision, _PROMPT_PASSES)
         return self._response(
             call_id,
             "prompt",
