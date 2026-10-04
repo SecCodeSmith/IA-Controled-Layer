@@ -36,7 +36,8 @@ describe('TrainingSetPanel', () => {
     expect(screen.getByText('2 pending')).toBeInTheDocument()
     expect(screen.getByText('5 accepted')).toBeInTheDocument()
     expect(screen.getByText('1 rejected')).toBeInTheDocument()
-    expect(await screen.findByText(/Summarise the sprint backlog/)).toBeInTheDocument()
+    const row = (await screen.findByText(/Summarise the sprint backlog/)).closest('tr') as HTMLElement
+    expect(within(row).getByText('–')).toBeInTheDocument()
   })
 
   it('sends accept, reject and flip as PATCH bodies', async () => {
@@ -88,6 +89,20 @@ describe('TrainingSetPanel', () => {
     expect(
       await screen.findByText('Judge reviewed 5 · accepted 3 · rejected 1 · relabelled 1 · refused 0'),
     ).toBeInTheDocument()
+  })
+
+  it('shows the curator error reported in the summary', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(`${CONTROL_LAYER_URL}/api/classifier/samples/curate`, () =>
+        HttpResponse.json({ reviewed: 0, accepted: 0, rejected: 0, relabelled: 0, refused: 0, error: 'curator returned malformed JSON' }),
+      ),
+    )
+    renderWithProviders(<TrainingSetPanel />)
+
+    await user.click(await screen.findByRole('button', { name: 'Curate with judge' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('curator returned malformed JSON')
   })
 
   it('shows an error banner when the samples cannot be loaded', async () => {

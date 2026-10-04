@@ -23,12 +23,21 @@ describe('parseProjection', () => {
     expect(summary).toEqual({ columnsRedacted: ['salary', 'ssn'], rowsFiltered: 2 })
   })
 
-  it('falls back to the evidence lines', () => {
+  it('prefers the structured evidence entries over the reason text', () => {
     const summary = parseProjection([
-      stageWith({ evidence: ['1 row(s) filtered', '1 column(s) redacted: salary'] }),
+      stageWith({
+        reason: '9 row(s) filtered, 9 column(s) redacted: other',
+        evidence: ['resource:hr_directory_rows', 'rows_filtered:2', 'column_redacted:salary', 'column_redacted:ssn'],
+      }),
     ])
 
-    expect(summary).toEqual({ columnsRedacted: ['salary'], rowsFiltered: 1 })
+    expect(summary).toEqual({ columnsRedacted: ['salary', 'ssn'], rowsFiltered: 2 })
+  })
+
+  it('reads a reason without the column suffix', () => {
+    const summary = parseProjection([stageWith({ reason: '3 row(s) filtered, 0 column(s) redacted' })])
+
+    expect(summary).toEqual({ columnsRedacted: [], rowsFiltered: 3 })
   })
 
   it('returns null when no projection violation exists', () => {

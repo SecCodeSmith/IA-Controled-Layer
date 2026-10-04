@@ -63,13 +63,14 @@ export function TrainingSetPanel() {
       </div>
 
       {curate.data ? <span className="text-[13px] text-muted">{describeSummary(curate.data)}</span> : null}
+      {curate.data?.error ? <ErrorBanner message={curate.data.error} /> : null}
       {curate.isError ? <ErrorBanner message={errorMessage(curate.error)} /> : null}
       {patch.isError ? <ErrorBanner message={errorMessage(patch.error)} /> : null}
 
       {samples.isLoading ? <Spinner label="Loading samples…" /> : null}
       {samples.isError ? <ErrorBanner message={errorMessage(samples.error)} /> : null}
       {samples.data ? (
-        <SamplesTable samples={samples.data.samples} onPatch={(id, change) => patch.mutate({ id, patch: change })} />
+        <SamplesTable samples={samples.data.items} onPatch={(id, change) => patch.mutate({ id, patch: change })} />
       ) : null}
     </div>
   )

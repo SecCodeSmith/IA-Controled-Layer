@@ -1,9 +1,9 @@
-import type { ClassifierBand, ClassifierTrace, PathStep } from '../../types/workbench'
+import type { ClassifierBand, ClassifierExplanation, ClassifierTrace, PathStep } from '../../types/workbench'
 import { formatThreshold } from '../../lib/formatThreshold'
 
 const BAND_STYLES: Record<ClassifierBand, { bg: string; fg: string }> = {
   block: { bg: '#FADFD7', fg: '#A3301A' },
-  inconclusive: { bg: '#F8ECCF', fg: '#7A4E00' },
+  escalate: { bg: '#F8ECCF', fg: '#7A4E00' },
   allow: { bg: '#E2F0E8', fg: '#17613F' },
 }
 
@@ -29,13 +29,35 @@ function PathStepItem({ step }: { step: PathStep }) {
   )
 }
 
+function ExplanationDetails({ explanation }: { explanation: ClassifierExplanation }) {
+  return (
+    <>
+      <ul className="m-0 flex list-none flex-col gap-0.5 p-0" aria-label="Decision path">
+        {explanation.path.map((step, index) => (
+          <PathStepItem key={`${step.feature}-${index}`} step={step} />
+        ))}
+      </ul>
+
+      {explanation.leaf ? (
+        <span className="text-[13px] text-muted">
+          Leaf #{explanation.leaf.node_id} · {explanation.leaf.samples} samples ·{' '}
+          {Math.round(explanation.leaf.positive_fraction * 100)}% positive
+        </span>
+      ) : null}
+      {explanation.top_features.length > 0 ? (
+        <span className="text-xs text-muted">top features: {explanation.top_features.join(', ')}</span>
+      ) : null}
+    </>
+  )
+}
+
 export function DecisionTreeCard({ trace }: { trace: ClassifierTrace }) {
   const { explanation } = trace
   const percent = Math.round(trace.probability * 100)
   const band = BAND_STYLES[trace.band]
 
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-border-soft px-4 py-3.5">
+    <article aria-label="Decision tree" className="flex flex-col gap-3 rounded-lg border border-border-soft px-4 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="m-0 text-[15px] font-semibold">Decision tree</h3>
         <div className="flex items-center gap-2">
@@ -59,21 +81,7 @@ export function DecisionTreeCard({ trace }: { trace: ClassifierTrace }) {
         <span className="font-mono text-[13px]">p = {trace.probability.toFixed(2)}</span>
       </div>
 
-      <ul className="m-0 flex list-none flex-col gap-0.5 p-0" aria-label="Decision path">
-        {explanation.path.map((step, index) => (
-          <PathStepItem key={`${step.feature}-${index}`} step={step} />
-        ))}
-      </ul>
-
-      {explanation.leaf ? (
-        <span className="text-[13px] text-muted">
-          Leaf #{explanation.leaf.node_id} · {explanation.leaf.samples} samples ·{' '}
-          {Math.round(explanation.leaf.positive_fraction * 100)}% positive
-        </span>
-      ) : null}
-      {explanation.top_features.length > 0 ? (
-        <span className="text-xs text-muted">top features: {explanation.top_features.join(', ')}</span>
-      ) : null}
+      {explanation ? <ExplanationDetails explanation={explanation} /> : null}
     </article>
   )
 }

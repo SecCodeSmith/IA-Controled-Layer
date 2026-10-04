@@ -18,7 +18,7 @@ export const CLASSIFIER_STATUS_FIXTURE: ClassifierStatusResponse = {
     n_base: 420,
     n_feedback: 12,
   },
-  counts: { pending: 2, accepted: 5, rejected: 1 },
+  counts: { pending: 2, accepted: 5, rejected: 1, total: 8 },
   retrain_running: false,
   last_retrain: null,
 }
@@ -61,7 +61,7 @@ export const SAMPLES_FIXTURE: TrainingSample[] = [
     label: 0,
     source: 'curation',
     status: 'accepted',
-    confidence: 0.97,
+    confidence: null,
     reason: null,
     tree_probability: null,
     point: null,
@@ -77,6 +77,7 @@ export const CURATION_SUMMARY_FIXTURE: CurationSummary = {
   rejected: 1,
   relabelled: 1,
   refused: 0,
+  error: null,
 }
 
 export const RETRAIN_RESULT_FIXTURE: RetrainResult = {
@@ -93,13 +94,14 @@ export const RETRAIN_JOB_FIXTURE: RetrainJobResponse = {
   job_id: 'rj_001',
   status: 'running',
   started_at: '2026-10-04T09:29:00Z',
+  finished_at: null,
   result: null,
   error: null,
 }
 
 export const PROMPT_TRACE_FIXTURE: TraceResponse = {
   call_id: 'c_002001',
-  kind: 'workbench',
+  kind: 'prompt',
   status: 'FLAGGED',
   action: 'flag',
   stage: 'policy',
@@ -147,7 +149,7 @@ export const PROMPT_TRACE_FIXTURE: TraceResponse = {
       top_features: ['ignore', 'instructions', 'system prompt'],
     },
   },
-  judge: { verdict: 'injection', confidence: 0.94, reason: 'Explicit instruction override attempt' },
+  judge: { verdict: 'block', confidence: 0.94, reason: 'Explicit instruction override attempt' },
   training_sample_id: 's_001',
   raw_result: null,
   delivered_result: null,
@@ -155,7 +157,7 @@ export const PROMPT_TRACE_FIXTURE: TraceResponse = {
 
 export const SHORT_CIRCUIT_TRACE_FIXTURE: TraceResponse = {
   call_id: 'c_002002',
-  kind: 'workbench',
+  kind: 'prompt',
   status: 'BLOCKED',
   action: 'block',
   stage: 'authorization',
@@ -189,7 +191,7 @@ export const SHORT_CIRCUIT_TRACE_FIXTURE: TraceResponse = {
 
 export const PROJECTION_TRACE_FIXTURE: TraceResponse = {
   call_id: 'c_002003',
-  kind: 'workbench',
+  kind: 'tool_call',
   status: 'MASKED',
   action: 'mask',
   stage: 'authorization',
@@ -209,7 +211,7 @@ export const PROJECTION_TRACE_FIXTURE: TraceResponse = {
           action: 'mask',
           confidence: 1,
           reason: '1 row(s) filtered, 1 column(s) redacted: salary',
-          evidence: [],
+          evidence: ['resource:hr_directory_rows', 'rows_filtered:1', 'column_redacted:salary'],
         },
       ],
     },
@@ -217,13 +219,13 @@ export const PROJECTION_TRACE_FIXTURE: TraceResponse = {
   classifier_trace: null,
   judge: null,
   training_sample_id: null,
-  raw_result: JSON.stringify({
+  raw_result: {
     rows: [
       { id: 'E-2001', region: 'PL', salary: 9000 },
       { id: 'E-2101', region: 'DE', salary: 8000 },
     ],
-  }),
-  delivered_result: JSON.stringify({ rows: [{ id: 'E-2001', region: 'PL' }] }),
+  },
+  delivered_result: { rows: [{ id: 'E-2001', region: 'PL' }] },
 }
 
 export const RESOURCE_MATRIX_FIXTURE: ResourceMatrixResponse = {
@@ -241,7 +243,7 @@ export const RESOURCE_MATRIX_FIXTURE: ResourceMatrixResponse = {
             allow: ['src/**', 'docs/**', 'README.md'],
             deny: ['**/.env', 'secrets/**'],
           },
-          columns: null,
+          columns: { allow: null, deny: [] },
           rows: {},
         },
       },
@@ -253,8 +255,16 @@ export const RESOURCE_MATRIX_FIXTURE: ResourceMatrixResponse = {
       path_argument: null,
       records: 'rows',
       grants: {
-        hr: { paths: null, columns: { allow: null, deny: ['salary'] }, rows: { region: '$identity.region' } },
-        '*': { paths: null, columns: { allow: ['id', 'name'], deny: [] }, rows: { region: ['PL', 'DE'] } },
+        hr: {
+          paths: { allow: [], deny: [] },
+          columns: { allow: null, deny: ['salary'] },
+          rows: { region: '$identity.region' },
+        },
+        '*': {
+          paths: { allow: [], deny: [] },
+          columns: { allow: ['id', 'name'], deny: [] },
+          rows: { region: ['PL', 'DE'] },
+        },
       },
     },
   ],

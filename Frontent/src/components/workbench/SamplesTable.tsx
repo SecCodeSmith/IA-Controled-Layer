@@ -26,7 +26,7 @@ function SampleRow({ sample, onPatch }: { sample: TrainingSample; onPatch: Sampl
       <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-muted">{sample.source}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-[13px]">{sample.status}</td>
       <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-muted">
-        {Math.round(sample.confidence * 100)}%
+        {sample.confidence === null ? '–' : `${Math.round(sample.confidence * 100)}%`}
       </td>
       <td className="whitespace-nowrap px-3 py-2.5">
         <div className="flex gap-1.5">

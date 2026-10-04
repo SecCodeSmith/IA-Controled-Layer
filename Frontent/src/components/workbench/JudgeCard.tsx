@@ -9,7 +9,7 @@ interface JudgeCardProps {
 
 export function JudgeCard({ judge, sampleId, callId }: JudgeCardProps) {
   return (
-    <article className="flex flex-col gap-2 rounded-lg border border-border-soft px-4 py-3.5">
+    <article aria-label="LLM judge" className="flex flex-col gap-2 rounded-lg border border-border-soft px-4 py-3.5">
       <h3 className="m-0 text-[15px] font-semibold">LLM judge</h3>
       <div className="flex items-center gap-3">
         <span className="rounded-full bg-border-soft px-2.5 py-0.5 text-xs font-semibold">{judge.verdict}</span>

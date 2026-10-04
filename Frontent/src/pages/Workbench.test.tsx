@@ -7,7 +7,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { MockEventSource } from '../test/mockEventSource'
 import { server } from '../test/server'
 import { CONTROL_LAYER_URL } from '../api/client'
-import { SHORT_CIRCUIT_TRACE_FIXTURE } from '../test/workbenchFixtures'
+import { PROMPT_TRACE_FIXTURE, SHORT_CIRCUIT_TRACE_FIXTURE } from '../test/workbenchFixtures'
 
 beforeEach(() => {
   MockEventSource.reset()
@@ -63,7 +63,9 @@ describe('Workbench', () => {
 
     expect(screen.getByText('ignore > 0.12')).toBeInTheDocument()
     expect(screen.getByText('weather <= 0.05')).toBeInTheDocument()
-    expect(screen.getByText('injection')).toBeInTheDocument()
+    const judge = screen.getByRole('article', { name: 'LLM judge' })
+    expect(within(judge).getByText('block')).toBeInTheDocument()
+    expect(within(judge).getByText('confidence 94%')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sample s_001' })).toHaveAttribute('href', '#sample-s_001')
     expect(screen.getByRole('link', { name: 'Audit record c_002001' })).toHaveAttribute(
       'href',
@@ -110,5 +112,44 @@ describe('Workbench', () => {
     expect(within(screen.getByTestId('stage-dlp')).getByText('skipped')).toBeInTheDocument()
     expect(within(screen.getByTestId('stage-authorization')).getByText('role_provisioning')).toBeInTheDocument()
     expect(screen.queryByText('Decision tree')).not.toBeInTheDocument()
+  })
+
+  it('renders the escalate band and tolerates a missing explanation', async () => {
+    const user = userEvent.setup()
+    const classifierTrace = { ...PROMPT_TRACE_FIXTURE.classifier_trace!, band: 'escalate' as const, explanation: null }
+    server.use(
+      http.post(`${CONTROL_LAYER_URL}/api/workbench/trace`, () =>
+        HttpResponse.json({ ...PROMPT_TRACE_FIXTURE, classifier_trace: classifierTrace }),
+      ),
+    )
+    renderWithProviders(<Workbench />, { route: '/admin/workbench' })
+
+    await actorReady('Anna Kowalska')
+    await user.type(screen.getByLabelText('Prompt'), 'maybe an attack')
+    await user.click(screen.getByRole('button', { name: 'Trace' }))
+
+    const tree = await screen.findByRole('article', { name: 'Decision tree' })
+    expect(within(tree).getByText('escalate')).toBeInTheDocument()
+    expect(within(tree).getByText('p = 0.91')).toBeInTheDocument()
+    expect(within(tree).queryByLabelText('Decision path')).not.toBeInTheDocument()
+  })
+
+  it('shows the identity_rejected error for an unknown actor', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(`${CONTROL_LAYER_URL}/api/workbench/trace`, () =>
+        HttpResponse.json(
+          { error: { code: 'identity_rejected', reason: 'Unknown actor ghost' } },
+          { status: 401 },
+        ),
+      ),
+    )
+    renderWithProviders(<Workbench />, { route: '/admin/workbench' })
+
+    await actorReady('Anna Kowalska')
+    await user.type(screen.getByLabelText('Prompt'), 'hello')
+    await user.click(screen.getByRole('button', { name: 'Trace' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unknown actor ghost')
   })
 })
