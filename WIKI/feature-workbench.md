@@ -56,7 +56,7 @@ Flow:
 1. Delegate to `HandleToolCallUseCase.execute` (it runs the normal tool-call pipeline and records the call)
 2. On `ControlLayerError` with a `call_id`, read the `decision` field (set by W2 on every control-layer error path)
 3. On success, fetch `raw_result` and `delivered_result` from the audit record (JSON-parsed when possible)
-4. Return `TraceResponse` with stages list, violations, delivered vs. raw side-by-side
+4. Return `TraceResponse` with stages from both passes (tool_call decision + tool_result decision, each tagged with `point`), violations, delivered vs. raw side-by-side
 
 ### Stage strip rendering
 

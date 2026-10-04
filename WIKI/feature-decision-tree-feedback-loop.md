@@ -114,14 +114,7 @@ Refused actions:
    - Keep current classifier
    - Return `passed_gate=False, swapped=False, version=N`
 
-Events (`POST /api/classifier/retrain/{job_id}/stream` SSE):
-
-- `retrain_started`: Job enqueued
-- `retrain_progress`: `{status: "training"|"evaluating"|"publishing", percent: 0..100}` (server-sent during async thread work)
-- `retrain_complete`: `{f1, passed_gate, swapped, version, trained_at, n_base, n_feedback}`
-- `retrain_failed`: `{error: str}`
-
-Single-flight: concurrent retrain requests return HTTP 409 "retrain already in progress" with backoff suggestion.
+Single-flight: concurrent retrain requests return HTTP 409 `retrain_running` with reason "a retrain job is already running: retrain_N".
 
 ## Configuration
 
@@ -289,13 +282,14 @@ Start retrain job.
 
 #### `GET /api/classifier/retrain/{job_id}/stream`
 
-Server-sent events (SSE) for retrain progress.
+Server-sent events (SSE) for retrain progress. Errors: 404 `not_found`.
 
 **Events:**
 
-- `data: {"type":"retrain_progress","status":"training","percent":30}`
-- `data: {"type":"retrain_complete","result":{...RetrainResult}}`
-- `data: {"type":"retrain_failed","error":"..."}`
+- `retrain_started`: `{job_id}`
+- `retrain_progress`: `{job_id, step}` where `step` is `loading`, `training`, `evaluating`, or `publishing` (publishing only when gate passes)
+- `retrain_complete`: `RetrainResult` JSON `{f1, passed_gate, swapped, n_base, n_feedback, version, trained_at}`
+- `retrain_failed`: `{job_id, error}`
 
 ## Dashboard
 
