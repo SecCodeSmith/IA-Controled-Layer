@@ -84,6 +84,7 @@ export interface AuditDetail {
   request: AuditRequest
   response: AuditResponse
   items_masked: number
+  items_restored?: number
   tokens: AuditTokens
   cost_usd: number
   latency: AuditLatency

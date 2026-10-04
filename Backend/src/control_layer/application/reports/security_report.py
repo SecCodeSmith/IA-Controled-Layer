@@ -12,7 +12,11 @@ from control_layer.application.use_cases.admin._shared import (
     filter_by_period,
     load_all_call_records,
 )
-from control_layer.application.use_cases.admin.stats import posture_score, tally_call_records
+from control_layer.application.use_cases.admin.stats import (
+    posture_score,
+    split_admin_records,
+    tally_call_records,
+)
 from control_layer.domain.models.alert import Alert
 from control_layer.domain.ports.alert_store import AlertStore
 from control_layer.domain.ports.audit_repository import AuditRepository
@@ -144,7 +148,7 @@ class SecurityReportUseCase:
     async def execute(self, period: str) -> ReportView:
         stats_view = await self._stats_calculator.compute()
 
-        all_records = await load_all_call_records(self._audit_repository)
+        all_records, _ = split_admin_records(await load_all_call_records(self._audit_repository))
         records = filter_by_period(all_records, period, now=self._clock())
         allowed, blocked, masked, escalated, flagged, *_ = tally_call_records(records)
         total = len(records)

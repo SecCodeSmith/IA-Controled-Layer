@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { AdminChip } from '../common/AdminChip'
 import { StatusBadge } from '../common/StatusBadge'
 import { formatReason } from '../../lib/formatReason'
 import { overheadCell } from '../../lib/overhead'
@@ -29,6 +30,7 @@ export function AuditTable({ items }: { items: AuditListItem[] }) {
                 {item.user.name} · {roleLabel(item.user.role)}
               </td>
               <td className="px-3 py-3 font-mono text-[13px]">
+                {item.kind === 'admin' ? <AdminChip /> : null}
                 <Link to={`/admin/audit/${item.call_id}`} className="hover:underline">
                   {item.target}
                 </Link>

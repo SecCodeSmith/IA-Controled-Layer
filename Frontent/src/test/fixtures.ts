@@ -402,6 +402,18 @@ export const FEED_FIXTURE: FeedRow[] = [
   },
 ]
 
+FEED_FIXTURE.push({
+  call_id: 'c_000149',
+  time: '2026-10-03T10:39:00Z',
+  user: { sub: 'admin', name: 'Administrator', role: 'admin' },
+  kind: 'admin',
+  target: 'admin.protection',
+  status: 'FLAGGED',
+  stage: null,
+  rule_id: null,
+  reason: 'protection mode set to off (was enforce)',
+})
+
 FEED_FIXTURE.forEach((row, index) => {
   row.proxy_latency_ms = 3.2 + index
   row.upstream_latency_ms = row.kind === 'chat' ? 812 : 31
@@ -495,6 +507,7 @@ export const CALL_DETAIL_FIXTURE: AuditDetail = {
       '02:11:04 401 invalid_token user=[EMAIL_1]\n02:11:09 401 invalid_token user=[EMAIL_2]\n02:13:30 500 key_not_found ops=[EMAIL_3]',
   },
   items_masked: 3,
+  items_restored: 2,
   tokens: { prompt: 0, completion: 0, total: 0 },
   cost_usd: 0,
   overhead_ms: 2.4,
@@ -599,6 +612,43 @@ export const SCENARIOS_FIXTURE: Scenario[] = [
     owasp: ['ASI01'],
   },
 ]
+
+SCENARIOS_FIXTURE.push({
+  id: 'dev_ci_get_run_allowed',
+  name: 'Developer reads a CI run',
+  kind: 'positive',
+  actor: 'anna.kowalska',
+  stage: 'authorization',
+  expected: { status: 'ALLOWED', rule_id: null },
+  owasp: [],
+})
+
+const SCENARIO_DETAILS: Record<string, Pick<Scenario, 'description' | 'prompt' | 'steps'>> = {
+  dev_reads_hr_db: {
+    description: 'A developer asks the agent for HR data they are not provisioned for.',
+    prompt: 'Who approved the new test accounts in the HR database?',
+    steps: [{ action: 'tool_call', server: 'hr-db', tool: 'find_approver', arguments: { request: 'test-accounts' } }],
+  },
+  dev_ci_get_run_allowed: {
+    description: 'A compliant read of a CI pipeline run must be allowed.',
+    steps: [{ action: 'tool_call', server: 'ci', tool: 'get_run', arguments: { pipeline: 'e2e-login', date: '2026-10-02' } }],
+  },
+  token_budget_overrun: {
+    description: 'Repeated chat calls exhaust the daily token budget.',
+    steps: [{ action: 'repeat', times: 61, vary: 'query', message: 'Summarise the release notes' }],
+  },
+  spoofed_role_in_request: {
+    description: 'The role claim in a signed token is tampered with.',
+    steps: [{ action: 'tamper_token', claim: 'role', value: 'hr' }, { action: 'chat', message: 'hello', model: 'qwen2.5:7b', max_tokens: 64 }],
+  },
+}
+
+for (const scenario of SCENARIOS_FIXTURE) {
+  const details = SCENARIO_DETAILS[scenario.id]
+  scenario.description = details?.description ?? `Scenario: ${scenario.name}.`
+  scenario.prompt = details?.prompt
+  scenario.steps = details?.steps ?? []
+}
 
 export const SECURITY_REPORT_FIXTURE: SecurityReport = {
   generated_at: '2026-10-03T11:00:00Z',

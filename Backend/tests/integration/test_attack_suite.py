@@ -123,3 +123,38 @@ async def test_scripted_run_all_negatives_stopped_all_positives_passed(
     for scenario in detail["scenarios"]:
         expected = "STOPPED" if scenario["kind"] == "negative" else "PASSED"
         assert scenario["status"] == expected, scenario["id"]
+
+
+async def test_scenarios_endpoint_exposes_description_prompt_and_steps(
+    api: httpx.AsyncClient,
+) -> None:
+    response = await api.get("/api/attack-suite/scenarios", headers=ADMIN_HEADERS)
+
+    items = {s["id"]: s for s in response.json()["scenarios"]}
+    for scenario in SCENARIOS:
+        item = items[scenario.id]
+        assert item["prompt"] == scenario.prompt
+        assert isinstance(item["description"], str)
+        assert len(item["steps"]) == len(scenario.steps)
+        for step in item["steps"]:
+            assert len(step.get("message", "")) <= 200
+
+
+async def test_run_scenarios_carry_explanation_and_trace_call_ids(
+    api: httpx.AsyncClient, shared_app
+) -> None:
+    run = (
+        await api.post("/api/attack-suite/run", params={"agent": "scripted"}, headers=ADMIN_HEADERS)
+    ).json()
+    await shared_app.app.state.container.attack_runs.wait(run["run_id"])
+    detail = (
+        await api.get(f"/api/attack-suite/runs/{run['run_id']}", headers=ADMIN_HEADERS)
+    ).json()
+
+    for scenario in detail["scenarios"]:
+        assert scenario["explanation"], scenario["id"]
+        assert scenario["trace"], scenario["id"]
+        assert scenario["error"] is None
+    with_call_id = [s for s in detail["scenarios"] if s["trace"][0]["call_id"]]
+    assert with_call_id
+    assert any(s["observed"]["http_status"] == 200 for s in detail["scenarios"])

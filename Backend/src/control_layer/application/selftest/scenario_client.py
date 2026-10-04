@@ -20,6 +20,7 @@ class StepObservation(BaseModel):
     reason: str | None = None
     approval_id: str | None = None
     target: str | None = None
+    call_id: str | None = None
 
 
 class ScenarioClient(Protocol):

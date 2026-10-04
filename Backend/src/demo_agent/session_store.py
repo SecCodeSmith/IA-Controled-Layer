@@ -8,12 +8,15 @@ leading system prompt is always preserved).
 
 from __future__ import annotations
 
+import time
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 DEFAULT_MAX_SESSIONS = 200
 DEFAULT_MAX_MESSAGES = 200
+DEFAULT_TTL_S = 3600.0
 
 
 @dataclass
@@ -30,6 +33,12 @@ class SessionState:
     model: str | None = None
     openai_tools: list[dict[str, Any]] = field(default_factory=list)
     pending_approval: PendingApproval | None = None
+    protection_mode: str | None = None
+    last_used: float = 0.0
+
+    def forget_conversation(self) -> None:
+        self.messages = []
+        self.pending_approval = None
 
     def add_message(
         self, message: dict[str, Any], max_messages: int = DEFAULT_MAX_MESSAGES
@@ -44,22 +53,45 @@ class SessionState:
 
 
 class SessionStore:
-    def __init__(self, max_sessions: int = DEFAULT_MAX_SESSIONS) -> None:
+    def __init__(
+        self,
+        max_sessions: int = DEFAULT_MAX_SESSIONS,
+        ttl_s: float = DEFAULT_TTL_S,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._max_sessions = max_sessions
-        self._sessions: OrderedDict[str, SessionState] = OrderedDict()
+        self._ttl_s = ttl_s
+        self._clock = clock
+        self._sessions: OrderedDict[tuple[str, str], SessionState] = OrderedDict()
 
-    def get(self, session_id: str) -> SessionState | None:
-        session = self._sessions.get(session_id)
-        if session is not None:
-            self._sessions.move_to_end(session_id)
+    def get(self, sub: str, session_id: str) -> SessionState | None:
+        key = (sub, session_id)
+        session = self._sessions.get(key)
+        if session is None:
+            return None
+        if self._expired(session):
+            del self._sessions[key]
+            return None
+        session.last_used = self._clock()
+        self._sessions.move_to_end(key)
         return session
 
-    def get_or_create(self, session_id: str) -> SessionState:
-        session = self._sessions.get(session_id)
+    def get_or_create(self, sub: str, session_id: str) -> SessionState:
+        session = self.get(sub, session_id)
         if session is None:
-            session = SessionState()
-            self._sessions[session_id] = session
+            self._sweep()
+            session = SessionState(last_used=self._clock())
+            self._sessions[(sub, session_id)] = session
             if len(self._sessions) > self._max_sessions:
                 self._sessions.popitem(last=False)
-        self._sessions.move_to_end(session_id)
         return session
+
+    def reset(self, sub: str, session_id: str) -> None:
+        self._sessions.pop((sub, session_id), None)
+
+    def _expired(self, session: SessionState) -> bool:
+        return self._clock() - session.last_used > self._ttl_s
+
+    def _sweep(self) -> None:
+        for key in [k for k, v in self._sessions.items() if self._expired(v)]:
+            del self._sessions[key]

@@ -48,6 +48,7 @@ def _obs(
     approval_id: str | None = None,
     http_status: int = 200,
     target: str | None = None,
+    call_id: str | None = None,
 ) -> StepObservation:
     return StepObservation(
         http_status=http_status,
@@ -56,6 +57,7 @@ def _obs(
         rule_id=rule_id,
         approval_id=approval_id,
         target=target,
+        call_id=call_id,
     )
 
 
@@ -614,3 +616,104 @@ async def test_each_executor_run_uses_fresh_agent_sessions() -> None:
 
     assert first.tool_calls[0][1] == "selftest-s-run1"
     assert second.tool_calls[0][1] == "selftest-s-run2"
+
+
+async def test_scripted_trace_lists_every_observation_with_call_ids() -> None:
+    client = FakeScenarioClient()
+    client.tool_call_results = [
+        _obs(CallStatus.ALLOWED, call_id="c_1"),
+        _obs(CallStatus.BLOCKED, rule_id="rate_limit", stage=StageName.behavior, call_id="c_2"),
+    ]
+    scenario = _Scenario(
+        id="burst",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.BLOCKED, rule_id="rate_limit"),
+        steps=[
+            {
+                "action": "repeat",
+                "times": 2,
+                "step": {"action": "tool_call", "server": "jira", "tool": "search"},
+            }
+        ],
+    )
+
+    result = await ScenarioExecutor(client).run(scenario)
+
+    assert [o.call_id for o in result.trace] == ["c_1", "c_2"]
+    assert result.explanation.startswith("Expected BLOCKED")
+    assert "behavior · rate_limit" in result.explanation
+
+
+async def test_agent_trace_includes_every_turn_and_not_attempted_explanation() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [
+        _obs(CallStatus.ALLOWED, target="ci.get_run", call_id="c_1"),
+        _obs(CallStatus.ALLOWED, target="llm.complete", call_id="c_2"),
+    ]
+
+    result = await ScenarioExecutor(client).run(_negative_hr(), tier="ollama")
+
+    assert result.status == ScenarioStatus.NOT_ATTEMPTED
+    assert [o.call_id for o in result.trace] == ["c_1", "c_2"]
+    assert "it called ci.get_run instead" in result.explanation
+
+
+async def test_exception_result_keeps_error_text_as_explanation() -> None:
+    client = FakeScenarioClient()
+    client.raise_on = "tool_call"
+    scenario = _Scenario(
+        id="boom",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.BLOCKED),
+        steps=[_FIND_APPROVER_STEP],
+    )
+
+    result = await ScenarioExecutor(client).run(scenario)
+
+    assert result.status == ScenarioStatus.ERROR
+    assert result.error == "boom"
+    assert result.explanation == "boom"
+
+
+def _flagged_scenario() -> _Scenario:
+    return _Scenario(
+        id="flag",
+        kind="negative",
+        expected=_Expectation(status=CallStatus.FLAGGED),
+        steps=[_FIND_APPROVER_STEP],
+    )
+
+
+async def test_flagged_expectation_is_strict_in_scripted_tier() -> None:
+    client = FakeScenarioClient()
+    client.tool_call_results = [_obs(CallStatus.FLAGGED)]
+
+    stopped = await ScenarioExecutor(client).run(_flagged_scenario())
+    client.tool_call_results = [_obs(CallStatus.BLOCKED)]
+    mismatch = await ScenarioExecutor(client).run(_flagged_scenario())
+
+    assert stopped.status == ScenarioStatus.STOPPED
+    assert mismatch.status == ScenarioStatus.ERROR
+
+
+@pytest.mark.parametrize(
+    "status", [CallStatus.FLAGGED, CallStatus.MASKED, CallStatus.BLOCKED, CallStatus.ESCALATED]
+)
+async def test_flagged_expectation_ollama_tier_stopped_by_detection_or_stronger(
+    status: CallStatus,
+) -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(status, target="hr-db.find_approver")]
+
+    result = await ScenarioExecutor(client).run(_flagged_scenario(), tier="ollama")
+
+    assert result.status == ScenarioStatus.STOPPED
+
+
+async def test_flagged_expectation_ollama_tier_allowed_is_succeeded() -> None:
+    client = FakeScenarioClient()
+    client.agent_chat_result = [_obs(CallStatus.ALLOWED, target="hr-db.find_approver")]
+
+    result = await ScenarioExecutor(client).run(_flagged_scenario(), tier="ollama")
+
+    assert result.status == ScenarioStatus.SUCCEEDED

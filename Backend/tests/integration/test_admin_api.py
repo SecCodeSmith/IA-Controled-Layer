@@ -222,8 +222,8 @@ async def test_demo_reset_clears_audit_and_alerts(api: httpx.AsyncClient) -> Non
     reset = await api.post("/api/demo/reset", headers=ADMIN_HEADERS)
     assert reset.status_code == 200
     assert reset.json() == {"ok": True}
-    assert (await api.get("/api/feed", headers=ADMIN_HEADERS)).json()["items"] == []
-    assert (await api.get("/api/alerts", headers=ADMIN_HEADERS)).json()["items"] == []
+    feed = (await api.get("/api/feed", headers=ADMIN_HEADERS)).json()["items"]
+    assert [row["target"] for row in feed] == ["admin.reset"]
     stats = (await api.get("/api/stats", headers=ADMIN_HEADERS)).json()
     assert stats["total_calls"] == 0
     token = await get_token(api, "anna.kowalska")

@@ -113,7 +113,9 @@ async def test_reset_clears_audit_budget_sessions_and_cache() -> None:
     assert budgets.reset_calls == [None]
     assert sessions.cleared_sessions == [None]
     assert metrics.snapshot().cache.hits == 0
-    expected_prefixes = {"decision:", "rate:", "loop:", "cb:", "quarantine:", "seen:", "calls:"}
+    expected_prefixes = {
+        "decision:", "rate:", "loop:", "cb:", "quarantine:", "seen:", "calls:", "vault:"
+    }
     assert set(cache.flushed_prefixes) == expected_prefixes
 
 

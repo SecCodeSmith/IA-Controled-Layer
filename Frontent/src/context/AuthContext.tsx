@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { clearSession, loadSession, saveSession, type StoredSession } from '../lib/session'
+import { clearSession, loadSession, saveSession, startChatSession, type StoredSession } from '../lib/session'
 import type { Identity } from '../types/identity'
 
 interface AuthContextValue {
@@ -16,6 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback((next: StoredSession) => {
     saveSession(next)
+    startChatSession()
     setSession(next)
   }, [])
 

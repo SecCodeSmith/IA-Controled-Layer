@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import httpx
+import openpyxl
 import pytest
 
 from tests.conftest import ADMIN_HEADERS, RunningApp, bearer, call_tool, get_token, read_sse
@@ -27,7 +28,13 @@ async def _hr_query(api: httpx.AsyncClient) -> httpx.Response:
 
 async def test_protection_defaults_and_round_trip(api: httpx.AsyncClient) -> None:
     initial = await api.get("/api/protection", headers=ADMIN_HEADERS)
-    assert initial.json() == {"mode": "enforce", "rule_overrides": {}, "disabled_rules": []}
+    assert initial.json() == {
+        "mode": "enforce",
+        "rule_overrides": {},
+        "disabled_rules": [],
+        "changed_at": None,
+        "changed_by": None,
+    }
 
     updated = await _put_mode(api, "monitor")
     assert updated.status_code == 200
@@ -112,7 +119,8 @@ async def test_rule_override_disables_and_restores_pii_masking(api: httpx.AsyncC
     assert again.json()["status"] == "MASKED"
 
     cleared = await api.delete("/api/protection/overrides", headers=ADMIN_HEADERS)
-    assert cleared.json() == {"mode": "enforce", "rule_overrides": {}, "disabled_rules": []}
+    assert cleared.json()["rule_overrides"] == {}
+    assert cleared.json()["mode"] == "enforce"
 
 
 async def test_patching_an_unknown_rule_returns_404_envelope(api: httpx.AsyncClient) -> None:
@@ -132,9 +140,9 @@ async def test_protection_mode_is_exposed_on_stats_health_and_me(api: httpx.Asyn
     health = await api.get("/health")
     me = await api.get("/v1/me", headers=bearer(token))
 
-    assert stats.json()["protection"] == {"mode": "monitor"}
-    assert health.json()["protection"] == {"mode": "monitor"}
-    assert me.json()["protection"] == {"mode": "monitor"}
+    assert stats.json()["protection"]["mode"] == "monitor"
+    assert health.json()["protection"]["mode"] == "monitor"
+    assert me.json()["protection"]["mode"] == "monitor"
 
 
 async def test_stats_sse_event_carries_protection(
@@ -154,7 +162,8 @@ async def test_stats_sse_event_carries_protection(
     )
 
     stats = next(data for name, data in events if name == "stats")
-    assert stats["protection"] == {"mode": "monitor"}
+    assert stats["protection"]["mode"] == "monitor"
+    assert stats["protection"]["changed_by"] == "admin"
 
 
 async def test_demo_reset_restores_enforce_and_clears_overrides(api: httpx.AsyncClient) -> None:
@@ -164,7 +173,9 @@ async def test_demo_reset_restores_enforce_and_clears_overrides(api: httpx.Async
     await api.post("/api/demo/reset", headers=ADMIN_HEADERS)
 
     state = (await api.get("/api/protection", headers=ADMIN_HEADERS)).json()
-    assert state == {"mode": "enforce", "rule_overrides": {}, "disabled_rules": []}
+    assert state["mode"] == "enforce"
+    assert state["rule_overrides"] == {}
+    assert state["changed_at"] is None
 
 
 async def test_models_list_contains_mock_and_marks_allowlisted_models(
@@ -253,14 +264,16 @@ async def test_clear_logs_empties_audit_alerts_and_excel(
         "ok": True,
         "cleared": ["audit", "alerts", "alerts_xlsx", "audit_jsonl", "metrics", "feed"],
     }
-    assert (await api.get("/api/audit", headers=ADMIN_HEADERS)).json()["items"] == []
-    assert (await api.get("/api/alerts", headers=ADMIN_HEADERS)).json()["items"] == []
-    assert (await api.get("/api/feed", headers=ADMIN_HEADERS)).json()["items"] == []
-    assert not shared_app.settings.alerts_xlsx_path.exists()
-    assert shared_app.settings.audit_jsonl_path.read_text(encoding="utf-8") == ""
+    remaining = (await api.get("/api/audit", headers=ADMIN_HEADERS)).json()["items"]
+    assert [row["target"] for row in remaining] == ["admin.logs"]
+    assert len((await api.get("/api/alerts", headers=ADMIN_HEADERS)).json()["items"]) == 1
+    assert len((await api.get("/api/feed", headers=ADMIN_HEADERS)).json()["items"]) == 1
+    workbook = openpyxl.load_workbook(shared_app.settings.alerts_xlsx_path)
+    assert workbook.active.max_row == 2
+    assert len(shared_app.settings.audit_jsonl_path.read_text(encoding="utf-8").splitlines()) == 1
     assert (await api.get("/api/stats", headers=ADMIN_HEADERS)).json()["total_calls"] == 0
     assert (await api.get("/api/protection", headers=ADMIN_HEADERS)).json()["mode"] == "monitor"
 
     await _put_mode(api, "enforce")
     next_call = await call_tool(api, token, "ci", "get_run", {"pipeline": "p", "date": "d"})
-    assert next_call.json()["call_id"] == "c_000001"
+    assert next_call.json()["call_id"] == "c_000003"

@@ -21,6 +21,7 @@ _CACHE_PREFIXES: tuple[str, ...] = (
     "quarantine:",
     "seen:",
     "calls:",
+    "vault:",
 )
 
 

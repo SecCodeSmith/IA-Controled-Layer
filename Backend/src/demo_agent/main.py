@@ -71,7 +71,7 @@ def create_app(
         timeout_s=settings.request_timeout_s,
         transport=transport,
     )
-    sessions = SessionStore()
+    sessions = SessionStore(ttl_s=settings.session_ttl_s)
     loop = AgentLoop(client=client, sessions=sessions, settings=settings)
 
     app.state.settings = settings
@@ -119,6 +119,14 @@ def create_app(
         )
         budget = await fetch_agent_budget(client, token, payload.session_id)
         return AgentChatResponse(session_id=payload.session_id, events=events, budget=budget)
+
+    @app.post("/agent/sessions/{session_id}/reset")
+    async def agent_session_reset(
+        session_id: str, authorization: str | None = Header(default=None)
+    ) -> dict:
+        token = _bearer_token(authorization)
+        await loop.reset_session(token, session_id)
+        return {"session_id": session_id, "cleared": True}
 
     @app.get("/agent/health", response_model=AgentHealthResponse)
     async def agent_health() -> AgentHealthResponse:

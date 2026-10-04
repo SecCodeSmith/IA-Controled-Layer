@@ -10,11 +10,24 @@ from control_layer.application.selftest.attack_run import (
     AttackRunScenario,
     AttackRunSummary,
 )
+from control_layer.application.selftest.scenario_client import StepObservation
 from control_layer.application.selftest.scenario_executor import ScenarioExecutor, ScenarioStatus
 from control_layer.domain.exceptions import ControlLayerError
 from control_layer.selftest.scenarios import SCENARIOS, Scenario
 
 _MAX_RUNS = 20
+
+
+def _trace_fields(observation: StepObservation) -> dict:
+    return {
+        "target": observation.target,
+        "status": observation.status,
+        "stage": observation.stage,
+        "rule_id": observation.rule_id,
+        "reason": observation.reason,
+        "call_id": observation.call_id,
+        "http_status": observation.http_status,
+    }
 
 
 class RunNotFoundError(ControlLayerError):
@@ -129,6 +142,9 @@ class AttackRunManager:
             view.observed = result.observed
             view.duration_ms = result.duration_ms
             view.via = result.via
+            view.trace = result.trace
+            view.explanation = result.explanation or None
+            view.error = result.error
             await self._emit(run_broadcaster, "scenario", self._scenario_event(view))
 
         run.finished_at = datetime.now(UTC)
@@ -145,17 +161,13 @@ class AttackRunManager:
 
     @staticmethod
     def _scenario_event(view: AttackRunScenario) -> dict:
-        observed = None
-        if view.observed is not None:
-            observed = {
-                "status": view.observed.status,
-                "stage": view.observed.stage,
-                "rule_id": view.observed.rule_id,
-            }
         return {
             "id": view.id,
             "status": view.status,
-            "observed": observed,
+            "observed": _trace_fields(view.observed) if view.observed is not None else None,
             "duration_ms": view.duration_ms,
             "via": view.via,
+            "trace": [_trace_fields(item) for item in view.trace],
+            "explanation": view.explanation,
+            "error": view.error,
         }

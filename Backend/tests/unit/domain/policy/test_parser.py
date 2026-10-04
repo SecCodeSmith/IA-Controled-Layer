@@ -7,7 +7,11 @@ import yaml
 
 from control_layer.domain.exceptions import PolicyValidationError
 from control_layer.domain.models.enums import InterceptionPoint, RuleAction, StageName
-from control_layer.domain.policy.parser import infer_rule_type, infer_stage, parse_policy_document
+from control_layer.domain.policy.parser import (
+    infer_rule_type,
+    infer_stage,
+    parse_policy_document,
+)
 
 _CONFIG_PATH = Path(__file__).resolve().parents[4] / "config" / "policy.yaml"
 
@@ -70,9 +74,17 @@ def test_sample_policy_rules_have_the_intended_on_points_not_all_four() -> None:
     document = parse_policy_document(data, source_hash="abc123")
     on_by_id = {rule.id: rule.on for rule in document.rules}
 
-    assert on_by_id["pii_masking"] == [InterceptionPoint.response, InterceptionPoint.tool_result]
-    assert on_by_id["external_send_after_untrusted_read"] == [InterceptionPoint.tool_call]
-    assert on_by_id["rate_limit"] == [InterceptionPoint.prompt, InterceptionPoint.tool_call]
+    assert on_by_id["pii_masking"] == [
+        InterceptionPoint.response,
+        InterceptionPoint.tool_result,
+    ]
+    assert on_by_id["external_send_after_untrusted_read"] == [
+        InterceptionPoint.tool_call
+    ]
+    assert on_by_id["rate_limit"] == [
+        InterceptionPoint.prompt,
+        InterceptionPoint.tool_call,
+    ]
     assert on_by_id["llm_judge"] == []
     assert on_by_id["direct_push_to_main"] == [InterceptionPoint.tool_call]
 
@@ -120,7 +132,9 @@ def test_infer_rule_type_falls_back_to_id() -> None:
         ("anomaly", {}, StageName.behavior),
     ],
 )
-def test_infer_stage(rule_type: str, rule_dict: dict, expected_stage: StageName) -> None:
+def test_infer_stage(
+    rule_type: str, rule_dict: dict, expected_stage: StageName
+) -> None:
     assert infer_stage(rule_type, rule_dict) == expected_stage
 
 
@@ -149,14 +163,26 @@ def test_on_accepts_single_string() -> None:
 
 def test_on_accepts_list() -> None:
     data = _minimal_document(
-        rules=[{"id": "r1", "on": ["prompt", "tool_result"], "detect": ["email"], "action": "mask"}]
+        rules=[
+            {
+                "id": "r1",
+                "on": ["prompt", "tool_result"],
+                "detect": ["email"],
+                "action": "mask",
+            }
+        ]
     )
     document = parse_policy_document(data, source_hash="h")
-    assert document.rules[0].on == [InterceptionPoint.prompt, InterceptionPoint.tool_result]
+    assert document.rules[0].on == [
+        InterceptionPoint.prompt,
+        InterceptionPoint.tool_result,
+    ]
 
 
 def test_on_defaults_to_all_points_when_omitted() -> None:
-    data = _minimal_document(rules=[{"id": "r1", "detect": ["email"], "action": "mask"}])
+    data = _minimal_document(
+        rules=[{"id": "r1", "detect": ["email"], "action": "mask"}]
+    )
     document = parse_policy_document(data, source_hash="h")
     assert document.rules[0].on == InterceptionPoint.all()
 
@@ -175,7 +201,11 @@ def test_unknown_fields_go_to_params() -> None:
     )
     document = parse_policy_document(data, source_hash="h")
     rule = document.rules[0]
-    assert rule.params == {"block_at": 0.85, "escalate_at": 0.5, "escalate_to": "llm_judge"}
+    assert rule.params == {
+        "block_at": 0.85,
+        "escalate_at": 0.5,
+        "escalate_to": "llm_judge",
+    }
 
 
 def test_missing_version_raises() -> None:
@@ -186,7 +216,9 @@ def test_missing_version_raises() -> None:
 
 
 def test_unknown_action_raises() -> None:
-    data = _minimal_document(rules=[{"id": "r1", "detect": ["email"], "action": "nonsense"}])
+    data = _minimal_document(
+        rules=[{"id": "r1", "detect": ["email"], "action": "nonsense"}]
+    )
     with pytest.raises(PolicyValidationError):
         parse_policy_document(data, source_hash="h")
 
@@ -225,3 +257,142 @@ def test_bare_and_quoted_on_key_in_yaml_text_are_honoured(key: str) -> None:
     )
     document = parse_policy_document(yaml.safe_load(text), source_hash="h")
     assert document.rules[0].on == [InterceptionPoint.response]
+
+
+def test_sample_policy_tree_rule_precedes_logreg_rule_and_resource_rules_follow_rbac() -> (
+    None
+):
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    ids = [rule.id for rule in parse_policy_document(data, source_hash="h").rules]
+
+    assert ids.index("prompt_injection_tree") + 1 == ids.index("prompt_injection_ml")
+    assert ids.index("role_provisioning") + 1 == ids.index("resource_scope")
+    assert ids.index("resource_scope") + 1 == ids.index("resource_projection")
+
+
+def test_sample_policy_tree_rule_params_and_resource_rule_actions() -> None:
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    rules = {
+        rule.id: rule for rule in parse_policy_document(data, source_hash="h").rules
+    }
+
+    tree = rules["prompt_injection_tree"]
+    assert tree.type == "decision_tree"
+    assert tree.action == RuleAction.flag
+    assert tree.params == {
+        "block_at": 0.85,
+        "escalate_at": 0.5,
+        "verify_sample_rate": 0.2,
+        "escalate_to": "llm_judge",
+    }
+    assert rules["resource_scope"].action == RuleAction.block
+    assert rules["resource_scope"].on == [InterceptionPoint.tool_call]
+    assert rules["resource_projection"].action == RuleAction.mask
+    assert rules["resource_projection"].on == [InterceptionPoint.tool_result]
+
+
+def test_sample_policy_resources_are_parsed() -> None:
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    resources = {
+        r.id: r for r in parse_policy_document(data, source_hash="h").resources
+    }
+
+    assert set(resources) == {
+        "github_repo_files",
+        "hr_directory_rows",
+        "hr_employee_record",
+    }
+    files = resources["github_repo_files"]
+    assert (files.server, files.tools, files.path_argument) == (
+        "github",
+        ["read_file"],
+        "path",
+    )
+    assert files.roles["developer"].paths.deny == ["**/.env", "secrets/**", "**/*.pem"]
+    rows = resources["hr_directory_rows"]
+    assert (rows.server, rows.tools, rows.records) == ("hr-db", ["query"], "rows")
+    assert rows.roles["hr"].columns.deny == ["salary"]
+    assert rows.roles["hr"].rows == {"region": "$identity.region"}
+    assert resources["hr_employee_record"].records is None
+
+
+def test_resources_default_to_empty_list() -> None:
+    document = parse_policy_document(_minimal_document(), source_hash="h")
+
+    assert document.resources == []
+
+
+def test_empty_resources_section_is_treated_as_empty_list() -> None:
+    document = parse_policy_document(_minimal_document(resources=None), source_hash="h")
+
+    assert document.resources == []
+
+
+def test_resources_parsed_into_resource_config() -> None:
+    data = _minimal_document(
+        resources=[
+            {
+                "id": "files",
+                "server": "github",
+                "tools": ["read_file"],
+                "path_argument": "path",
+                "roles": {"*": {"paths": {"allow": ["README.md"]}}},
+            }
+        ]
+    )
+
+    document = parse_policy_document(data, source_hash="h")
+
+    assert isinstance(document.resources[0], ResourceConfig)
+    assert document.resources[0].roles["*"].paths.allow == ["README.md"]
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        {"server": "github"},
+        {"id": "r", "server": "github", "roles": {"ceo": {}}},
+        {"id": "r", "server": "github", "roles": {"hr": {"paths": "src/**"}}},
+        {"id": "r", "server": "github", "unknown_key": True},
+    ],
+    ids=["missing-id", "unknown-role", "malformed-grant", "unknown-key"],
+)
+def test_invalid_resources_raise_policy_validation_error(resource: dict) -> None:
+    with pytest.raises(PolicyValidationError):
+        parse_policy_document(_minimal_document(resources=[resource]), source_hash="h")
+
+
+def test_duplicate_resource_ids_raise_policy_validation_error() -> None:
+    data = _minimal_document(
+        resources=[{"id": "dup", "server": "github"}, {"id": "dup", "server": "hr-db"}]
+    )
+
+    with pytest.raises(PolicyValidationError, match="dup"):
+        parse_policy_document(data, source_hash="h")
+
+
+def _vault_rule(vault: object) -> dict:
+    return {"id": "pii_masking", "detect": ["email"], "action": "mask", "vault": vault}
+
+
+def test_vault_block_is_accepted_and_kept_in_params() -> None:
+    vault = {"ttl_s": 60, "restore": {"email": ["mail.send"], "phone": ["mail.*"]}}
+    document = parse_policy_document(_minimal_document(rules=[_vault_rule(vault)]), "h")
+    assert document.rules[0].params["vault"] == vault
+
+
+@pytest.mark.parametrize(
+    "vault",
+    [
+        {"restore": {"api_key": ["mail.send"]}},
+        {"restore": {"nonsense": ["mail.send"]}},
+        {"restore": {"email": "mail send"}},
+        {"restore": {"email": [1]}},
+        {"ttl_s": 0},
+        {"restore": ["email"]},
+        "yes",
+    ],
+)
+def test_invalid_vault_block_is_rejected(vault: object) -> None:
+    with pytest.raises(PolicyValidationError):
+        parse_policy_document(_minimal_document(rules=[_vault_rule(vault)]), "h")

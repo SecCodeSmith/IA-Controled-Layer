@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { useMe } from '../api/me'
-import { useSendAgentMessage, useResolveAgentApproval } from '../api/agent'
-import { getOrCreateTabSessionId } from '../lib/session'
+import { useSendAgentMessage, useResolveAgentApproval, useResetChatSession } from '../api/agent'
+import { isAdminResetAvailable, useResetBehavior } from '../api/demo'
+import { getOrCreateTabSessionId, startChatSession } from '../lib/session'
 import { errorMessage } from '../lib/errorMessage'
 import { ChatHeader } from '../components/layout/ChatHeader'
 import { ToolsSidebar } from '../components/chat/ToolsSidebar'
 import { PolicySidebar } from '../components/chat/PolicySidebar'
 import { ProviderBadge } from '../components/chat/ProviderBadge'
 import { UserBubble } from '../components/chat/UserBubble'
-import { AgentTurn } from '../components/chat/AgentTurn'
+import { AgentTurn, SystemLine } from '../components/chat/AgentTurn'
 import { ChatInput } from '../components/chat/ChatInput'
 import { Spinner } from '../components/common/Spinner'
 import { ErrorBanner } from '../components/common/ErrorBanner'
@@ -20,6 +22,7 @@ import type { AgentEvent } from '../types/chat'
 type ConversationTurn =
   | { kind: 'user'; id: string; text: string }
   | { kind: 'agent'; id: string; events: AgentEvent[] }
+  | { kind: 'system'; id: string; text: string }
 
 export function Chat() {
   const auth = useAuth()
@@ -27,8 +30,12 @@ export function Chat() {
   const me = useMe(Boolean(auth.token))
   const sendMessage = useSendAgentMessage()
   const resolveApproval = useResolveAgentApproval()
+  const resetChat = useResetChatSession()
+  const resetBehavior = useResetBehavior()
+  const queryClient = useQueryClient()
+  const [resetting, setResetting] = useState(false)
 
-  const [sessionId] = useState(() => getOrCreateTabSessionId())
+  const [sessionId, setSessionId] = useState(() => getOrCreateTabSessionId())
   const [turns, setTurns] = useState<ConversationTurn[]>([])
   const [resolvingApprovalId, setResolvingApprovalId] = useState<string | null>(null)
   const [approvalResolutions, setApprovalResolutions] = useState<Record<string, ApprovalResolution>>(
@@ -73,6 +80,49 @@ export function Chat() {
     }
   }
 
+  async function handleNewDemo() {
+    setResetting(true)
+    let agentNote: ConversationTurn[] = []
+    let limitsReset = false
+    try {
+      try {
+        await resetChat.mutateAsync(sessionId)
+      } catch {
+        agentNote = [
+          {
+            kind: 'system',
+            id: `s-agent-${Date.now()}`,
+            text: 'previous conversation could not be reset on the agent',
+          },
+        ]
+      }
+      if (isAdminResetAvailable()) {
+        try {
+          await resetBehavior.mutateAsync()
+          limitsReset = true
+        } catch {
+          // never block the conversation reset on the admin reset
+        }
+      }
+      setSessionId(startChatSession())
+      setTurns([
+        ...agentNote,
+        {
+          kind: 'system',
+          id: `s-fresh-${Date.now()}`,
+          text: limitsReset ? 'Fresh conversation started · limits reset' : 'Fresh conversation started',
+        },
+      ])
+      setApprovalResolutions({})
+      setResolvingApprovalId(null)
+      sendMessage.reset()
+      resolveApproval.reset()
+      await queryClient.invalidateQueries({ queryKey: ['me'] })
+    } finally {
+      setResetting(false)
+    }
+  }
+
   function handleSignOut() {
     auth.signOut()
     navigate('/')
@@ -85,6 +135,7 @@ export function Chat() {
         tokensUsed={me.data?.budget.tokens_used ?? 0}
         tokensLimit={me.data?.budget.tokens_limit ?? 0}
         protectionMode={me.data?.protection?.mode}
+        protectionSince={me.data?.protection?.changed_at}
         onSignOut={handleSignOut}
       />
 
@@ -102,11 +153,25 @@ export function Chat() {
         </aside>
 
         <main className="flex min-w-0 flex-[999_1_560px] flex-col rounded-[10px] border border-border bg-white">
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-b border-border px-7 py-3">
+            <span className="text-[13px] text-muted">resets the conversation and this user's limits</span>
+            <button
+              type="button"
+              onClick={() => void handleNewDemo()}
+              disabled={resetting || sendMessage.isPending}
+              className="rounded-md bg-header px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+            >
+              New demo conversation
+            </button>
+          </div>
+
           <div className="flex flex-col gap-6 p-7">
             {me.isError ? <ErrorBanner message={errorMessage(me.error)} /> : null}
             {turns.map((turn) =>
               turn.kind === 'user' ? (
                 <UserBubble key={turn.id} text={turn.text} />
+              ) : turn.kind === 'system' ? (
+                <SystemLine key={turn.id} text={turn.text} />
               ) : (
                 <AgentTurn
                   key={turn.id}

@@ -86,6 +86,18 @@ def _check_payments_transfer(result: dict[str, Any]) -> None:
     assert result["transaction_id"].startswith("TXN-")
 
 
+def _luhn_valid(number: str) -> bool:
+    digits = [int(c) for c in reversed(number)]
+    total = sum(digits[0::2]) + sum(sum(divmod(d * 2, 10)) for d in digits[1::2])
+    return total % 10 == 0
+
+
+def _check_payments_get_card(result: dict[str, Any]) -> None:
+    assert result["account"] == "ACC-1001"
+    assert len(result["card_number"]) == 16
+    assert _luhn_valid(result["card_number"])
+
+
 def _check_eu_customers_read(result: dict[str, Any]) -> None:
     assert result["found"] is True
     assert result["country"] in {"PL", "DE", "FR"}
@@ -143,7 +155,7 @@ SERVER_CASES = [
     ),
     ServerCase(
         module="payments",
-        expected_tools=frozenset({"get_balance", "transfer"}),
+        expected_tools=frozenset({"get_balance", "get_card", "transfer"}),
         tool_name="transfer",
         arguments={
             "from_account": "ACC-1001",
@@ -152,6 +164,13 @@ SERVER_CASES = [
             "currency": "PLN",
         },
         check=_check_payments_transfer,
+    ),
+    ServerCase(
+        module="payments",
+        expected_tools=frozenset({"get_balance", "get_card", "transfer"}),
+        tool_name="get_card",
+        arguments={"account": "ACC-1001"},
+        check=_check_payments_get_card,
     ),
     ServerCase(
         module="eu_customers",

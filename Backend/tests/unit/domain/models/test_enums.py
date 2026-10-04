@@ -74,7 +74,7 @@ def test_rule_action_members() -> None:
 
 
 def test_role_members() -> None:
-    assert {member.value for member in Role} == {"developer", "hr", "finance"}
+    assert {member.value for member in Role} == {"developer", "hr", "finance", "admin"}
 
 
 def test_approval_status_members() -> None:
@@ -92,4 +92,4 @@ def test_severity_members() -> None:
 
 
 def test_call_kind_members() -> None:
-    assert {member.value for member in CallKind} == {"chat", "tool_call"}
+    assert {member.value for member in CallKind} == {"chat", "tool_call", "workbench", "admin"}

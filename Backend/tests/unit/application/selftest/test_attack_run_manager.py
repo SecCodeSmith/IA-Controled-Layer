@@ -5,12 +5,14 @@ import asyncio
 import pytest
 
 from control_layer.application.events.feed_broadcaster import FeedBroadcaster
+from control_layer.application.selftest.attack_run import AttackRunScenario
 from control_layer.application.selftest.attack_run_manager import (
     AttackRunManager,
     RunNotFoundError,
 )
+from control_layer.application.selftest.scenario_client import StepObservation
 from control_layer.application.selftest.scenario_executor import ScenarioResult, ScenarioStatus
-from control_layer.domain.models.enums import CallStatus
+from control_layer.domain.models.enums import CallStatus, StageName
 from control_layer.selftest.scenarios import Scenario, ScenarioExpectation
 
 
@@ -232,3 +234,67 @@ async def test_run_context_defaults_and_scenario_via_is_tracked() -> None:
 
     assert (run.provider, run.model, run.protection_mode) == ("", "", "enforce")
     assert run.scenarios[0].via == "agent"
+
+
+async def test_run_scenarios_carry_trace_explanation_and_error() -> None:
+    scenarios = [_scenario("a"), _scenario("b")]
+    stopped = ScenarioResult(
+        id="a",
+        status=ScenarioStatus.STOPPED,
+        observed=StepObservation(
+            http_status=403,
+            status=CallStatus.BLOCKED,
+            stage=StageName.policy,
+            rule_id="r1",
+            reason="why",
+            target="hr-db.find_approver",
+            call_id="c_5",
+        ),
+        duration_ms=1.0,
+        trace=[
+            StepObservation(
+                http_status=403, status=CallStatus.BLOCKED, target="t", call_id="c_5"
+            )
+        ],
+        explanation="Attack stopped.",
+    )
+    errored = ScenarioResult(
+        id="b", status=ScenarioStatus.ERROR, duration_ms=1.0, error="boom", explanation="boom"
+    )
+    manager = AttackRunManager(
+        lambda agent: _FakeExecutor({"a": stopped, "b": errored}, []),
+        FeedBroadcaster(),
+        scenarios=scenarios,
+    )
+
+    run = await manager.start("scripted")
+    final = await manager.wait(run.run_id)
+    first, second = final.scenarios
+    event = AttackRunManager._scenario_event(first)
+
+    assert first.explanation == "Attack stopped."
+    assert first.trace[0].call_id == "c_5"
+    assert second.error == "boom"
+    assert event["observed"] == {
+        "target": "hr-db.find_approver",
+        "status": CallStatus.BLOCKED,
+        "stage": StageName.policy,
+        "rule_id": "r1",
+        "reason": "why",
+        "call_id": "c_5",
+        "http_status": 403,
+    }
+    assert event["trace"][0]["call_id"] == "c_5"
+    assert event["explanation"] == "Attack stopped."
+    assert AttackRunManager._scenario_event(second)["error"] == "boom"
+
+
+def test_pending_scenario_event_has_empty_trace_and_no_explanation() -> None:
+    view = AttackRunScenario.from_scenario(_scenario("a"))
+
+    event = AttackRunManager._scenario_event(view)
+
+    assert event["trace"] == []
+    assert event["explanation"] is None
+    assert event["error"] is None
+    assert view.description == ""

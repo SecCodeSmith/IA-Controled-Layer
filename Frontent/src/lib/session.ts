@@ -32,6 +32,11 @@ export function clearSession(): void {
   } catch {
     // ignore
   }
+  try {
+    sessionStorage.removeItem(TAB_SESSION_KEY)
+  } catch {
+    // ignore
+  }
 }
 
 function createId(): string {
@@ -39,6 +44,17 @@ function createId(): string {
     return crypto.randomUUID()
   }
   return `s-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+/** Starts a fresh chat conversation for this tab and returns its new id. */
+export function startChatSession(): string {
+  const created = createId()
+  try {
+    sessionStorage.setItem(TAB_SESSION_KEY, created)
+  } catch {
+    // sessionStorage unavailable - the id lives only in the caller's state
+  }
+  return created
 }
 
 export function getOrCreateTabSessionId(): string {

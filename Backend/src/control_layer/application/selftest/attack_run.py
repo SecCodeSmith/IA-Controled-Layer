@@ -36,6 +36,10 @@ class AttackRunScenario(BaseModel):
     duration_ms: float | None = None
     via: Literal["agent", "scripted"] = "scripted"
     agent_driven: bool = True
+    description: str = ""
+    trace: list[StepObservation] = Field(default_factory=list)
+    explanation: str | None = None
+    error: str | None = None
 
     @classmethod
     def from_scenario(cls, scenario: Scenario) -> AttackRunScenario:
@@ -48,6 +52,7 @@ class AttackRunScenario(BaseModel):
             expected=scenario.expected,
             owasp=list(scenario.owasp),
             agent_driven=scenario.agent_driven,
+            description=getattr(scenario, "description", ""),
         )
 
 

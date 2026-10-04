@@ -42,3 +42,19 @@ export function useResolveAgentApproval() {
     },
   })
 }
+
+interface ResetSessionResponse {
+  session_id: string
+  cleared: boolean
+}
+
+export function useResetChatSession() {
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      agentApi.post<ResetSessionResponse>(
+        `/agent/sessions/${encodeURIComponent(sessionId)}/reset`,
+        {},
+        { sessionId },
+      ),
+  })
+}

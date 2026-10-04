@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from control_layer.application.dlp.session_vault import SessionVault
 from control_layer.application.evaluators.authorization.model_allowlist import (
     ModelAllowlistEvaluator,
 )
@@ -33,7 +34,7 @@ def build_evaluators(deps: EvaluatorDependencies) -> dict[str, RuleEvaluator]:
         "residency": ResidencyEvaluator(),
         "model_allowlist": ModelAllowlistEvaluator(),
         "tool_match": ToolMatchEvaluator(),
-        "detectors": DetectorsEvaluator(),
+        "detectors": DetectorsEvaluator(SessionVault(deps.cache)),
         "sequence": SequenceEvaluator(),
         "canary_token": CanaryTokenEvaluator(deps.canary_token),
         "signatures": SignaturesEvaluator(deps.signature_feed),

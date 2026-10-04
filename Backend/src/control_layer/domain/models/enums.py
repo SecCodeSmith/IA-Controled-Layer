@@ -57,6 +57,7 @@ class Role(StrEnum):
     developer = "developer"
     hr = "hr"
     finance = "finance"
+    admin = "admin"
 
 
 class ApprovalStatus(StrEnum):
@@ -77,6 +78,8 @@ class Severity(StrEnum):
 class CallKind(StrEnum):
     chat = "chat"
     tool_call = "tool_call"
+    workbench = "workbench"
+    admin = "admin"
 
 
 class ProtectionMode(StrEnum):

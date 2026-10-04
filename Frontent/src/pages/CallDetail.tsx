@@ -73,6 +73,9 @@ function CallDetailBody({ detail }: { detail: NonNullable<ReturnType<typeof useA
     { label: 'MCP server', value: detail.mcp_server ?? '—' },
     { label: 'Decision', value: formatDecision(detail.decision.status) },
     { label: 'Items masked', value: String(detail.items_masked) },
+    ...(detail.items_restored === undefined
+      ? []
+      : [{ label: 'Restored from session vault', value: String(detail.items_restored) }]),
     { label: 'Proxy latency', value: formatMs(detail.latency.proxy_ms) },
     { label: 'Upstream', value: formatMs(detail.latency.upstream_ms) },
     { label: 'Added delay', value: overheadText },
@@ -87,13 +90,22 @@ function CallDetailBody({ detail }: { detail: NonNullable<ReturnType<typeof useA
         <StageTimingBar stages={detail.latency.stages} />
       </section>
 
-      {detail.matched_rule_yaml ? (
+      {detail.kind === 'admin' ? (
+        <section className="flex flex-col gap-3 rounded-[10px] border border-border bg-white px-6 py-5">
+          <h2 className="m-0 text-[17px] font-semibold">Reason</h2>
+          <p className="m-0 text-[15px]">{detail.decision.reason}</p>
+        </section>
+      ) : null}
+
+      {detail.kind !== 'admin' && detail.matched_rule_yaml ? (
         <section className="flex flex-col gap-3 rounded-[10px] border border-border bg-white px-6 py-5">
           <h2 className="m-0 text-[17px] font-semibold">Matched rule</h2>
           <PreBlock>{detail.matched_rule_yaml}</PreBlock>
         </section>
       ) : null}
 
+      {detail.kind !== 'admin' ? (
+        <>
       <section className="flex flex-col gap-3 rounded-[10px] border border-border bg-white px-6 py-5">
         <h2 className="m-0 text-[17px] font-semibold">Request</h2>
         <PreBlock>{detail.request.summary}</PreBlock>
@@ -116,6 +128,8 @@ function CallDetailBody({ detail }: { detail: NonNullable<ReturnType<typeof useA
           </div>
         </div>
       </section>
+        </>
+      ) : null}
     </>
   )
 }

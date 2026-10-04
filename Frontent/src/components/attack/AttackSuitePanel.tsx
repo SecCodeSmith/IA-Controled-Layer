@@ -1,17 +1,18 @@
-import { useState } from 'react'
-import { useRunAttackSuite } from '../../api/attack'
+import { useMemo, useState } from 'react'
+import { useAttackScenarios, useRunAttackSuite } from '../../api/attack'
 import { useModels } from '../../api/models'
 import { useProtection } from '../../api/protection'
 import { useAttackRunStream } from '../../hooks/useAttackRunStream'
-import { StatusBadge } from '../common/StatusBadge'
 import { ErrorBanner } from '../common/ErrorBanner'
+import { ScenarioFilterBar } from './ScenarioFilterBar'
+import { matchesFilter, type ScenarioFilter } from '../../lib/scenarioFilter'
+import { ScenarioRow } from './ScenarioRow'
 import { errorMessage } from '../../lib/errorMessage'
 import { formatDuration } from '../../lib/formatMs'
-import type { ScenarioStatus } from '../../types/common'
+import { buildReport } from '../../lib/scenarioText'
+import { PIPELINE_STAGE_ORDER, type ScenarioStatus } from '../../types/common'
 import type { AttackAgentMode, AttackRun, Scenario } from '../../types/attack'
 
-const NOT_ATTEMPTED_HINT =
-  'the model never attempted the risky action, so the control was not exercised'
 const LEGEND =
   'STOPPED attack blocked · SUCCEEDED attack got through · PASSED compliant call allowed · NOT_ATTEMPTED model never tried it'
 
@@ -48,10 +49,23 @@ function warningsFor(context: RunContext): string[] {
   return warnings
 }
 
+function groupByStage(scenarios: Scenario[]): Array<{ stage: string; items: Scenario[] }> {
+  return PIPELINE_STAGE_ORDER.map((stage) => ({
+    stage: stage as string,
+    items: scenarios
+      .filter((scenario) => scenario.stage === stage)
+      .sort((a, b) => Number(b.kind === 'positive') - Number(a.kind === 'positive')),
+  })).filter((group) => group.items.length > 0)
+}
+
 export function AttackSuitePanel() {
   const [agentMode, setAgentMode] = useState<AttackAgentMode>('scripted')
   const [run, setRun] = useState<AttackRun | null>(null)
+  const [filter, setFilter] = useState<ScenarioFilter>('all')
+  const [query, setQuery] = useState('')
+  const [copied, setCopied] = useState(false)
   const runMutation = useRunAttackSuite()
+  const catalogue = useAttackScenarios()
   const protection = useProtection()
   const models = useModels()
 
@@ -65,6 +79,9 @@ export function AttackSuitePanel() {
               observed: event.observed,
               duration_ms: event.duration_ms,
               via: event.via ?? null,
+              ...(event.trace !== undefined ? { trace: event.trace } : {}),
+              ...(event.explanation !== undefined ? { explanation: event.explanation } : {}),
+              ...(event.error !== undefined ? { error: event.error } : {}),
             })
           : prev,
       )
@@ -79,11 +96,29 @@ export function AttackSuitePanel() {
     setRun(result)
   }
 
-  const scenarios = run?.scenarios ?? []
-  const total = scenarios.length
+  const scenarios = useMemo<Scenario[]>(() => {
+    const details = new Map((catalogue.data?.scenarios ?? []).map((scenario) => [scenario.id, scenario]))
+    if (run) {
+      return run.scenarios.map((scenario) => ({ ...details.get(scenario.id), ...scenario }))
+    }
+    return (catalogue.data?.scenarios ?? []).map((scenario) => ({ ...scenario, status: 'PENDING' as const }))
+  }, [catalogue.data, run])
+
+  const visible = useMemo(
+    () =>
+      scenarios.filter(
+        (scenario) =>
+          matchesFilter(scenario.status ?? 'PENDING', filter) &&
+          scenario.name.toLowerCase().includes(query.trim().toLowerCase()),
+      ),
+    [scenarios, filter, query],
+  )
+  const groups = groupByStage(visible)
+
+  const total = run ? scenarios.length : 0
   const running = count(scenarios, 'RUNNING')
   const pending = count(scenarios, 'PENDING')
-  const complete = total - running - pending
+  const complete = run ? total - running - pending : 0
   const progressPercent = total > 0 ? Math.round((complete / total) * 100) : 0
   const incomplete = run !== null && complete < total
   const totalDuration = scenarios.reduce((sum, scenario) => sum + (scenario.duration_ms ?? 0), 0)
@@ -98,6 +133,17 @@ export function AttackSuitePanel() {
       }
   const warnings = warningsFor(context)
 
+  async function handleCopy() {
+    if (!run) return
+    try {
+      await navigator.clipboard.writeText(buildReport(run, scenarios))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
     <section className="flex flex-1 basis-[360px] flex-col gap-4 rounded-[10px] border border-border bg-white px-6 py-5">
       <div className="flex flex-col gap-1">
@@ -105,7 +151,9 @@ export function AttackSuitePanel() {
           Attack suite{run ? ` · run #${run.number}` : ''}
         </h2>
         <span className="text-[13px] text-muted">
-          {run ? `${complete} of ${total} scenarios complete` : 'No run yet'}
+          {run
+            ? `${complete} of ${total} scenarios complete`
+            : `${scenarios.length} scenarios in the catalogue · no run yet`}
         </span>
         {run ? (
           <span className="text-xs text-muted">
@@ -129,31 +177,27 @@ export function AttackSuitePanel() {
         <div className="h-2 rounded-full bg-accent" style={{ width: `${progressPercent}%` }} />
       </div>
 
-      <div className="flex flex-col">
-        {scenarios.map((scenario) => (
-          <div
-            key={scenario.id}
-            className="flex items-center justify-between gap-3 border-t border-border-soft py-2.5 first:border-t-0"
-          >
-            <span className="min-w-0 text-sm leading-tight">{scenario.name}</span>
-            <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-              {scenario.via === 'scripted' && run?.agent === 'ollama' ? (
-                <span className="rounded bg-border-soft px-1.5 py-0.5 text-[11px] text-muted">scripted</span>
-              ) : null}
-              <span title={scenario.status === 'NOT_ATTEMPTED' ? NOT_ATTEMPTED_HINT : undefined}>
-                <StatusBadge status={scenario.status ?? 'PENDING'} />
-              </span>
-              <span className="w-16 text-right font-mono text-xs text-muted" data-testid="scenario-duration" title="duration" aria-label="duration">
-                {scenario.duration_ms === null ||
-                scenario.duration_ms === undefined ||
-                scenario.status === 'PENDING' ||
-                scenario.status === 'RUNNING'
-                  ? '–'
-                  : formatDuration(scenario.duration_ms)}
-              </span>
-            </span>
+      <ScenarioFilterBar filter={filter} query={query} onFilter={setFilter} onQuery={setQuery} />
+
+      <div className="flex flex-col gap-2">
+        {groups.map((group) => (
+          <div key={group.stage} className="flex flex-col">
+            <div className="flex items-center justify-between pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <span>{group.stage}</span>
+              <span>{group.items.length}</span>
+            </div>
+            {group.items.map((scenario) => (
+              <ScenarioRow
+                key={scenario.id}
+                scenario={scenario}
+                showScriptedChip={run?.agent === 'ollama'}
+              />
+            ))}
           </div>
         ))}
+        {groups.length === 0 && scenarios.length > 0 ? (
+          <span className="text-[13px] text-muted">No scenarios match this filter.</span>
+        ) : null}
       </div>
 
       {run ? (
@@ -203,6 +247,15 @@ export function AttackSuitePanel() {
         >
           Run attack suite
         </button>
+        {run ? (
+          <button
+            type="button"
+            onClick={() => void handleCopy()}
+            className="min-h-10 rounded-lg border border-border bg-white px-4 text-sm font-medium text-ink"
+          >
+            {copied ? 'Copied' : 'Copy report'}
+          </button>
+        ) : null}
       </div>
     </section>
   )

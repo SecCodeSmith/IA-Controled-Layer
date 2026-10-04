@@ -46,6 +46,7 @@ class AuditDetailResponse(BaseModel):
     request: CallRequestInfo
     response: CallResponseInfo
     items_masked: int = 0
+    items_restored: int = 0
     tokens: TokensInfo
     cost_usd: float = 0.0
     latency: CallLatency

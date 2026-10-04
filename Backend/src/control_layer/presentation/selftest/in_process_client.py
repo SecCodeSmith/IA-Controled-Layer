@@ -51,6 +51,7 @@ def observation_from_outcome(
         reason=outcome.reason,
         approval_id=outcome.approval.id if outcome.approval is not None else None,
         target=target,
+        call_id=outcome.call_id,
     )
 
 
@@ -67,6 +68,7 @@ def observation_from_error(
         rule_id=fields.rule_id,
         reason=fields.reason,
         target=target,
+        call_id=fields.call_id,
     )
 
 
@@ -125,6 +127,7 @@ class InProcessScenarioClient:
             rule_id=outcome.rule_id,
             reason=outcome.reason,
             target=LLM_TARGET,
+            call_id=outcome.call_id,
         )
 
     async def tool_call(

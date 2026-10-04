@@ -31,6 +31,18 @@ from demo_agent.session_store import PendingApproval, SessionState, SessionStore
 from demo_agent.settings import Settings
 from demo_agent.tool_mapping import parse_function_name, to_openai_tools
 
+_PROTECTION_RANK = {"off": 0, "monitor": 1, "enforce": 2}
+_MEMORY_CLEARED_REASON = (
+    "Conversation memory cleared: protection was re-enabled, "
+    "earlier tool results obtained without enforcement were discarded"
+)
+
+
+def _protection_tightened(previous: str | None, current: str) -> bool:
+    if previous is None:
+        return False
+    return _PROTECTION_RANK.get(current, 2) > _PROTECTION_RANK.get(previous, 2)
+
 
 class UnknownApprovalError(Exception):
     def __init__(self, approval_id: str) -> None:
@@ -78,7 +90,13 @@ class AgentLoop:
             token, session_id=session_id, scope=self._settings.tool_scope
         )
 
-        session = self._sessions.get_or_create(session_id)
+        session = self._sessions.get_or_create(me.identity.sub, session_id)
+        mode = me.protection.mode
+        notices: list[Event] = []
+        if _protection_tightened(session.protection_mode, mode):
+            session.forget_conversation()
+            notices.append(NoticeEvent(status="FLAGGED", reason=_MEMORY_CLEARED_REASON))
+        session.protection_mode = mode
         if not session.messages:
             prompt = _system_prompt(me.identity, self._today())
             session.add_message({"role": "system", "content": prompt})
@@ -86,7 +104,7 @@ class AgentLoop:
         session.openai_tools = to_openai_tools(tool_descriptors)
         session.add_message({"role": "user", "content": user_message})
 
-        return await self._drive_loop(token, session_id, session)
+        return notices + await self._drive_loop(token, session_id, session)
 
     async def resume_after_approval(
         self,
@@ -95,7 +113,9 @@ class AgentLoop:
         approval_id: str,
         decision: ToolCallDecision,
     ) -> list[Event]:
-        session = self._sessions.get(session_id)
+        me = await self._client.me(token, session_id=session_id)
+        sub = me.identity.sub
+        session = self._sessions.get(sub, session_id)
         if (
             session is None
             or session.pending_approval is None
@@ -108,7 +128,7 @@ class AgentLoop:
         events: list[Event] = []
 
         if decision == "approve":
-            events.append(await self._apply_approval(token, session_id, pending))
+            events.append(await self._apply_approval(token, session_id, sub, pending))
         else:
             await self._client.reject(token, approval_id, session_id=session_id)
             session.add_message(
@@ -122,8 +142,12 @@ class AgentLoop:
         events.extend(await self._drive_loop(token, session_id, session))
         return events
 
+    async def reset_session(self, token: str, session_id: str) -> None:
+        me = await self._client.me(token, session_id=session_id)
+        self._sessions.reset(me.identity.sub, session_id)
+
     async def _apply_approval(
-        self, token: str, session_id: str, pending: PendingApproval
+        self, token: str, session_id: str, sub: str, pending: PendingApproval
     ) -> ToolCallEvent:
         outcome = await self._client.approve(token, pending.approval_id, session_id=session_id)
         content_text = outcome.result.content_text if outcome.result else ""
@@ -136,9 +160,10 @@ class AgentLoop:
             rule_id=outcome.rule_id,
             reason=outcome.reason,
             items_masked=outcome.items_masked or 0,
+            items_restored=outcome.items_restored or 0,
             result_preview=content_text[:200] if content_text else None,
         )
-        session = self._sessions.get(session_id)
+        session = self._sessions.get(sub, session_id)
         if session is not None:
             session.add_message(
                 {"role": "tool", "tool_call_id": pending.tool_call_id, "content": content_text}
@@ -166,6 +191,7 @@ class AgentLoop:
                         stage=denied.stage,
                         rule_id=denied.rule_id,
                         reason=denied.reason,
+                        call_id=denied.call_id,
                     )
                 )
                 return events
@@ -183,6 +209,7 @@ class AgentLoop:
                         stage=control.stage,
                         rule_id=control.rule_id,
                         reason=control.reason,
+                        call_id=control.call_id,
                     )
                 )
                 return events
@@ -277,6 +304,7 @@ class AgentLoop:
                         arguments=arguments,
                         rule_id=outcome.rule_id,
                         reason=outcome.reason,
+                        call_id=outcome.call_id,
                     )
                 )
                 session.pending_approval = PendingApproval(
@@ -298,6 +326,7 @@ class AgentLoop:
                     rule_id=outcome.rule_id,
                     reason=outcome.reason,
                     items_masked=outcome.items_masked or 0,
+                    items_restored=outcome.items_restored or 0,
                     result_preview=content_text[:200] if content_text else None,
                 )
             )

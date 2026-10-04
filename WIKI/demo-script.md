@@ -201,9 +201,9 @@ python attack_suite.py --target http://localhost:8080
 
 **Say:**
 
-> "We also have a comprehensive self-testing suite with 24 attack scenarios—5 positive cases (should be allowed), 19 negative cases (should be blocked at the right stage). Scenarios cover prompt injection, exfiltration, privilege escalation, budget overrun, and behavioral anomalies. Scripted tier runs in ~30 seconds with no model dependency. All green means the system is robust."
+> "We also have a comprehensive self-testing suite with 68 attack scenarios—19 positive cases (should be allowed), 49 negative cases (should be blocked at the right stage). Scenarios cover prompt injection, exfiltration, privilege escalation, budget overrun, resource scope enforcement, and behavioral anomalies. Scripted tier runs in ~30 seconds with no model dependency. All green means the system is robust."
 
-**Or:** If dashboard panel is visible, click **Run (Scripted)** and watch scenarios execute in real time (all 24 complete in under 1 minute).
+**Or:** If dashboard panel is visible, click **Run (Scripted)** and watch scenarios execute in real time (all 68 complete in about a minute).
 
 ---
 

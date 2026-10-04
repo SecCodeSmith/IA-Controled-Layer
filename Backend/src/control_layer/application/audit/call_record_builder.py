@@ -36,6 +36,7 @@ class CallRecordBuilder:
         raw_response: str | None = None,
         delivered_response: str | None = None,
         items_masked: int = 0,
+        items_restored: int = 0,
         tokens: TokensInfo | None = None,
         cost_usd: float = 0.0,
         proxy_latency_ms: float = 0.0,
@@ -57,6 +58,7 @@ class CallRecordBuilder:
             request=CallRequestInfo(summary=request_summary, payload=request_payload or {}),
             response=CallResponseInfo(raw=raw_response, delivered=delivered_response),
             items_masked=items_masked,
+            items_restored=items_restored,
             tokens=tokens or TokensInfo(),
             cost_usd=cost_usd,
             latency=CallLatency(

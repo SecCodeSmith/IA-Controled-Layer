@@ -168,3 +168,29 @@ async def test_rule_params_model_override_is_sent_to_provider() -> None:
     await evaluator.evaluate(rule, ctx, policy)
 
     assert seen_models == ["qwen2.5:7b"]
+
+
+async def test_prompt_treats_security_education_as_benign_and_keeps_json_contract() -> None:
+    class CapturingProvider(FakeModelProvider):
+        captured = None
+
+        async def complete(self, request):
+            CapturingProvider.captured = request
+            return await super().complete(request)
+
+    provider = CapturingProvider(content=json.dumps({"verdict": "allow", "reason": "ok"}))
+    evaluator = LlmJudgeEvaluator(provider, model="qwen2.5:7b")
+
+    await evaluator.evaluate(
+        make_rule(rule_type="llm_judge"),
+        make_context(text="Explain what prompt injection is"),
+        make_policy(),
+    )
+
+    system = CapturingProvider.captured.messages[0].content
+    assert "educational material on security topics" in system
+    assert "alter the assistant's instructions" in system
+    assert "extract the system prompt" in system
+    assert "developer how-to questions" in system
+    assert '{"verdict": "allow|flag|block"' in system
+    assert CapturingProvider.captured.response_format == {"type": "json_object"}

@@ -145,10 +145,18 @@ HR_EMPLOYEES: dict[str, dict[str, object]] = {
 }
 
 HR_APPROVERS: dict[str, dict[str, str]] = {
-    "test-accounts": {"approver": "Marek Nowak", "role": "hr"},
+    "test-accounts": {
+        "approver": "Katarzyna Wrona",
+        "role": "operations",
+        "email": "k.wrona@example.com",
+    },
 }
 
-HR_DEFAULT_APPROVER = {"approver": "Marek Nowak", "role": "hr"}
+HR_DEFAULT_APPROVER = {
+    "approver": "Katarzyna Wrona",
+    "role": "operations",
+    "email": "k.wrona@example.com",
+}
 
 HR_QUERY_ROWS = [
     {"employee_id": "E-2001", "name": "Piotr Nowicki", "department": "Engineering"},
@@ -182,6 +190,16 @@ CALENDAR_DEFAULT_EVENTS = [
 PAYMENTS_ACCOUNTS: dict[str, dict[str, object]] = {
     "ACC-1001": {"account": "ACC-1001", "balance": 15234.50, "currency": "PLN"},
     "ACC-1002": {"account": "ACC-1002", "balance": 842.10, "currency": "PLN"},
+}
+
+# Luhn-valid test PAN so the DLP masking path is deterministic for get_card.
+PAYMENTS_CARDS: dict[str, dict[str, str]] = {
+    "ACC-1001": {
+        "account": "ACC-1001",
+        "card_number": "4539578763621486",
+        "expiry": "12/28",
+        "holder": "Corporate Account",
+    },
 }
 
 PAYMENTS_DEFAULT_BALANCE = 0.0

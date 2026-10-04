@@ -87,6 +87,7 @@ def tool_outcome_response(outcome: ToolCallOutcome) -> JSONResponse:
         rule_id=outcome.rule_id,
         reason=outcome.reason,
         items_masked=outcome.items_masked,
+        items_restored=outcome.items_restored,
         result=outcome.result,
     )
     return JSONResponse(status_code=200, content=ok.model_dump(mode="json"))

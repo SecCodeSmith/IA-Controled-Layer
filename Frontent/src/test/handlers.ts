@@ -41,6 +41,7 @@ const state = {
   attackRuns: new Map<string, AttackRun>(),
   attackRunCounter: 0,
   protectionMode: 'enforce' as ProtectionMode,
+  changedAt: null as string | null,
   ruleOverrides: {} as Record<string, boolean>,
   activeModel: { provider: 'ollama', model: 'qwen2.5:7b' },
   logsCleared: 0,
@@ -57,6 +58,8 @@ const AVAILABLE_MODELS: ModelsResponse['available'] = [
 function protectionState(): ProtectionState {
   return {
     mode: state.protectionMode,
+    changed_at: state.changedAt,
+    changed_by: state.changedAt ? 'admin' : null,
     rule_overrides: { ...state.ruleOverrides },
     disabled_rules: Object.entries(state.ruleOverrides)
       .filter(([, enabled]) => !enabled)
@@ -88,6 +91,7 @@ export function resetMockState(): void {
   state.attackRuns.clear()
   state.attackRunCounter = 0
   state.protectionMode = 'enforce'
+  state.changedAt = null
   state.ruleOverrides = {}
   state.activeModel = { provider: 'ollama', model: 'qwen2.5:7b' }
   state.logsCleared = 0
@@ -131,6 +135,7 @@ function buildAgentChatResponse(sessionId: string, message: string): AgentChatRe
         rule_id: null,
         reason: 'Matches roles.developer',
         items_masked: 0,
+        items_restored: 1,
         result_preview: null,
       },
       {
@@ -223,7 +228,11 @@ export const handlers = [
       },
       risk: { score: 12, level: 'low' },
       provider: { name: 'ollama', model: 'qwen2.5:7b' },
-      protection: { mode: state.protectionMode },
+      protection: {
+        mode: state.protectionMode,
+        changed_at: state.changedAt,
+        changed_by: state.changedAt ? 'admin' : null,
+      },
     })
   }),
 
@@ -269,6 +278,10 @@ export const handlers = [
       budget: { tokens_used: state.tokensUsed, tokens_limit: 10000 },
     })
   }),
+
+  http.post(`${AGENT_URL}/agent/sessions/:sessionId/reset`, ({ params }) =>
+    HttpResponse.json({ session_id: String(params.sessionId), cleared: true }),
+  ),
 
   http.get(`${AGENT_URL}/agent/health`, () =>
     HttpResponse.json({
@@ -334,6 +347,7 @@ export const handlers = [
   http.put(`${CONTROL_LAYER_URL}/api/protection`, async ({ request }) => {
     const body = (await request.json()) as { mode: ProtectionMode }
     state.protectionMode = body.mode
+    state.changedAt = new Date().toISOString()
     return HttpResponse.json(protectionState())
   }),
 

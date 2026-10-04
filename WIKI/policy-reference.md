@@ -206,6 +206,24 @@ Detects sensitive data patterns and masks or blocks.
 - **`detect`**: List of patterns: `email`, `phone`, `pesel` (Polish ID), `iban`, `pan` (credit card), `api_key`, `private_key`, `jwt`
 - **`action`**: `mask` replaces matches with `[TYPE_N]` (e.g., `[EMAIL_1]`); `block` rejects the call
 
+##### Reversible masking (session vault)
+
+Masking a tool result such as `k.wrona@example.com` to `[EMAIL_1]` stops the model from ever seeing the address, but it also stops the model from using it (`mail.send(to="[EMAIL_1]")` would reach nobody). With a `vault` block the value flows HR-DB -> control layer -> mail without reaching the model:
+
+```yaml
+- id: pii_masking
+  on: [response, tool_result]
+  detect: [email, phone, pesel, iban, pan]
+  action: mask
+  vault: { ttl_s: 28800, restore: { email: [mail.send], phone: [mail.send] } }
+  owasp: [LLM02]
+```
+
+- Placeholders become stable per session: the same value is always `[EMAIL_1]` in that session, a new value gets the next number. Mappings live in the cache under `vault:` and expire after `ttl_s` (default 28800).
+- `restore` maps a detector kind (`email`, `phone`, `pesel`, `iban`, `pan`) to tool patterns (`server.tool`, `*` wildcards allowed). Just before the tool_call stage the control layer replaces placeholders of those kinds in the call arguments (strings, nested objects and lists) with the real values and reports the count as `items_restored`. The pipeline, the MCP call and the result stage work on the restored arguments.
+- Guarantees: kinds not listed for that tool stay literal text; secrets (`api_key`, `private_key`, `jwt`) can never be listed and are never stored; a placeholder from another session or unknown to the vault is left unchanged; the audit record keeps the arguments as the model sent them (placeholders) while the raw tool result shows admins the real value; an approved call is restored when it is executed; demo reset (full and behavior scope) wipes the vault.
+- Only kinds listed under `restore` are stored in the vault; other kinds keep the plain per-text numbering. An invalid kind or pattern makes the policy fail validation (the last good policy stays active) and edits are hot-reloaded like any other rule.
+
 #### 5. `sequence` (Exfiltration and Taint Propagation)
 
 Blocks a tool call sequence (e.g., read then send external).

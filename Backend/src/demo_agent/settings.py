@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     max_iterations: int = 6
     temperature: float = 0.0
     request_timeout_s: float = 120.0
+    session_ttl_s: float = 3600.0
     tool_scope: str = "all"
     cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 

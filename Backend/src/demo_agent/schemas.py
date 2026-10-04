@@ -55,6 +55,11 @@ class ToolDescriptor(BaseModel):
     provisioned: bool | None = None
 
 
+class ProtectionState(BaseModel):
+    mode: str = "enforce"
+    changed_at: str | None = None
+
+
 class MeResponse(BaseModel):
     identity: Identity
     tools: list[ToolDescriptor] = Field(default_factory=list)
@@ -62,6 +67,7 @@ class MeResponse(BaseModel):
     budget: BudgetFull
     risk: RiskInfo | None = None
     provider: ProviderInfo
+    protection: ProtectionState = Field(default_factory=ProtectionState)
 
 
 class ToolsListResponse(BaseModel):
@@ -155,6 +161,7 @@ class ToolCallOutcome(BaseModel):
     rule_id: str | None = None
     reason: str | None = None
     items_masked: int | None = None
+    items_restored: int | None = None
     result: ToolResultPayload | None = None
     approval: ApprovalInfo | None = None
 
@@ -188,6 +195,7 @@ class ToolCallEvent(BaseModel):
     rule_id: str | None = None
     reason: str | None = None
     items_masked: int = 0
+    items_restored: int = 0
     result_preview: str | None = None
 
 
@@ -198,6 +206,7 @@ class ApprovalRequiredEvent(BaseModel):
     arguments: dict[str, Any]
     rule_id: str | None = None
     reason: str | None = None
+    call_id: str | None = None
 
 
 class AssistantTextEvent(BaseModel):
@@ -207,6 +216,7 @@ class AssistantTextEvent(BaseModel):
     stage: str | None = None
     rule_id: str | None = None
     reason: str | None = None
+    call_id: str | None = None
 
 
 class NoticeEvent(BaseModel):
@@ -215,6 +225,7 @@ class NoticeEvent(BaseModel):
     stage: str | None = None
     rule_id: str | None = None
     reason: str | None = None
+    call_id: str | None = None
 
 
 Event = Annotated[

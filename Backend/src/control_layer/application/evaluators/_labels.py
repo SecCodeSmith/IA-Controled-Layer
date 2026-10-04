@@ -6,6 +6,7 @@ _ROLE_LABELS: dict[Role, str] = {
     Role.developer: "Developer",
     Role.hr: "HR",
     Role.finance: "Finance",
+    Role.admin: "Administrator",
 }
 
 

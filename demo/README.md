@@ -24,7 +24,7 @@ python -m demo.mcp.github
 | hr-db | `find_approver(request)`, `get_employee(employee_id)`, `query(sql_like)` | employee directory |
 | calendar | `list(user, days=7)` | event listing |
 | mail | `send(to, subject, body)` | `send_external`-tagged; never actually sends anything |
-| payments | `get_balance(account)`, `transfer(from_account, to_iban, amount, currency="PLN")` | `transfer` is `destructive, financial`-tagged; limits are enforced by the control layer, not here |
+| payments | `get_balance(account)`, `get_card(account)`, `transfer(from_account, to_iban, amount, currency="PLN")` | `transfer` is `destructive, financial`-tagged; limits are enforced by the control layer, not here |
 | eu-customers | `read(customer_id)` | `data_region: eu_customers`-tagged |
 
 ## Attack-bearing records

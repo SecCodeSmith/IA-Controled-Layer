@@ -1,7 +1,8 @@
 """Fake payments MCP demo server.
 
-Tools: get_balance, transfer. Account ids are opaque (`ACC-1001`, ...), not
-checksum-valid PAN/IBAN; limits are enforced by the control layer, not here.
+Tools: get_balance, get_card, transfer. Account ids are opaque (`ACC-1001`, ...),
+not checksum-valid PAN/IBAN; get_card returns a Luhn-valid test PAN on purpose;
+limits are enforced by the control layer, not here.
 """
 
 import uuid
@@ -25,6 +26,16 @@ def get_balance(account: str) -> dict[str, Any]:
         "balance": data.PAYMENTS_DEFAULT_BALANCE,
         "currency": data.PAYMENTS_DEFAULT_CURRENCY,
     }
+
+
+@mcp.tool()
+@ascii_safe
+def get_card(account: str) -> dict[str, Any]:
+    """Get the corporate card details on file for an account."""
+    record = data.PAYMENTS_CARDS.get(account)
+    if record is not None:
+        return dict(record)
+    return {"account": account, "found": False}
 
 
 @mcp.tool()

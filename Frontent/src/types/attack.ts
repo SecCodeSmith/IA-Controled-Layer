@@ -14,6 +14,35 @@ export interface ScenarioObserved {
   status: string
   stage?: PipelineStage | null
   rule_id?: string | null
+  reason?: string | null
+  target?: string | null
+  call_id?: string | null
+  http_status?: number | null
+}
+
+export interface ScenarioStep {
+  action: string
+  server?: string
+  tool?: string
+  arguments?: Record<string, unknown>
+  message?: string
+  model?: string
+  max_tokens?: number
+  times?: number
+  vary?: string
+  step?: string
+  claim?: string
+  value?: unknown
+}
+
+export interface TraceEntry {
+  target: string
+  status: string
+  stage: PipelineStage | null
+  rule_id: string | null
+  reason: string | null
+  call_id: string | null
+  http_status: number | null
 }
 
 export interface Scenario {
@@ -24,6 +53,12 @@ export interface Scenario {
   stage: PipelineStage
   expected: ScenarioExpected
   owasp: string[]
+  description?: string
+  prompt?: string
+  steps?: ScenarioStep[]
+  trace?: TraceEntry[]
+  explanation?: string | null
+  error?: string | null
   agent_driven?: boolean
   via?: ScenarioVia
   status?: ScenarioStatus
@@ -65,6 +100,9 @@ export interface AttackScenarioStreamEvent {
   observed: ScenarioObserved | null
   duration_ms: number | null
   via?: ScenarioVia
+  trace?: TraceEntry[]
+  explanation?: string | null
+  error?: string | null
 }
 
 export interface AttackRunCompleteEvent {

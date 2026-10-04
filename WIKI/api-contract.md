@@ -241,7 +241,7 @@ Paths are relative to `Backend/` (the control layer's working directory).
 | hr-db | find_approver, get_employee, query | - (results contain PESEL) |
 | calendar | list | - |
 | mail | send | send_external |
-| payments | get_balance, transfer | transfer: destructive, financial |
+| payments | get_balance, get_card, transfer | transfer: destructive, financial |
 | eu-customers | read | data_region: eu_customers |
 
 `mcp_servers.yaml` shape:
@@ -323,3 +323,30 @@ Full description in `WIKI/gateway.md`.
 - In-band verdicts: on every streaming request and on Ollama-native non-streaming requests, a block / quarantine / escalation / rate-limit / budget stop or an upstream failure is returned as HTTP 200 with an assistant message `[BLOCKED by AI Control Layer] {stage} · {rule_id}: {reason}` (or `[UPSTREAM ERROR] {reason}`), `done_reason` / `finish_reason` `blocked` (or `error`) and zero counts. Non-streaming `/v1/chat/completions` keeps the 403 / 502 envelopes. Identity failures stay 401.
 - `GET /health` gains `gateway: {"default_user", "ollama_api": true}`.
 - Rate limit: `rate_limit` now counts calls in a sliding 60-second window (10-second buckets per user) instead of a calendar minute.
+
+## Addendum (session vault, reversible masking)
+
+- `POST /v1/tools/call` 200 responses gain `items_restored: int` (placeholders replaced by real values in the call arguments before the call ran; `0` when nothing was restored). `GET /api/audit/{call_id}` gains `items_restored` as well; the stored `request.payload` keeps the placeholders as received from the model, and `response.raw` shows the real values. `GET /api/stats` is unchanged.
+- The demo agent `tool_call` events gain `items_restored: int` (0 when absent), filled from the control-layer response.
+- `policy.yaml`: a detectors rule may carry `vault: { ttl_s: 28800, restore: { <kind>: [<server.tool pattern>, ...] } }` with kind in `email, phone, pesel, iban, pan`; see `WIKI/policy-reference.md` ("Reversible masking"). Cache keys live under the `vault:` prefix and are wiped by demo reset.
+- Demo data: `hr-db.find_approver` now also returns `email` (`k.wrona@example.com`, approver Katarzyna Wrona).
+
+## Addendum (self-explaining attack-suite runs)
+
+- `GET /api/attack-suite/scenarios` items gain `description: string` (`""` when the scenario has none), `prompt: string` (the prompt the `ollama` tier sends to the demo agent) and `steps: [...]`, the scripted steps with every `message` value cut to 200 characters; a repeated step is `{"action": "repeat", "times": n, "vary"?: "...", "step": {...}}`. Scenario states in run responses carry `description` as well.
+- Scenario states (run responses and the `scenario` SSE event): `observed` gains `reason`, `target` (`server.tool` or `llm.complete`), `call_id` and `http_status`. New fields: `trace: [{target, status, stage, rule_id, reason, call_id, http_status}]` (every observation of the scenario in order, agent-driven turns included; empty until the scenario has run), `explanation: string | null` (one or two sentences on why the scenario is STOPPED / PASSED / SUCCEEDED / NOT_ATTEMPTED / ERROR; for a deterministic scenario run scripted in the `ollama` tier it ends with " (deterministic control, run scripted)") and `error: string | null` (exception text for ERROR).
+- `call_id` is the audited call id (`GET /api/calls/{id}`): chat and tool-call responses, error envelopes (`error.call_id`) and the demo agent events. The demo agent's `approval_required`, `assistant_text` and `notice` events gain `call_id: string | null` (`tool_call` events already had it).
+- Expected status `FLAGGED` (detect-only scenarios): the scripted tier matches strictly; in the `ollama` tier an attempt answered FLAGGED, MASKED, BLOCKED or ESCALATED is STOPPED and ALLOWED is SUCCEEDED.
+- `attack_suite.py` gains `--verbose`: after the table it prints the explanation of every scenario and, for every scenario that is not green (STOPPED negative / PASSED positive), the trace lines `target status stage·rule call_id reason`. Without it only the explanations of non-green scenarios are printed. The `--json` report always includes `trace` and `explanation` per result.
+
+## Addendum (admin action audit)
+
+Every successful admin mutation is written to the audit log as a call record (so it appears in `/api/audit`, `/api/feed`, the live SSE feed and, when it loosens protection, in `/api/alerts` and `alerts.xlsx`). Implemented by `application/services/admin_action_recorder.py::AdminActionRecorder`, called from the admin routers after the mutation succeeded (after the clearing for `logs/clear` and `demo/reset`, so the row survives).
+
+- Row shape: `kind: "admin"`, `user: {"sub": "admin", "name": "Administrator", "role": "admin"}` (identity location/region `-`, agent_id `admin-console`), `stage: "audit"`, `rule_id` = target, zero tokens and latency, empty response. `request.payload` carries the details (`reason`, `from`/`to`, `rule_id`, `enabled`, `scope`, ...).
+- Targets: `admin.protection` (PUT /api/protection), `admin.rule_override` (PATCH /api/policy/rules/{id}, DELETE /api/protection/overrides), `admin.model` (PUT /api/models), `admin.logs` (POST /api/logs/clear), `admin.reset` (POST /api/demo/reset), `admin.policy_reload` (POST /api/policy/reload).
+- Status: `FLAGGED` when the action loosens protection (mode set to `monitor` or `off`, a rule disabled, a model that is not allowlisted selected, logs cleared, demo reset with scope `all`); otherwise `ALLOWED`. FLAGGED rows also produce an alert whose reason is `Admin action: <reason>`. Reasons: `protection mode set to off (was enforce)`, `rule pii_masking disabled`, `model switched to gemma4:latest (not allowlisted)`, `logs cleared`, `demo reset (scope=all)`.
+- Stats: admin rows are excluded from `total_calls`, the status counters, `by_*` and `posture_score` (and from the Prometheus call counter and security report totals); `GET /api/stats` gains `admin_actions: int`.
+- Protection state: `GET /api/protection`, `GET /api/stats` `protection` and `GET /health` `protection` gain `changed_at` (ISO, nullable) and `changed_by` (nullable); `/v1/me` `protection` gains `changed_at`. A full demo reset clears them.
+- Demo agent memory: the agent remembers the protection mode seen on each turn. When it tightens (off to monitor/enforce, monitor to enforce) the session's messages and pending approval are dropped before the turn and the response starts with a `notice` event (`status: FLAGGED`, reason `Conversation memory cleared: protection was re-enabled, earlier tool results obtained without enforcement were discarded`). The first turn after an agent restart has no stored mode and only records it.
+- Demo agent sessions: sessions are keyed by `(sub, session_id)`, so the same session id presented by another user starts a separate conversation. Sessions idle longer than `AGENT_SESSION_TTL_S` (default 3600) are dropped. `POST /agent/sessions/{session_id}/reset` (bearer token required) clears the caller's session (messages and pending approval) and returns `{"session_id": "...", "cleared": true}`.

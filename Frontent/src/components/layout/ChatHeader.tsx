@@ -1,5 +1,6 @@
 import { ShieldLogo } from '../common/ShieldLogo'
 import { Avatar } from '../common/Avatar'
+import { formatClock } from '../../lib/clock'
 import { roleLabel } from '../../lib/roleLabel'
 import type { Identity } from '../../types/identity'
 
@@ -8,10 +9,11 @@ interface ChatHeaderProps {
   tokensUsed: number
   tokensLimit: number
   protectionMode?: 'enforce' | 'monitor' | 'off'
+  protectionSince?: string | null
   onSignOut: () => void
 }
 
-export function ChatHeader({ identity, tokensUsed, tokensLimit, protectionMode, onSignOut }: ChatHeaderProps) {
+export function ChatHeader({ identity, tokensUsed, tokensLimit, protectionMode, protectionSince, onSignOut }: ChatHeaderProps) {
   const percent = tokensLimit > 0 ? Math.min(100, Math.round((tokensUsed / tokensLimit) * 100)) : 0
   const initials = identity.name
     .split(' ')
@@ -37,6 +39,7 @@ export function ChatHeader({ identity, tokensUsed, tokensLimit, protectionMode, 
             }
           >
             {protectionMode === 'monitor' ? 'monitoring only' : 'protection off'}
+            {protectionSince ? <span className="font-normal"> · since {formatClock(protectionSince)}</span> : null}
           </span>
         ) : null}
         <div className="flex min-w-[180px] flex-col gap-1.5">

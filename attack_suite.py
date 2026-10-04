@@ -58,6 +58,7 @@ def _from_error_body(http_status: int, body: dict) -> StepObservation:
         stage=_stage(error.get("stage")),
         rule_id=error.get("rule_id"),
         reason=error.get("reason"),
+        call_id=error.get("call_id"),
     )
 
 
@@ -71,6 +72,7 @@ def _from_success_body(http_status: int, body: dict) -> StepObservation:
         rule_id=ext.get("rule_id"),
         reason=ext.get("reason"),
         approval_id=approval.get("id"),
+        call_id=ext.get("call_id"),
     )
 
 
@@ -252,6 +254,40 @@ def render_table(rows: list[tuple[Scenario, ScenarioResult]]) -> str:
     return "\n".join(lines)
 
 
+def _trace_line(observation: StepObservation) -> str:
+    where = "·".join(
+        part for part in (
+            observation.stage.value if observation.stage else None,
+            observation.rule_id,
+        ) if part
+    )
+    fields = (
+        observation.target or "-",
+        observation.status.value,
+        where or "-",
+        observation.call_id or "-",
+        observation.reason or "",
+    )
+    return "  " + " ".join(fields).rstrip()
+
+
+def _is_green(scenario: Scenario, result: ScenarioResult) -> bool:
+    green = ScenarioStatus.STOPPED if scenario.kind == "negative" else ScenarioStatus.PASSED
+    return result.status == green
+
+
+def render_details(rows: list[tuple[Scenario, ScenarioResult]], verbose: bool) -> str:
+    lines: list[str] = []
+    for scenario, result in rows:
+        green = _is_green(scenario, result)
+        if green and not verbose:
+            continue
+        lines.append(f"{scenario.id} [{result.status.value}] {result.explanation}")
+        if verbose and not green:
+            lines.extend(_trace_line(item) for item in result.trace)
+    return "\n".join(lines)
+
+
 def summarise(rows: list[tuple[Scenario, ScenarioResult]]) -> dict[str, int]:
     negatives = [r for s, r in rows if s.kind == "negative"]
     positives = [r for s, r in rows if s.kind == "positive"]
@@ -308,6 +344,9 @@ async def run_suite(args: argparse.Namespace) -> int:
             rows.append((scenario, await executor.run(scenario, tier=args.agent)))
 
     print(render_table(rows))
+    details = render_details(rows, args.verbose)
+    if details:
+        print(f"\n{details}")
     summary = summarise(rows)
     print(
         f"\n{summary['stopped']} attacks stopped · {summary['succeeded']} succeeded, "
@@ -347,6 +386,11 @@ def main() -> None:
     parser.add_argument("--agent", choices=["scripted", "ollama"], default="scripted")
     parser.add_argument("--agent-url", default="http://localhost:8090")
     parser.add_argument("--json", metavar="PATH", help="write a JSON report")
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="print the explanation of every scenario and the trace of each non-green one",
+    )
     parser.add_argument("--only", metavar="SCENARIO_ID")
     parser.add_argument(
         "--admin-token", default=os.environ.get("CTRL_ADMIN_TOKEN", "admin-dev-token")

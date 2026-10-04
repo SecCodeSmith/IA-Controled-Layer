@@ -5,6 +5,8 @@ import re
 import time
 
 from control_layer.application.audit.call_record_builder import CallRecordBuilder
+from control_layer.application.auth.identity_service import IdentityService
+from control_layer.application.dlp.session_vault import SessionVault
 from control_layer.application.pipeline.processing_pipeline import ProcessingPipeline
 from control_layer.application.services.approval_service import ApprovalService
 from control_layer.application.services.audit_service import AuditService
@@ -32,6 +34,7 @@ from control_layer.domain.models.enums import (
 )
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.tool import ToolCallRequest, ToolCallResult
+from control_layer.domain.policy.vault import restorable_kinds_for_tool
 from control_layer.domain.ports.mcp_gateway import McpGateway
 from control_layer.domain.ports.model_provider import ModelProvider
 from control_layer.domain.ports.policy_repository import PolicyRepository
@@ -88,6 +91,8 @@ class HandleToolCallUseCase:
         call_ids: CallIdGenerator,
         policy_repository: PolicyRepository,
         model_provider: ModelProvider,
+        vault: SessionVault | None = None,
+        identity_service: IdentityService | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._tool_catalog = tool_catalog
@@ -100,6 +105,8 @@ class HandleToolCallUseCase:
         self._call_ids = call_ids
         self._policy_repository = policy_repository
         self._model_provider = model_provider
+        self._vault = vault
+        self._identity_service = identity_service
         self._record_builder = CallRecordBuilder()
 
     async def execute(
@@ -109,6 +116,9 @@ class HandleToolCallUseCase:
         call_id = await self._call_ids.next()
         descriptor = await self._tool_catalog.descriptor(request.server, request.tool)
         session_state = await self._session_service.load(session_id)
+
+        received = request
+        request, items_restored = await self._restore_arguments(token, session_id, received)
 
         canonical_text = json.dumps(
             {"server": request.server, "tool": request.tool, "arguments": request.arguments},
@@ -139,7 +149,7 @@ class HandleToolCallUseCase:
             rule_id = primary.rule_id if primary else "unknown"
             reason = (primary.reason if primary else None) or "Approval required"
             stage = primary.stage if primary else StageName.authorization
-            approval = await self._approval_service.create(identity, request, rule_id, reason)
+            approval = await self._approval_service.create(identity, received, rule_id, reason)
 
             proxy_latency_ms = (time.perf_counter() - start) * 1000
             await self._risk_service.record(identity, decision1)
@@ -147,7 +157,7 @@ class HandleToolCallUseCase:
                 identity=identity,
                 call_id=call_id,
                 decision=decision1,
-                request=request,
+                request=received,
                 proxy_latency_ms=proxy_latency_ms,
             )
             return ToolCallOutcome(
@@ -157,6 +167,7 @@ class HandleToolCallUseCase:
                 rule_id=rule_id,
                 reason=reason,
                 items_masked=0,
+                items_restored=0,
                 result=None,
                 approval=approval,
             )
@@ -169,7 +180,7 @@ class HandleToolCallUseCase:
                 identity=identity,
                 call_id=call_id,
                 decision=decision1,
-                request=request,
+                request=received,
                 proxy_latency_ms=proxy_latency_ms,
             )
             raise self._mapped_error(decision1, call_id)
@@ -201,7 +212,7 @@ class HandleToolCallUseCase:
                 identity=identity,
                 call_id=call_id,
                 decision=combined,
-                request=request,
+                request=received,
                 proxy_latency_ms=proxy_latency_ms,
                 raw_response=tool_result.content_text,
             )
@@ -220,11 +231,12 @@ class HandleToolCallUseCase:
             identity=identity,
             call_id=call_id,
             decision=combined,
-            request=request,
+            request=received,
             proxy_latency_ms=proxy_latency_ms,
             raw_response=tool_result.content_text,
             delivered_response=delivered_text,
             items_masked=items_masked,
+            items_restored=items_restored,
         )
 
         result = ToolCallResult(
@@ -239,9 +251,30 @@ class HandleToolCallUseCase:
             rule_id=rule_id,
             reason=reason,
             items_masked=items_masked,
+            items_restored=items_restored,
             result=result,
             approval=None,
         )
+
+    async def _restore_arguments(
+        self, token: str, session_id: str, request: ToolCallRequest
+    ) -> tuple[ToolCallRequest, int]:
+        if self._vault is None or self._identity_service is None or not request.arguments:
+            return request, 0
+        try:
+            caller = await self._identity_service.resolve(token, session_id)
+        except ControlLayerError:
+            return request, 0
+        policy = await self._policy_repository.current()
+        allowed = restorable_kinds_for_tool(policy, request.qualified_name)
+        if not allowed:
+            return request, 0
+        arguments, count = await self._vault.restore_value(
+            session_id, request.arguments, allowed, sub=caller.sub
+        )
+        if count == 0:
+            return request, 0
+        return request.model_copy(update={"arguments": arguments}), count
 
     async def _audit(
         self,
@@ -254,6 +287,7 @@ class HandleToolCallUseCase:
         raw_response: str | None = None,
         delivered_response: str | None = None,
         items_masked: int = 0,
+        items_restored: int = 0,
     ) -> None:
         stage, rule_id, reason, owasp = _outcome_fields(decision)
         call_record = self._record_builder.build(
@@ -273,6 +307,7 @@ class HandleToolCallUseCase:
             raw_response=raw_response,
             delivered_response=delivered_response,
             items_masked=items_masked,
+            items_restored=items_restored,
             proxy_latency_ms=proxy_latency_ms,
             stage_timings=decision.stage_timings_ms,
         )

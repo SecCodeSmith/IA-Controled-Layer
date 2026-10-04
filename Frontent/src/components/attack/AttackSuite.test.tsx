@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AttackSuitePanel } from './AttackSuitePanel'
@@ -23,7 +24,9 @@ function renderPanel() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <AttackSuitePanel />
+      <MemoryRouter>
+        <AttackSuitePanel />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -69,7 +72,7 @@ describe('AttackSuitePanel', () => {
     const user = userEvent.setup()
     renderPanel()
     await user.click(screen.getByRole('button', { name: 'Run attack suite' }))
-    expect(await screen.findByText(/0 running · 10 pending/)).toBeInTheDocument()
+    expect(await screen.findByText(/0 running · 11 pending/)).toBeInTheDocument()
   })
 
   it('warns before and after a run when protection is not enforce', async () => {
@@ -137,25 +140,178 @@ describe('AttackSuitePanel', () => {
     await screen.findByText(/run #1/)
 
     expect(screen.getAllByTestId('scenario-duration')[0]).toHaveTextContent('–')
+    const rowOf = (name: string) => screen.getByText(name).closest('div') as HTMLElement
 
     const ids = (await (await fetch(`${CONTROL_LAYER_URL}/api/attack-suite/scenarios`)).json()).scenarios.map(
       (scenario: { id: string }) => scenario.id,
     )
     const source = MockEventSource.latest()
     act(() => {
-      ids.forEach((id: string, index: number) => {
+      ids.forEach((id: string) => {
         source?.emit('scenario', {
           id,
           status: 'STOPPED',
           observed: null,
-          duration_ms: index === 0 ? 61 : 6000,
+          duration_ms: id === 'dev_reads_hr_db' ? 61 : 6000,
           via: 'scripted',
         })
       })
     })
 
-    await waitFor(() => expect(screen.getAllByTestId('scenario-duration')[0]).toHaveTextContent('61 ms'))
-    expect(screen.getAllByTestId('scenario-duration')[1]).toHaveTextContent('6 s')
-    expect(screen.getByText('run time 54.06 s')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(within(rowOf('Developer reads HR database')).getByTestId('scenario-duration')).toHaveTextContent(
+        '61 ms',
+      ),
+    )
+    expect(within(rowOf('Direct push to main')).getByTestId('scenario-duration')).toHaveTextContent('6 s')
+    expect(screen.getByText('run time 1 min 0 s')).toBeInTheDocument()
+  })
+
+  it('lists the catalogue grouped by stage before any run and expands a row to show its steps', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    const toggle = await screen.findByRole('button', { name: /Developer reads HR database/ })
+    expect(screen.getByText(/11 scenarios in the catalogue/)).toBeInTheDocument()
+    expect(screen.getByText('authorization')).toBeInTheDocument()
+    expect(within(toggle).getByText('PENDING')).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('A developer asks the agent for HR data they are not provisioned for.')).toBeInTheDocument()
+    expect(screen.getByText('anna.kowalska')).toBeInTheDocument()
+    expect(screen.getByText('tool_call hr-db.find_approver {request: test-accounts}')).toBeInTheDocument()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('A developer asks the agent for HR data they are not provisioned for.')).not.toBeInTheDocument()
+  })
+
+  it('shows positives first within a stage', async () => {
+    renderPanel()
+    const positive = await screen.findByRole('button', { name: /Developer reads a CI run/ })
+    const negative = screen.getByRole('button', { name: /Developer reads HR database/ })
+    expect(positive.compareDocumentPosition(negative) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders the explanation and the trace with a call link after a run', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Run attack suite' }))
+    await screen.findByText(/run #1/)
+
+    act(() => {
+      MockEventSource.latest()?.emit('scenario', {
+        id: 'dev_reads_hr_db',
+        status: 'STOPPED',
+        observed: {
+          status: 'BLOCKED',
+          stage: 'authorization',
+          rule_id: 'role_provisioning',
+          reason: 'HR database is not provisioned',
+        },
+        duration_ms: 120,
+        via: 'scripted',
+        explanation: 'Blocked at authorization by role_provisioning as expected.',
+        error: null,
+        trace: [
+          {
+            target: 'hr-db.find_approver',
+            status: 'BLOCKED',
+            stage: 'authorization',
+            rule_id: 'role_provisioning',
+            reason: 'HR database is not provisioned',
+            call_id: 'c_000042',
+            http_status: 403,
+          },
+        ],
+      })
+    })
+
+    await user.click(screen.getByRole('button', { name: /Developer reads HR database/ }))
+    expect(await screen.findByText('Blocked at authorization by role_provisioning as expected.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'c_000042' })).toHaveAttribute('href', '/admin/audit/c_000042')
+    expect(screen.getByText('hr-db.find_approver')).toBeInTheDocument()
+  })
+
+  it('shows the error text for ERROR scenarios', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Run attack suite' }))
+    await screen.findByText(/run #1/)
+    act(() => {
+      MockEventSource.latest()?.emit('scenario', {
+        id: 'dev_reads_hr_db',
+        status: 'ERROR',
+        observed: null,
+        duration_ms: 5,
+        via: 'agent',
+        explanation: null,
+        error: 'agent service unreachable',
+        trace: [],
+      })
+    })
+    await user.click(screen.getByRole('button', { name: /Developer reads HR database/ }))
+    expect(await screen.findByText('agent service unreachable')).toBeInTheDocument()
+  })
+
+  it('filters the list by status and by name', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Run attack suite' }))
+    await screen.findByText(/run #1/)
+    act(() => {
+      const source = MockEventSource.latest()
+      source?.emit('scenario', { id: 'dev_reads_hr_db', status: 'SUCCEEDED', observed: null, duration_ms: 1 })
+      source?.emit('scenario', { id: 'direct_push_main', status: 'NOT_ATTEMPTED', observed: null, duration_ms: 1 })
+      source?.emit('scenario', { id: 'pii_in_log_response', status: 'STOPPED', observed: null, duration_ms: 1 })
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Failed' }))
+    expect(screen.getByText('Developer reads HR database')).toBeInTheDocument()
+    expect(screen.queryByText('Direct push to main')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Not attempted' }))
+    expect(screen.getByText('Direct push to main')).toBeInTheDocument()
+    expect(screen.queryByText('Developer reads HR database')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Passed + Stopped' }))
+    expect(screen.getByText('PII in log response')).toBeInTheDocument()
+    expect(screen.queryByText('Direct push to main')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'All' }))
+    await user.type(screen.getByLabelText('Filter scenarios by name'), 'push')
+    expect(screen.getByText('Direct push to main')).toBeInTheDocument()
+    expect(screen.queryByText('PII in log response')).not.toBeInTheDocument()
+  })
+
+  it('copies a plain-text report to the clipboard', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Run attack suite' }))
+    await screen.findByText(/run #1/)
+    act(() => {
+      MockEventSource.latest()?.emit('scenario', {
+        id: 'dev_reads_hr_db',
+        status: 'STOPPED',
+        observed: null,
+        duration_ms: 1,
+        explanation: 'Blocked at authorization.',
+      })
+    })
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await user.click(screen.getByRole('button', { name: 'Copy report' }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    const text = writeText.mock.calls[0][0] as string
+    expect(text.split('\n')[0]).toBe(
+      'Attack suite run #1 · qwen2.5:7b via ollama · protection enforce · agent tier scripted',
+    )
+    expect(text).toContain('STOPPED · Developer reads HR database — Blocked at authorization.')
+    expect(text).toContain('PENDING · Direct push to main')
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 })

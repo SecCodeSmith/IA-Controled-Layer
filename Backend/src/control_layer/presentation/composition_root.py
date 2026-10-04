@@ -9,6 +9,7 @@ from typing import Any
 
 from control_layer.application.audit.rule_yaml import rule_to_yaml
 from control_layer.application.auth.identity_service import IdentityService
+from control_layer.application.dlp.session_vault import SessionVault
 from control_layer.application.evaluators import build_evaluators
 from control_layer.application.evaluators.dependencies import EvaluatorDependencies
 from control_layer.application.events.feed_broadcaster import FeedBroadcaster
@@ -27,6 +28,7 @@ from control_layer.application.policy.overridden_policy_repository import (
 from control_layer.application.reports.security_report import SecurityReportUseCase
 from control_layer.application.rules.registry import EvaluatorRegistry
 from control_layer.application.selftest.attack_run_manager import AttackRunManager
+from control_layer.application.services.admin_action_recorder import AdminActionRecorder
 from control_layer.application.services.alert_factory import AlertFactory
 from control_layer.application.services.approval_service import ApprovalService
 from control_layer.application.services.audit_service import AuditService
@@ -81,7 +83,7 @@ from control_layer.application.use_cases.issue_token import IssueTokenUseCase
 from control_layer.application.use_cases.list_tools import ListToolsUseCase
 from control_layer.application.use_cases.list_users import ListUsersUseCase
 from control_layer.domain.models.audit import CallRecord
-from control_layer.domain.models.enums import StageName
+from control_layer.domain.models.enums import CallKind, StageName
 from control_layer.domain.ports.policy_repository import PolicyRepository
 from control_layer.infrastructure.alerts.composite_alert_sink import CompositeAlertSink
 from control_layer.infrastructure.alerts.excel_alert_sink import ExcelAlertSink
@@ -118,7 +120,7 @@ logger = logging.getLogger(__name__)
 
 _RUNTIME_STATE_PREFIXES = (
     "decision:", "rate:", "loop:", "cb:", "quarantine:", "seen:", "calls:",
-    "budget:", "session:", "risk:", "approval:",
+    "budget:", "session:", "risk:", "approval:", "vault:",
 )
 
 
@@ -146,7 +148,8 @@ class MeteredAuditRepository:
     async def append(self, record: CallRecord) -> None:
         record = await self._with_rule_yaml(record)
         await self._inner.append(record)
-        self._metrics.record(record)
+        if record.kind != CallKind.admin:
+            self._metrics.record(record)
 
     async def list_recent(self, limit: int = 100) -> list[Any]:
         return await self._inner.list_recent(limit)
@@ -186,6 +189,7 @@ class Container:
     policy_watcher: PolicyFileWatcher
     policy_notifier: PolicyReloadNotifier
     call_ids: CallIdGenerator
+    admin_actions: AdminActionRecorder
     signature_watcher: PolicyFileWatcher
     signature_feed: YamlSignatureFeed
     user_repository: YamlUserRepository
@@ -349,6 +353,8 @@ async def build_container(settings: Settings) -> Container:
         call_ids,
         policy_repository,
         model_provider,
+        SessionVault(cache),
+        identity_service,
     )
     execute_approval = ExecuteApprovalUseCase(
         approval_service, identity_service, tool_call, audit_service, call_ids, model_provider
@@ -404,6 +410,7 @@ async def build_container(settings: Settings) -> Container:
         policy_watcher=PolicyFileWatcher(settings.policy_file_path, policy_notifier.reload),
         policy_notifier=policy_notifier,
         call_ids=call_ids,
+        admin_actions=AdminActionRecorder(audit_service, call_ids),
         signature_watcher=PolicyFileWatcher(settings.signatures_file_path, reload_signatures),
         signature_feed=signature_feed,
         user_repository=user_repository,

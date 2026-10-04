@@ -38,9 +38,9 @@ Every intercepted call (prompt → model, model response, tool call → MCP, too
 graph TD
     Start["Request"]
     Stage1["1. Identity<br/>Verify JWT<br/>Resolve claims"]
-    Stage2["2. Authorization<br/>Role provisioning<br/>Residency check<br/>Approval gate"]
-    Stage3["3. DLP<br/>PII/secrets detection<br/>Exfiltration rules<br/>Sequence rules"]
-    Stage4["4. Policy<br/>Injection signatures<br/>ML classifier<br/>LLM judge<br/>Topic restrictions<br/>Custom rules"]
+    Stage2["2. Authorization<br/>Role provisioning<br/>Resource scope (paths)<br/>Residency check<br/>Approval gate"]
+    Stage3["3. DLP<br/>PII/secrets detection<br/>Exfiltration rules<br/>Sequence rules<br/>Session vault (reversible masking)"]
+    Stage4["4. Policy<br/>Injection signatures<br/>Decision tree (sampled judge verification)<br/>ML classifier<br/>LLM judge<br/>Topic restrictions<br/>Custom rules"]
     Stage5["5. Behavior Analytics<br/>Rate limit<br/>Loop guard<br/>Circuit breaker<br/>Risk scoring"]
     Stage6["6. Resource Governance<br/>Token budgets<br/>Cost limits<br/>Timeouts"]
     Stage7["7. Audit & Telemetry<br/>Logging<br/>Alerting<br/>Metrics"]

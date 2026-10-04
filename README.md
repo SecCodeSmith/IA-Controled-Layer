@@ -26,7 +26,7 @@ Every call flows through all stages in order. Stages can short-circuit (return e
 |-------|------|
 | **Identity** | JWT verification (HS256), signature check, expiry validation, tampering detection → 401 |
 | **Authorization** | RBAC (roles → tools mapping), data residency, destructive-action approval gates → 403 / 202 |
-| **DLP** | PII detection (email, phone, PESEL, IBAN, PAN), secrets (API key, JWT, private key), exfiltration sequences → masked or blocked |
+| **DLP** | PII detection (email, phone, PESEL, IBAN, PAN), secrets (API key, JWT, private key), exfiltration sequences → masked or blocked; optional session vault restores masked e-mails/phones into allowed tool calls (e.g. `mail.send`) without the model ever seeing them |
 | **Policy** | Signature-based injection (feed-driven), ML classifier (Scikit-learn, F1 ≥0.85), LLM judge (Ollama), restricted topics → 403 or escalate |
 | **Behavior** | Rate limit (60/min), loop guard (5 identical), circuit breaker (5 blocks → quarantine), risk scoring → 429/403 or quarantine |
 | **Resource** | Per-user token budgets (10k/day), cost limits ($1/day), max tokens/request (2k), upstream timeout (30s) → 403 if exceeded |
@@ -77,7 +77,7 @@ Watch:
 python attack_suite.py --target http://localhost:8080
 ```
 
-24 scenarios (5 positive, 19 negative) pass → exit 0.
+68 scenarios (19 positive, 49 negative) pass → exit 0.
 
 ### Option 2: Run with Docker
 

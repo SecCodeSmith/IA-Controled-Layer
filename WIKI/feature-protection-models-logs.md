@@ -70,3 +70,7 @@ Additive to `WIKI/api-contract.md` and `WIKI/application-contract.md`. Binding f
   overrides" button; the page header shows the current protection mode.
 - Chat header: shows the active model (already) and a small "monitoring only" / "protection off" banner when the
   mode is not `enforce` (from `/v1/me`).
+
+## Audit of admin actions and memory reset
+
+Protection changes, rule overrides, model switches, log clearing, demo resets and policy reloads are recorded as `kind: admin` audit rows (FLAGGED plus an alert when they loosen protection), and the protection state exposes `changed_at` / `changed_by`, so an operator can see who relaxed enforcement and when. The demo agent also discards a chat's conversation memory when protection tightens, so tool results fetched while enforcement was relaxed cannot leak into later turns. Details: `WIKI/api-contract.md`, addendum "admin action audit".

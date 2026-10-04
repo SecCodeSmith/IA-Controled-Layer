@@ -58,3 +58,4 @@ class StatsResponse(BaseModel):
     provider: ProviderInfo
     policy: PolicyStatusRef
     protection: ProtectionInfo = ProtectionInfo()
+    admin_actions: int = 0

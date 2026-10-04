@@ -44,6 +44,11 @@ async def view_policy(container: ContainerDep) -> PolicyViewResponse:
 @router.post("/reload", response_model=PolicyViewResponse)
 async def reload_policy(container: ContainerDep) -> PolicyViewResponse:
     view = await container.reload_policy.execute()
+    await container.admin_actions.record(
+        "admin.policy_reload",
+        details={"reason": "policy reloaded", "version": view.version},
+        loosening=False,
+    )
     return _to_response(view)
 
 
@@ -51,5 +56,17 @@ async def reload_policy(container: ContainerDep) -> PolicyViewResponse:
 async def override_rule(
     rule_id: str, body: RuleOverrideRequest, container: ContainerDep
 ) -> RuleOverrideResponse:
+    was = (await container.protection.get_rule_overrides()).get(rule_id)
     view = await container.manage_protection.set_rule(rule_id, body.enabled)
+    state = "enabled" if body.enabled else "disabled"
+    await container.admin_actions.record(
+        "admin.rule_override",
+        details={
+            "reason": f"rule {rule_id} {state}",
+            "rule_id": rule_id,
+            "enabled": body.enabled,
+            "was_override": was,
+        },
+        loosening=not body.enabled,
+    )
     return RuleOverrideResponse.model_validate(view.model_dump())

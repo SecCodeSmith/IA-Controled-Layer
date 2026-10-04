@@ -18,4 +18,9 @@ async def reset(
         await container.reset_runtime_state()
     else:
         await container.reset_demo.execute()
+    await container.admin_actions.record(
+        "admin.reset",
+        details={"reason": f"demo reset (scope={scope})", "scope": scope},
+        loosening=scope == "all",
+    )
     return DemoResetResponse()

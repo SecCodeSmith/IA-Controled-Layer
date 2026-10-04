@@ -19,6 +19,7 @@ def _approval_observation(event: dict) -> StepObservation:
         reason=event.get("reason"),
         approval_id=event.get("approval_id"),
         target=event.get("tool"),
+        call_id=event.get("call_id"),
     )
 
 
@@ -30,6 +31,7 @@ def _decision_observation(event: dict, target: str | None) -> StepObservation:
         rule_id=event.get("rule_id"),
         reason=event.get("reason"),
         target=target,
+        call_id=event.get("call_id"),
     )
 
 

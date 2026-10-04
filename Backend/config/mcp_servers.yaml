@@ -76,6 +76,7 @@ servers:
     env: { PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" }
     tools:
       get_balance: { tags: [] }
+      get_card: { tags: [] }
       transfer: { tags: [destructive, financial] }
 
   - name: eu-customers

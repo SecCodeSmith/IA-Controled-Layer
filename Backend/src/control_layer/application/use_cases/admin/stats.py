@@ -11,6 +11,7 @@ from control_layer.application.services.protection_service import (
 from control_layer.application.telemetry.metrics_collector import MetricsView
 from control_layer.application.use_cases.admin._shared import load_all_call_records
 from control_layer.domain.models.audit import CallRecord
+from control_layer.domain.models.enums import CallKind
 from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.ports.audit_repository import AuditRepository
@@ -89,6 +90,12 @@ class StatsView(BaseModel):
     provider: ProviderInfo
     policy: PolicyStatusRef
     protection: ProtectionInfo = Field(default_factory=ProtectionInfo)
+    admin_actions: int = 0
+
+
+def split_admin_records(records: list[CallRecord]) -> tuple[list[CallRecord], int]:
+    traffic = [r for r in records if r.kind != CallKind.admin]
+    return traffic, len(records) - len(traffic)
 
 
 def _bump(counter: dict[str, int], key: str | None) -> None:
@@ -158,7 +165,9 @@ class StatsCalculator:
         self._protection = protection
 
     async def compute(self) -> StatsView:
-        records = await load_all_call_records(self._audit_repository)
+        records, admin_actions = split_admin_records(
+            await load_all_call_records(self._audit_repository)
+        )
         (
             allowed,
             blocked,
@@ -233,4 +242,5 @@ class StatsCalculator:
                 status=policy_status.get("status", "LOADED"),
             ),
             protection=await current_protection(self._protection),
+            admin_actions=admin_actions,
         )

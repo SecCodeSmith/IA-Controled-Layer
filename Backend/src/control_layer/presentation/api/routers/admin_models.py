@@ -17,4 +17,22 @@ async def list_models(container: ContainerDep) -> ModelsResponse:
 
 @router.put("", response_model=ProviderInfo)
 async def select_model(body: ModelSelectRequest, container: ContainerDep) -> ProviderInfo:
-    return await container.model_selection.select(body.provider, body.model)
+    previous = container.model_provider.describe()
+    active = await container.model_selection.select(body.provider, body.model)
+    listing = await container.model_selection.list_models()
+    allowed = any(
+        entry.provider == body.provider and entry.model == body.model and entry.allowed
+        for entry in listing.available
+    )
+    suffix = "" if allowed else " (not allowlisted)"
+    await container.admin_actions.record(
+        "admin.model",
+        details={
+            "reason": f"model switched to {body.model}{suffix}",
+            "from": f"{previous.name}/{previous.model}",
+            "to": f"{body.provider}/{body.model}",
+            "allowlisted": allowed,
+        },
+        loosening=not allowed,
+    )
+    return active

@@ -4,8 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from control_layer.domain.models.enums import ProtectionMode
 from control_layer.domain.models.identity import Identity
-from control_layer.domain.models.protection import ProtectionInfo
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.models.tool import ToolDescriptor
 
@@ -28,6 +28,11 @@ class RiskSummary(BaseModel):
     level: str
 
 
+class MeProtection(BaseModel):
+    mode: ProtectionMode = ProtectionMode.enforce
+    changed_at: datetime | None = None
+
+
 class MeResponse(BaseModel):
     identity: Identity
     tools: list[ToolDescriptor]
@@ -35,4 +40,4 @@ class MeResponse(BaseModel):
     budget: BudgetSummary
     risk: RiskSummary
     provider: ProviderInfo
-    protection: ProtectionInfo = ProtectionInfo()
+    protection: MeProtection = MeProtection()

@@ -10,4 +10,8 @@ router = APIRouter(prefix="/api/logs", tags=["admin"], dependencies=AdminDeps)
 
 @router.post("/clear", response_model=ClearLogsResponse)
 async def clear_logs(container: ContainerDep) -> ClearLogsResponse:
-    return ClearLogsResponse(cleared=await container.clear_logs.execute())
+    cleared = await container.clear_logs.execute()
+    await container.admin_actions.record(
+        "admin.logs", details={"reason": "logs cleared", "cleared": cleared}, loosening=True
+    )
+    return ClearLogsResponse(cleared=cleared)

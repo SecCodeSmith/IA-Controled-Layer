@@ -52,3 +52,13 @@ def test_mask_returns_match_objects() -> None:
     result = mask("anna@bank.pl", ["email"])
     assert len(result.matches) == 1
     assert result.matches[0].kind == "email"
+
+
+def test_mask_uses_supplied_placeholders() -> None:
+    result = mask(
+        "cc anna@bank.pl and marek@bank.pl",
+        ["email"],
+        {("email", "marek@bank.pl"): "[EMAIL_7]"},
+    )
+    assert result.text == "cc [EMAIL_1] and [EMAIL_7]"
+    assert result.counts == {"email": 2}

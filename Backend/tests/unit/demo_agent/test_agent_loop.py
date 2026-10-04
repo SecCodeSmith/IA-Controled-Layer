@@ -16,6 +16,7 @@ from demo_agent.schemas import AssistantTextEvent, NoticeEvent
 from .conftest import (
     ScriptedBackend,
     completion_body,
+    me_body,
     ok,
     tool_call_function,
     tool_descriptor,
@@ -129,3 +130,90 @@ async def test_requests_all_tool_scope_and_injects_date_into_prompt(
     assert "2026-10-02" in system["content"]
     assert "ci.get_run(pipeline, date)" in system["content"]
     assert "logs-db.query(service, since)" in system["content"]
+
+
+def _mem(store):  # noqa: ANN001, ANN202
+    return store.get("anna.kowalska", "s-mem")
+
+
+def _me_with_mode(mode: str) -> tuple[int, dict]:
+    body = me_body()
+    body["protection"] = {"mode": mode, "changed_at": "2026-10-04T10:00:00Z"}
+    return ok(body)
+
+
+_CLEARED_PREFIX = "Conversation memory cleared"
+
+
+async def _hr_turn(agent_loop: AgentLoop, backend: ScriptedBackend, mode: str) -> list:
+    backend.me_queue.append(_me_with_mode(mode))
+    backend.tools_response = tools_body(tool_descriptor("hr-db", "query"))
+    backend.completion_queue.append(
+        ok(completion_body(tool_calls=[tool_call_function("hr-db__query", {"query": "all"})]))
+    )
+    backend.tool_call_queue.append(
+        ok(tool_outcome_body(call_id="c_t", status="ALLOWED", content_text="salary rows"))
+    )
+    backend.completion_queue.append(ok(completion_body(content="done")))
+    return await agent_loop.run_turn("token-1", "s-mem", "show salaries")
+
+
+async def test_memory_cleared_when_protection_tightens_from_off(
+    agent_loop: AgentLoop, backend: ScriptedBackend, session_store
+) -> None:
+    await _hr_turn(agent_loop, backend, "off")
+    assert any(m.get("content") == "salary rows" for m in _mem(session_store).messages)
+
+    backend.me_queue.append(_me_with_mode("enforce"))
+    backend.completion_queue.append(ok(completion_body(content="fresh")))
+    events = await agent_loop.run_turn("token-1", "s-mem", "what were the salaries?")
+
+    assert isinstance(events[0], NoticeEvent)
+    assert events[0].status == "FLAGGED"
+    assert events[0].reason.startswith(_CLEARED_PREFIX)
+    last_request = json.loads(backend.requests_to("/v1/chat/completions")[-1].content)
+    assert all("salary rows" not in str(m.get("content")) for m in last_request["messages"])
+    assert [m["role"] for m in last_request["messages"]] == ["system", "user"]
+    assert _mem(session_store).protection_mode == "enforce"
+
+
+async def test_memory_cleared_when_monitor_tightens_to_enforce(
+    agent_loop: AgentLoop, backend: ScriptedBackend, session_store
+) -> None:
+    await _hr_turn(agent_loop, backend, "monitor")
+    backend.me_queue.append(_me_with_mode("enforce"))
+    backend.completion_queue.append(ok(completion_body(content="fresh")))
+
+    events = await agent_loop.run_turn("token-1", "s-mem", "again")
+
+    assert isinstance(events[0], NoticeEvent)
+
+
+async def test_memory_kept_when_mode_unchanged_or_loosens(
+    agent_loop: AgentLoop, backend: ScriptedBackend, session_store
+) -> None:
+    await _hr_turn(agent_loop, backend, "enforce")
+    backend.me_queue.append(_me_with_mode("enforce"))
+    backend.completion_queue.append(ok(completion_body(content="same")))
+    same = await agent_loop.run_turn("token-1", "s-mem", "again")
+    backend.me_queue.append(_me_with_mode("off"))
+    backend.completion_queue.append(ok(completion_body(content="loose")))
+    loosened = await agent_loop.run_turn("token-1", "s-mem", "and again")
+
+    assert not any(isinstance(e, NoticeEvent) for e in same + loosened)
+    assert any(m.get("content") == "salary rows" for m in _mem(session_store).messages)
+
+
+async def test_first_turn_with_unknown_mode_only_stores_it(
+    agent_loop: AgentLoop, backend: ScriptedBackend, session_store
+) -> None:
+    seeded = session_store.get_or_create("anna.kowalska", "s-mem")
+    seeded.add_message({"role": "tool", "content": "old"})
+    backend.me_queue.append(_me_with_mode("enforce"))
+    backend.completion_queue.append(ok(completion_body(content="hi")))
+
+    events = await agent_loop.run_turn("token-1", "s-mem", "hello")
+
+    assert not any(isinstance(e, NoticeEvent) for e in events)
+    assert _mem(session_store).protection_mode == "enforce"
+    assert any(m.get("content") == "old" for m in _mem(session_store).messages)

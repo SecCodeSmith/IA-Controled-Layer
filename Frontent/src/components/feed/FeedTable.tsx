@@ -1,3 +1,4 @@
+import { AdminChip } from '../common/AdminChip'
 import { StatusBadge } from '../common/StatusBadge'
 import { formatReason } from '../../lib/formatReason'
 import { overheadCell } from '../../lib/overhead'
@@ -27,7 +28,10 @@ export function FeedTable({ rows }: { rows: FeedRow[] }) {
               <td className="whitespace-nowrap px-3 py-3">
                 {row.user.name} · {roleLabel(row.user.role)}
               </td>
-              <td className="px-3 py-3 font-mono text-[13px]">{row.target}</td>
+              <td className="px-3 py-3 font-mono text-[13px]">
+                {row.kind === 'admin' ? <AdminChip /> : null}
+                {row.target}
+              </td>
               <td className="px-3 py-3">
                 <StatusBadge status={row.status} />
               </td>

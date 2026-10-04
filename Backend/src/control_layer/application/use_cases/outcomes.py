@@ -36,6 +36,7 @@ class ToolCallOutcome(BaseModel):
     rule_id: str | None = None
     reason: str | None = None
     items_masked: int = 0
+    items_restored: int = 0
     result: ToolCallResult | None = None
     approval: PendingApproval | None = None
 

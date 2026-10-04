@@ -1,4 +1,5 @@
 import { useProtection, useSetProtection } from '../../api/protection'
+import { changedText } from '../../lib/clock'
 import { PROTECTION_COLORS, PROTECTION_LABELS } from '../../lib/protectionStyle'
 import type { ProtectionMode } from '../../types/protection'
 
@@ -10,6 +11,7 @@ export function ProtectionControl() {
   const protection = useProtection()
   const setProtection = useSetProtection()
   const mode = protection.data?.mode
+  const changed = changedText(protection.data?.changed_at, protection.data?.changed_by)
 
   function handleSelect(next: ProtectionMode) {
     if (next === mode) return
@@ -18,7 +20,7 @@ export function ProtectionControl() {
   }
 
   return (
-    <div className="flex items-center gap-2" role="group" aria-label="Protection mode">
+    <div className="flex items-center gap-2" role="group" aria-label="Protection mode" title={changed ?? undefined}>
       <span className="text-xs text-header-muted">Protection</span>
       <div className="flex overflow-hidden rounded-lg border border-[#5A5F66]">
         {MODES.map((candidate) => (
@@ -42,6 +44,7 @@ export function ProtectionControl() {
           </button>
         ))}
       </div>
+      {changed ? <span className="text-[11px] text-header-muted">{changed}</span> : null}
     </div>
   )
 }

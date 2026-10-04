@@ -9,6 +9,7 @@ from control_layer.domain.exceptions import PolicyValidationError
 from control_layer.domain.models.enums import InterceptionPoint, RuleAction, Severity, StageName
 from control_layer.domain.models.policy import PolicyDocument
 from control_layer.domain.models.rule import Rule
+from control_layer.domain.policy.vault import parse_vault_config
 
 _DLP_TYPES = {"detectors", "sequence", "canary_token"}
 _AUTHORIZATION_TYPES = {"rbac", "residency", "model_allowlist"}
@@ -118,6 +119,8 @@ def _parse_rule(rule_dict: dict[str, Any], seen_ids: set[str]) -> Rule:
     stage = _parse_stage(rule_type, rule_dict)
     on = _parse_on(rule_dict)
     params = {k: v for k, v in rule_dict.items() if k not in _KNOWN_RULE_KEYS}
+    if params.get("vault"):
+        parse_vault_config(params["vault"], rule_id)
 
     try:
         return Rule(

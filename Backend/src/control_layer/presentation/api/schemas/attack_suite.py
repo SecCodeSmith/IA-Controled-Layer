@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -24,7 +24,7 @@ class ScenarioExpectation(BaseModel):
     rule_id: str | None = None
 
 
-class ScenarioSchema(BaseModel):
+class ScenarioBase(BaseModel):
     id: str
     name: str
     kind: Literal["positive", "negative"]
@@ -33,6 +33,12 @@ class ScenarioSchema(BaseModel):
     expected: ScenarioExpectation
     owasp: list[str] = []
     agent_driven: bool = True
+    description: str = ""
+
+
+class ScenarioSchema(ScenarioBase):
+    prompt: str = ""
+    steps: list[dict[str, Any]] = []
 
 
 class ScenarioListResponse(BaseModel):
@@ -43,13 +49,24 @@ class ObservedOutcome(BaseModel):
     status: CallStatus
     stage: StageName | None = None
     rule_id: str | None = None
+    reason: str | None = None
+    target: str | None = None
+    call_id: str | None = None
+    http_status: int | None = None
 
 
-class ScenarioRunState(ScenarioSchema):
+class TraceEntry(ObservedOutcome):
+    pass
+
+
+class ScenarioRunState(ScenarioBase):
     status: ScenarioRunStatus = ScenarioRunStatus.PENDING
     observed: ObservedOutcome | None = None
     duration_ms: float | None = None
     via: Literal["agent", "scripted"] = "scripted"
+    trace: list[TraceEntry] = []
+    explanation: str | None = None
+    error: str | None = None
 
 
 class RunSummary(BaseModel):
@@ -83,6 +100,9 @@ class ScenarioEvent(BaseModel):
     observed: ObservedOutcome | None = None
     duration_ms: float | None = None
     via: Literal["agent", "scripted"] = "scripted"
+    trace: list[TraceEntry] = []
+    explanation: str | None = None
+    error: str | None = None
 
 
 class RunCompleteEvent(BaseModel):

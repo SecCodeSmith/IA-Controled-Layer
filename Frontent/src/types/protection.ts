@@ -4,10 +4,14 @@ export interface ProtectionState {
   mode: ProtectionMode
   rule_overrides: Record<string, boolean>
   disabled_rules: string[]
+  changed_at?: string | null
+  changed_by?: string | null
 }
 
 export interface ProtectionRef {
   mode: ProtectionMode
+  changed_at?: string | null
+  changed_by?: string | null
 }
 
 export interface RuleToggleResponse {

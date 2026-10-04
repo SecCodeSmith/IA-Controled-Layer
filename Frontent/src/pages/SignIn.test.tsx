@@ -35,6 +35,28 @@ describe('SignIn', () => {
     expect(typeof parsed.token).toBe('string')
   })
 
+  it('starts a fresh chat session id on every sign-in', async () => {
+    const user = userEvent.setup()
+    const options = {
+      route: '/',
+      path: '/',
+      extraRoutes: [{ path: '/chat', element: <div>CHAT_PAGE_STUB</div> }],
+    }
+    const first = renderWithProviders(<SignIn />, options)
+    await user.click(await screen.findByText('Anna Kowalska'))
+    await screen.findByText('CHAT_PAGE_STUB')
+    const firstId = sessionStorage.getItem('control-layer.tab-session-id')
+    expect(firstId).toBeTruthy()
+    first.unmount()
+
+    renderWithProviders(<SignIn />, options)
+    await user.click(await screen.findByText('Marek Nowak'))
+    await screen.findByText('CHAT_PAGE_STUB')
+    const secondId = sessionStorage.getItem('control-layer.tab-session-id')
+    expect(secondId).toBeTruthy()
+    expect(secondId).not.toBe(firstId)
+  })
+
   it('links to the admin dashboard', async () => {
     renderWithProviders(<SignIn />)
     await waitFor(() => expect(screen.getByText('Open admin dashboard')).toBeInTheDocument())

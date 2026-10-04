@@ -1,6 +1,6 @@
 import type { CallStatus, PipelineStage } from './common'
 
-export type AgentEventType = 'tool_call' | 'approval_required' | 'assistant_text'
+export type AgentEventType = 'tool_call' | 'approval_required' | 'assistant_text' | 'notice'
 
 export interface ToolCallEvent {
   type: 'tool_call'
@@ -12,6 +12,7 @@ export interface ToolCallEvent {
   rule_id: string | null
   reason: string
   items_masked: number
+  items_restored?: number
   result_preview: string | null
 }
 
@@ -29,7 +30,12 @@ export interface AssistantTextEvent {
   text: string
 }
 
-export type AgentEvent = ToolCallEvent | ApprovalRequiredEvent | AssistantTextEvent
+export interface NoticeEvent {
+  type: 'notice'
+  reason: string
+}
+
+export type AgentEvent = ToolCallEvent | ApprovalRequiredEvent | AssistantTextEvent | NoticeEvent
 
 export interface AgentBudgetSummary {
   tokens_used: number

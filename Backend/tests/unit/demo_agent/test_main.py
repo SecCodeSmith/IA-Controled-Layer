@@ -215,6 +215,7 @@ def test_tool_call_escalation_stops_turn(test_client: TestClient, backend: Scrip
             "arguments": {"repo": "web-app", "branch": "feature/old-login"},
             "rule_id": "destructive_requires_approval",
             "reason": "Destructive actions need your confirmation",
+            "call_id": "c_3",
         }
     ]
     assert len(backend.requests_to("/v1/chat/completions")) == 1
@@ -258,7 +259,7 @@ def test_approve_resumes_and_returns_remaining_events(
     assert first.status_code == 200
     assert first.json()["events"][0]["type"] == "approval_required"
 
-    backend.me_queue.append(ok(me_body(tokens_used=3500, tokens_limit=10000)))
+    backend.me_queue.extend([ok(me_body()), ok(me_body(tokens_used=3500, tokens_limit=10000))])
     backend.approve_queue.append(
         ok(
             tool_outcome_body(
@@ -380,6 +381,7 @@ def test_denied_chat_completion_yields_notice(
             "stage": "policy",
             "rule_id": "prompt_injection_signatures",
             "reason": "Prompt matched a known attack signature",
+            "call_id": "c_err",
         }
     ]
 

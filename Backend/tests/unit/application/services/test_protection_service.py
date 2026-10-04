@@ -78,3 +78,20 @@ async def test_current_protection_handles_a_missing_service() -> None:
     service = ProtectionService(InMemoryCacheRepository())
     await service.set_mode(ProtectionMode.monitor)
     assert (await current_protection(service)).mode is ProtectionMode.monitor
+
+
+async def test_set_mode_records_who_and_when_and_reset_clears_it() -> None:
+    from datetime import UTC, datetime
+
+    now = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+    service = ProtectionService(InMemoryCacheRepository(), clock=lambda: now)
+    assert await service.get_changed() == (None, None)
+
+    await service.set_mode(ProtectionMode.off, actor="ops")
+
+    assert await service.get_changed() == (now, "ops")
+    info = await current_protection(service)
+    assert (info.mode, info.changed_at, info.changed_by) == (ProtectionMode.off, now, "ops")
+
+    await service.reset()
+    assert await service.get_changed() == (None, None)

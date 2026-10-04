@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from control_layer.presentation.api.dependencies import BearerDep, ContainerDep, SessionDep
 from control_layer.presentation.api.schemas.me import (
     BudgetSummary,
+    MeProtection,
     MeResponse,
     PolicyRef,
     RiskSummary,
@@ -24,5 +25,7 @@ async def me(token: BearerDep, session: SessionDep, container: ContainerDep) -> 
         budget=BudgetSummary.model_validate(view.budget.model_dump()),
         risk=RiskSummary(score=view.risk.score, level=view.risk.level.value),
         provider=view.provider,
-        protection=view.protection,
+        protection=MeProtection(
+            mode=view.protection.mode, changed_at=view.protection.changed_at
+        ),
     )

@@ -149,6 +149,7 @@ async def shared_app(tmp_path_factory: pytest.TempPathFactory) -> AsyncIterator[
 @pytest_asyncio.fixture(loop_scope="session")
 async def api(shared_app: RunningApp) -> AsyncIterator[httpx.AsyncClient]:
     await shared_app.client.post("/api/demo/reset", headers=ADMIN_HEADERS)
+    await shared_app.app.state.container.clear_logs.execute()
     yield shared_app.client
 
 
