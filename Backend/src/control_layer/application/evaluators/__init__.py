@@ -6,6 +6,12 @@ from control_layer.application.evaluators.authorization.model_allowlist import (
 )
 from control_layer.application.evaluators.authorization.rbac import RbacEvaluator
 from control_layer.application.evaluators.authorization.residency import ResidencyEvaluator
+from control_layer.application.evaluators.authorization.resource_projection import (
+    ResourceProjectionEvaluator,
+)
+from control_layer.application.evaluators.authorization.resource_scope import (
+    ResourceScopeEvaluator,
+)
 from control_layer.application.evaluators.authorization.tool_match import ToolMatchEvaluator
 from control_layer.application.evaluators.behavior.anomaly import AnomalyEvaluator
 from control_layer.application.evaluators.behavior.circuit_breaker import CircuitBreakerEvaluator
@@ -15,6 +21,7 @@ from control_layer.application.evaluators.dependencies import EvaluatorDependenc
 from control_layer.application.evaluators.dlp.canary_token import CanaryTokenEvaluator
 from control_layer.application.evaluators.dlp.detectors import DetectorsEvaluator
 from control_layer.application.evaluators.dlp.sequence import SequenceEvaluator
+from control_layer.application.evaluators.policy.decision_tree import DecisionTreeEvaluator
 from control_layer.application.evaluators.policy.llm_judge import LlmJudgeEvaluator
 from control_layer.application.evaluators.policy.ml_classifier import MlClassifierEvaluator
 from control_layer.application.evaluators.policy.restricted_topics import (
@@ -33,11 +40,14 @@ def build_evaluators(deps: EvaluatorDependencies) -> dict[str, RuleEvaluator]:
         "rbac": RbacEvaluator(),
         "residency": ResidencyEvaluator(),
         "model_allowlist": ModelAllowlistEvaluator(),
+        "resource_scope": ResourceScopeEvaluator(),
+        "resource_projection": ResourceProjectionEvaluator(),
         "tool_match": ToolMatchEvaluator(),
         "detectors": DetectorsEvaluator(SessionVault(deps.cache)),
         "sequence": SequenceEvaluator(),
         "canary_token": CanaryTokenEvaluator(deps.canary_token),
         "signatures": SignaturesEvaluator(deps.signature_feed),
+        "decision_tree": DecisionTreeEvaluator(deps.tree_classifier, deps.sampler),
         "ml_classifier": MlClassifierEvaluator(deps.classifier),
         "llm_judge": LlmJudgeEvaluator(deps.model_provider, deps.judge_model),
         "restricted_topics": RestrictedTopicsEvaluator(),

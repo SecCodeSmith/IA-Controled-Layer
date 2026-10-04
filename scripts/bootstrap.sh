@@ -44,20 +44,15 @@ s installed (npm install)"
 fi
 cd ..
 
-# 3. Train ML classifier
+# 3. Train ML classifiers
 echo ""
-echo "[3/4] Training ML classifier..."
-cd Backend
-if python -m control_layer.ml.train \
-    --dataset "src/control_layer/ml/dataset/prompt_injection_dataset.csv" \
-    --out "src/control_layer/ml/artifacts/prompt_injection_classifier.joblib" \
-    --model logreg > /dev/null 2>&1; then
-    echo "  ✓ ML classifier trained"
+echo "[3/4] Training ML classifiers..."
+if bash scripts/train_ml.sh > /dev/null 2>&1; then
+    echo "  ✓ ML classifiers trained"
 else
     echo "  ✗ ML classifier training failed"
     skipped+=("ML classifier training")
 fi
-cd ..
 
 # 4. Ollama setup
 echo ""

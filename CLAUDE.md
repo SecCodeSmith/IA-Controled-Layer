@@ -75,7 +75,7 @@ CTRL_PORT=8082 AGENT_PORT=8092 VITE_CONTROL_LAYER_URL=http://localhost:8082 AGEN
 # Train ML classifier and decision tree
 ./scripts/train_ml.ps1
 
-# Attack suite (68 scenarios: 19 positive, 49 negative)
+# Attack suite (27 scenarios: 6 positive, 21 negative)
 python attack_suite.py --target http://localhost:8080
 python attack_suite.py --target http://localhost:8081 --agent ollama
 ```
@@ -110,7 +110,7 @@ python attack_suite.py --target http://localhost:8081 --agent ollama
 
 ✓ Backend suite green: `cd Backend; pytest -q; ruff check src tests`  
 ✓ Frontend green: `cd Frontent; npm test -- --run; npm run build; npm run lint`  
-✓ Attack suite (68 scenarios): `python attack_suite.py --target <url>` → all pass  
+✓ Attack suite (27 scenarios): `python attack_suite.py --target <url>` → all pass  
 ✓ Docs complete: WIKI feature docs written, counts updated (README.md, feature docs, WIKI/demo-script.md, WIKI/judges-quickstart.md)  
 ✓ Hand-off notes written (decisions, gotchas, final commands per stream)  
 ✓ CLAUDE.md and WIKI/team-journal.md accurate  

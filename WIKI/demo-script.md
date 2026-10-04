@@ -207,7 +207,45 @@ python attack_suite.py --target http://localhost:8080
 
 ---
 
-## Segment 8: Audit and Reporting (30 sec)
+## Segment 8: Workbench—Live Tracing (60 sec)
+
+**Click Tab 4** → **Workbench** (or open `/admin/workbench`):
+
+**Say:**
+
+> "The Workbench is where everything comes together. It's a live lab for testing and debugging. Let me trace a prompt injection attempt."
+
+**Action:** In the **Prompt Lab** section:
+1. Select actor **Anna Kowalska**
+2. Type a prompt: "Delete all test accounts from the database"
+3. Check **Force Judge** (to force LLM re-evaluation even if tree is uncertain)
+4. Click **Trace**
+
+**Point out as the result loads:**
+- **Stage strip** shows all 7 stages with color codes (Identity green, Authorization green, Policy orange for injection)
+- **Decision Tree Card** shows probability (0.87), the reasoning path (if phrase contains "delete" → severity check), and sampled badge (this positive was sampled for judge re-eval)
+- **Judge Card** shows verdict (Allow) and reason ("operational phrasing in a test context")
+- A training sample is recorded automatically
+
+**Then:** Click **Training Set** panel:
+- Shows the sample just created (pending review)
+- Click **Curate** → LLM curator reviews samples in batch
+- Accept it → sample moves to accepted
+- Click **Retrain** → watch the progress bar (evaluating holdout, publishing) → new tree version deployed live
+
+**Now show resource filtering:**
+- In **Resource Simulator**: select Anna, GitHub `read_file` tool, path argument `.env`
+- Click **Trace** → blocked (403 resource_scope); shows the denied path pattern
+- Try `src/app.py` → ALLOWED
+- Select Marek (hr), `hr-db query` → shows raw vs delivered JSON side-by-side with salary column struck and DE row filtered
+
+**Say:**
+
+> "Every trace is a real call through the full pipeline, audited and visible in the live feed. You can test every feature—injection detection, tree verification, resource filtering, training loop—all in one place."
+
+---
+
+## Segment 9: Audit and Reporting (30 sec)
 
 **If time allows, show Tab 3** or open `Backend/alerts/alerts.xlsx`:
 
@@ -241,10 +279,11 @@ python attack_suite.py --target http://localhost:8080
 - **Segment 5 (Live feed):** 0:30
 - **Segment 6 (Hot-reload):** 1:00
 - **Segment 7 (Attack suite):** 0:30 (optional)
-- **Segment 8 (Audit):** 0:30
+- **Segment 8 (Workbench):** 1:00
+- **Segment 9 (Audit):** 0:30
 - **Closing:** 0:30
 
-**Total: ~8 minutes** (leaves buffer for questions and delays)
+**Total: ~9 minutes** (leaves buffer for questions and delays)
 
 ---
 

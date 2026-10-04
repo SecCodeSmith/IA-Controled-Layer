@@ -115,6 +115,14 @@ from control_layer.infrastructure.users.yaml_user_repository import YamlUserRepo
 from control_layer.ml.classifier import NullPromptClassifier, SklearnPromptClassifier
 from control_layer.presentation.policy_alerts import PolicyReloadNotifier
 from control_layer.presentation.selftest.executor_factory import build_executor_factory
+from control_layer.presentation.wiring.classifier_module import (
+    ClassifierModule,
+    build_classifier_module,
+)
+from control_layer.presentation.wiring.workbench_module import (
+    WorkbenchModule,
+    build_workbench_module,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +243,8 @@ class Container:
     health: GetHealthUseCase
     attack_runs: AttackRunManager
     reset_runtime_state: Callable[[], Awaitable[None]]
+    classifier_module: ClassifierModule
+    workbench: WorkbenchModule
 
 
 def _load_classifier(settings: Settings) -> Any:
@@ -273,6 +283,10 @@ async def build_container(settings: Settings) -> Container:
     feed_broadcaster = FeedBroadcaster()
     canary_token = f"CANARY-{uuid.uuid4().hex[:12]}"
 
+    classifier_module = build_classifier_module(
+        settings, cache, model_provider, signature_feed, feed_broadcaster
+    )
+
     registry = EvaluatorRegistry()
     evaluators = build_evaluators(
         EvaluatorDependencies(
@@ -282,10 +296,13 @@ async def build_container(settings: Settings) -> Container:
             model_provider=model_provider,
             canary_token=canary_token,
             judge_model=settings.judge_model,
+            tree_classifier=classifier_module.tree_classifier,
+            sampler=classifier_module.sampler,
         )
     )
     for rule_type, evaluator in evaluators.items():
         registry.register(rule_type, evaluator)
+    registry.register("llm_judge", classifier_module.wrap_judge(evaluators["llm_judge"]))
 
     approval_repository = CacheApprovalRepository(cache)
     budget_repository = CacheBudgetRepository(cache, policy_repository)
@@ -401,6 +418,26 @@ async def build_container(settings: Settings) -> Container:
         feed_broadcaster,
     )
 
+    workbench = build_workbench_module(
+        settings=settings,
+        pipeline=pipeline,
+        identity_service=identity_service,
+        issue_token=issue_token,
+        token_verifier=token_verifier,
+        user_repository=user_repository,
+        tool_call=tool_call,
+        tool_catalog=tool_catalog,
+        audit_service=audit_service,
+        audit_repository=audit_repository,
+        risk_service=risk_service,
+        session_service=session_service,
+        budget_service=budget_service,
+        call_ids=call_ids,
+        policy_repository=policy_repository,
+        classifier_module=classifier_module,
+        model_provider=model_provider,
+    )
+
     return Container(
         settings=settings,
         cache=cache,
@@ -474,6 +511,8 @@ async def build_container(settings: Settings) -> Container:
         health=GetHealthUseCase(),
         attack_runs=attack_runs,
         reset_runtime_state=reset_runtime_state,
+        classifier_module=classifier_module,
+        workbench=workbench,
     )
 
 

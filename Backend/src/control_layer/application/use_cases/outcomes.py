@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from control_layer.domain.models.approval import PendingApproval
 from control_layer.domain.models.budget_usage import BudgetUsage
 from control_layer.domain.models.chat import ChatCompletionResponse
+from control_layer.domain.models.decision import Decision
 from control_layer.domain.models.enums import CallStatus, StageName
 from control_layer.domain.models.identity import Identity, TokenClaims
 from control_layer.domain.models.protection import ProtectionInfo
@@ -39,6 +40,7 @@ class ToolCallOutcome(BaseModel):
     items_restored: int = 0
     result: ToolCallResult | None = None
     approval: PendingApproval | None = None
+    decision: Decision | None = None
 
 
 class MeView(BaseModel):

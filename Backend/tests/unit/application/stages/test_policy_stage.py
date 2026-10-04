@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from control_layer.application.pipeline.stages.policy import PolicyStage
 from control_layer.application.rules.registry import EvaluatorRegistry
+from control_layer.domain.models.classifier import (
+    CLASSIFIER_TRACE_KEY,
+    FORCE_VERIFY_KEY,
+    ClassifierTrace,
+)
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import RuleOutcome
 from control_layer.domain.models.enums import InterceptionPoint, RuleAction, StageName
@@ -121,3 +126,229 @@ async def test_non_injection_matched_rule_does_not_set_injection_flag() -> None:
 
 def test_stage_name_is_policy() -> None:
     assert PolicyStage(EvaluatorRegistry()).name == StageName.policy
+
+
+class _CountingEvaluator:
+    def __init__(self, outcome: RuleOutcome) -> None:
+        self._outcome = outcome
+        self.calls = 0
+
+    async def evaluate(self, rule, ctx, policy):  # noqa: ANN001
+        self.calls += 1
+        return self._outcome
+
+
+_TREE_RULE = {
+    "id": "prompt_injection_tree",
+    "type": "decision_tree",
+    "action": "flag",
+    "escalate_to": "llm_judge",
+}
+_ML_RULE = {
+    "id": "prompt_injection_ml",
+    "type": "ml_classifier",
+    "action": "flag",
+    "escalate_to": "llm_judge",
+}
+_JUDGE_RULE = {"id": "llm_judge", "on": [], "type": "llm_judge", "action": "flag"}
+_SIGNATURE_RULE = {"id": "prompt_injection_signatures", "type": "signatures", "action": "block"}
+
+_SAMPLED_POSITIVE = RuleOutcome(
+    matched=True,
+    confidence=0.95,
+    inconclusive=True,
+    reason="tree positive sampled for judge verification",
+)
+_TREE_BAND = RuleOutcome(matched=False, confidence=0.6, inconclusive=True, reason="unsure")
+_JUDGE_BLOCK = RuleOutcome(matched=True, confidence=1.0, evidence=["judge"], reason="injection")
+_JUDGE_ALLOW = RuleOutcome(matched=False, reason="benign")
+_JUDGE_UNAVAILABLE = RuleOutcome(
+    matched=True, confidence=0.5, inconclusive=True, reason="Judge unavailable"
+)
+
+
+def _registry(**evaluators) -> EvaluatorRegistry:
+    registry = EvaluatorRegistry()
+    for rule_type, evaluator in evaluators.items():
+        registry.register(rule_type, evaluator)
+    return registry
+
+
+def _tree_trace(probability: float = 0.95) -> ClassifierTrace:
+    return ClassifierTrace(
+        rule_id="prompt_injection_tree", probability=probability, band="block", sampled=True
+    )
+
+
+async def test_decision_tree_band_inconclusive_escalates_to_judge() -> None:
+    judge = _CountingEvaluator(_JUDGE_BLOCK)
+    stage = PolicyStage(_registry(decision_tree=_ScriptedEvaluator(_TREE_BAND), llm_judge=judge))
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _JUDGE_RULE]))
+
+    assert judge.calls == 1
+    assert [v.rule_id for v in result.violations] == ["llm_judge"]
+    assert ctx.metadata.get("injection_detected") is True
+
+
+async def test_sampled_tree_positive_with_judge_block_reports_llm_judge_with_evidence() -> None:
+    judge = _CountingEvaluator(_JUDGE_BLOCK)
+    stage = PolicyStage(
+        _registry(decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE), llm_judge=judge)
+    )
+    ctx = _ctx()
+    ctx.metadata[CLASSIFIER_TRACE_KEY] = _tree_trace(0.95)
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _JUDGE_RULE]))
+
+    [violation] = result.violations
+    assert violation.rule_id == "llm_judge"
+    assert violation.evidence == ["judge", "escalated_from:prompt_injection_tree", "tree_p=0.95"]
+    assert result.action == RuleAction.flag
+    assert ctx.metadata["judge_verdict"] == {
+        "verdict": "block",
+        "confidence": 1.0,
+        "reason": "injection",
+    }
+
+
+async def test_sampled_tree_positive_overruled_by_judge_allow_is_not_a_violation() -> None:
+    stage = PolicyStage(
+        _registry(
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=_CountingEvaluator(_JUDGE_ALLOW),
+        )
+    )
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _JUDGE_RULE]))
+
+    assert result.violations == []
+    assert result.action == RuleAction.allow
+    assert "injection_detected" not in ctx.metadata
+    assert ctx.metadata["judge_verdict"] == {
+        "verdict": "allow",
+        "confidence": 1.0,
+        "reason": "benign",
+    }
+
+
+async def test_sampled_tree_positive_with_judge_flag_reports_flag_verdict() -> None:
+    flag = RuleOutcome(matched=True, confidence=0.5, reason="suspicious")
+    stage = PolicyStage(
+        _registry(
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=_CountingEvaluator(flag),
+        )
+    )
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _JUDGE_RULE]))
+
+    assert [v.rule_id for v in result.violations] == ["llm_judge"]
+    assert ctx.metadata["judge_verdict"]["verdict"] == "flag"
+
+
+async def test_sampled_tree_positive_with_judge_unavailable_keeps_fail_safe_flag() -> None:
+    stage = PolicyStage(
+        _registry(
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=_CountingEvaluator(_JUDGE_UNAVAILABLE),
+        )
+    )
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _JUDGE_RULE]))
+
+    assert [v.rule_id for v in result.violations] == ["llm_judge"]
+    assert result.action == RuleAction.flag
+    assert "judge_verdict" not in ctx.metadata
+
+
+async def test_escalation_is_skipped_behind_a_signature_block() -> None:
+    judge = _CountingEvaluator(_JUDGE_ALLOW)
+    stage = PolicyStage(
+        _registry(
+            signatures=_ScriptedEvaluator(RuleOutcome(matched=True, reason="signature")),
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            ml_classifier=_ScriptedEvaluator(_TREE_BAND),
+            llm_judge=judge,
+        )
+    )
+
+    result = await stage.process(
+        _ctx(), _policy([_SIGNATURE_RULE, _TREE_RULE, _ML_RULE, _JUDGE_RULE])
+    )
+
+    assert judge.calls == 0
+    assert result.action == RuleAction.block
+    assert [v.rule_id for v in result.violations] == [
+        "prompt_injection_signatures",
+        "prompt_injection_tree",
+    ]
+
+
+async def test_forced_verification_escalates_even_behind_a_signature_block() -> None:
+    judge = _CountingEvaluator(_JUDGE_BLOCK)
+    stage = PolicyStage(
+        _registry(
+            signatures=_ScriptedEvaluator(RuleOutcome(matched=True, reason="signature")),
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            llm_judge=judge,
+        )
+    )
+    ctx = _ctx()
+    ctx.metadata[FORCE_VERIFY_KEY] = True
+
+    result = await stage.process(ctx, _policy([_SIGNATURE_RULE, _TREE_RULE, _JUDGE_RULE]))
+
+    assert judge.calls == 1
+    assert result.action == RuleAction.block
+    assert [v.rule_id for v in result.violations] == ["prompt_injection_signatures", "llm_judge"]
+    assert ctx.metadata["judge_verdict"]["verdict"] == "block"
+
+
+async def test_judge_is_called_once_for_two_escalating_rules() -> None:
+    judge = _CountingEvaluator(_JUDGE_BLOCK)
+    stage = PolicyStage(
+        _registry(
+            decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE),
+            ml_classifier=_ScriptedEvaluator(_TREE_BAND),
+            llm_judge=judge,
+        )
+    )
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _ML_RULE, _JUDGE_RULE]))
+
+    assert judge.calls == 1
+    [violation] = result.violations
+    assert violation.rule_id == "llm_judge"
+    assert "escalated_from:prompt_injection_tree" in violation.evidence
+    assert "escalated_from:prompt_injection_ml" in violation.evidence
+    assert ctx.metadata["judge_outcomes"] == {"llm_judge": _JUDGE_BLOCK}
+
+
+async def test_sampled_tree_positive_without_target_becomes_forced_flag() -> None:
+    stage = PolicyStage(_registry(decision_tree=_ScriptedEvaluator(_SAMPLED_POSITIVE)))
+    rule = {"id": "prompt_injection_tree", "type": "decision_tree", "action": "block"}
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([rule]))
+
+    assert result.action == RuleAction.flag
+    assert [v.rule_id for v in result.violations] == ["prompt_injection_tree"]
+    assert ctx.metadata.get("injection_detected") is True
+
+
+async def test_conclusive_decision_tree_match_sets_injection_detected() -> None:
+    stage = PolicyStage(
+        _registry(decision_tree=_ScriptedEvaluator(RuleOutcome(matched=True, confidence=0.95)))
+    )
+    ctx = _ctx()
+
+    result = await stage.process(ctx, _policy([_TREE_RULE, _JUDGE_RULE]))
+
+    assert [v.rule_id for v in result.violations] == ["prompt_injection_tree"]
+    assert ctx.metadata.get("injection_detected") is True

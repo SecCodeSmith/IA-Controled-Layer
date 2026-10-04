@@ -26,6 +26,14 @@ def test_defaults_match_contract() -> None:
     assert settings.audit_jsonl == "audit/calls.jsonl"
     expected_ml_path = "src/control_layer/ml/artifacts/prompt_injection_classifier.joblib"
     assert settings.ml_model_path == expected_ml_path
+    assert settings.ml_tree_path == "src/control_layer/ml/artifacts/prompt_injection_tree.joblib"
+    assert settings.ml_dataset_path == ("src/control_layer/ml/dataset/prompt_injection_dataset.csv")
+    assert settings.ml_tree_supplement_path == (
+        "src/control_layer/ml/dataset/benign_operational.csv"
+    )
+    assert settings.training_samples_path == "data/judge_samples.jsonl"
+    assert settings.verify_sample_salt == "dev-salt"
+    assert settings.retrain_min_f1 == 0.85
     assert settings.jwt_secret == "dev-secret-change-me"
     assert settings.admin_token == "admin-dev-token"
     assert settings.cors_origins == "http://localhost:5173"
@@ -57,6 +65,32 @@ def test_paths_resolved_relative_to_backend_dir() -> None:
     assert settings.users_file_path == backend_dir / "config" / "users.yaml"
     assert settings.alerts_xlsx_path == backend_dir / "alerts" / "alerts.xlsx"
     assert settings.audit_jsonl_path == backend_dir / "audit" / "calls.jsonl"
+    ml_dir = backend_dir / "src" / "control_layer" / "ml"
+    assert settings.ml_model_path_resolved == (
+        ml_dir / "artifacts" / "prompt_injection_classifier.joblib"
+    )
+    assert settings.ml_tree_path_resolved == ml_dir / "artifacts" / "prompt_injection_tree.joblib"
+    assert settings.ml_dataset_path_resolved == (
+        ml_dir / "dataset" / "prompt_injection_dataset.csv"
+    )
+    assert settings.ml_tree_supplement_path_resolved == (
+        ml_dir / "dataset" / "benign_operational.csv"
+    )
+    assert settings.training_samples_path_resolved == backend_dir / "data" / "judge_samples.jsonl"
+
+
+def test_classifier_loop_settings_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CTRL_ML_TREE_PATH", "custom/tree.joblib")
+    monkeypatch.setenv("CTRL_TRAINING_SAMPLES_PATH", "custom/samples.jsonl")
+    monkeypatch.setenv("CTRL_VERIFY_SAMPLE_SALT", "pepper")
+    monkeypatch.setenv("CTRL_RETRAIN_MIN_F1", "0.9")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.ml_tree_path == "custom/tree.joblib"
+    assert settings.training_samples_path == "custom/samples.jsonl"
+    assert settings.verify_sample_salt == "pepper"
+    assert settings.retrain_min_f1 == 0.9
 
 
 def test_absolute_path_override_is_not_rebased(tmp_path: Path) -> None:

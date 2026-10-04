@@ -2,9 +2,16 @@ from control_layer.application.evaluators import build_evaluators
 from control_layer.application.evaluators.authorization.model_allowlist import (
     ModelAllowlistEvaluator,
 )
+from control_layer.application.evaluators.authorization.resource_projection import (
+    ResourceProjectionEvaluator,
+)
+from control_layer.application.evaluators.authorization.resource_scope import (
+    ResourceScopeEvaluator,
+)
 from control_layer.application.evaluators.behavior.anomaly import AnomalyEvaluator
 from control_layer.application.evaluators.dependencies import EvaluatorDependencies
 from control_layer.application.evaluators.dlp.canary_token import CanaryTokenEvaluator
+from control_layer.application.evaluators.policy.decision_tree import DecisionTreeEvaluator
 from control_layer.application.evaluators.policy.llm_judge import LlmJudgeEvaluator
 from control_layer.application.evaluators.policy.ml_classifier import MlClassifierEvaluator
 from control_layer.application.evaluators.policy.signatures import SignaturesEvaluator
@@ -33,6 +40,9 @@ EXPECTED_TYPES = {
     "loop_guard",
     "circuit_breaker",
     "anomaly",
+    "decision_tree",
+    "resource_scope",
+    "resource_projection",
 }
 
 
@@ -69,6 +79,16 @@ def test_build_evaluators_wires_dependencies_into_the_right_evaluators() -> None
     assert isinstance(evaluators["signatures"], SignaturesEvaluator)
     assert isinstance(evaluators["ml_classifier"], MlClassifierEvaluator)
     assert isinstance(evaluators["llm_judge"], LlmJudgeEvaluator)
+    assert isinstance(evaluators["decision_tree"], DecisionTreeEvaluator)
+    assert isinstance(evaluators["resource_scope"], ResourceScopeEvaluator)
+    assert isinstance(evaluators["resource_projection"], ResourceProjectionEvaluator)
+
+
+def test_evaluator_dependencies_tree_classifier_and_sampler_are_optional() -> None:
+    deps = _deps()
+
+    assert deps.tree_classifier is None
+    assert deps.sampler is None
 
 
 def test_build_evaluators_returns_fresh_instances_per_call() -> None:

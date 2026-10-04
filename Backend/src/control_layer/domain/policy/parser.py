@@ -12,10 +12,17 @@ from control_layer.domain.models.rule import Rule
 from control_layer.domain.policy.vault import parse_vault_config
 
 _DLP_TYPES = {"detectors", "sequence", "canary_token"}
-_AUTHORIZATION_TYPES = {"rbac", "residency", "model_allowlist"}
+_AUTHORIZATION_TYPES = {
+    "rbac",
+    "residency",
+    "model_allowlist",
+    "resource_scope",
+    "resource_projection",
+}
 _POLICY_TYPES = {
     "signatures",
     "ml_classifier",
+    "decision_tree",
     "llm_judge",
     "restricted_topics",
     "unsafe_output",
@@ -157,6 +164,7 @@ def parse_policy_document(data: dict[str, Any], source_hash: str) -> PolicyDocum
             roles=data.get("roles", {}),
             locations=data.get("locations", {}),
             rules=rules,
+            resources=data.get("resources") or [],
             budgets=data["budgets"],
             loaded_at=datetime.now(UTC),
             source_hash=source_hash,

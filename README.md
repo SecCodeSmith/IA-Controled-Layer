@@ -118,6 +118,7 @@ Ollama endpoint to `http://localhost:8080`). Full steps, limitations and example
 - **[API Contract](WIKI/api-contract.md)** — Endpoints, schemas, authentication
 - **[Gateway](WIKI/gateway.md)** — Ollama / OpenAI-compatible surfaces, API keys, VS Code Copilot setup
 - **[Policy Reference](WIKI/policy-reference.md)** — Policy.yaml syntax, rule types, examples
+- **[Features](WIKI/)** — [Decision-tree feedback loop](WIKI/feature-decision-tree-feedback-loop.md) (sampled judge verification, training set curation, retrain) · [Resource scope](WIKI/feature-resource-scope.md) (path, row, column filtering) · [Workbench](WIKI/feature-workbench.md) (live testing and tracing)
 - **[OWASP Mapping](WIKI/owasp-mapping.md)** — LLM Top 10 2025 + Agentic Top 10 2026 coverage
 
 ## Testing
@@ -207,11 +208,11 @@ Edit `Backend/config/policy.yaml`. Within 1 second:
 
 No restart needed.
 
-### Three-Tier Defense
+### Three-Tier Defense (with Sampled Verification)
 
 1. **Signatures** — Regex patterns (fast, zero false positives)
-2. **ML Classifier** — Scikit-learn TF-IDF (detects subtle attacks, F1 ≥0.85)
-3. **LLM Judge** — Ollama for edge cases (context-aware, 20s timeout → flag)
+2. **ML Models** — Decision tree and logistic regression (F1 ≥0.85); tree positives are randomly sampled for judge verification (20% rate)
+3. **LLM Judge** — Ollama for escalated cases (context-aware, 20s timeout → flag). Judge verdict is final when tree positive is sampled, preventing benign false positives from turning FLAGGED. Judge verdicts feed back as training samples for tree retraining.
 
 ### OWASP Coverage
 

@@ -37,11 +37,11 @@ def _minimal_document(**overrides: object) -> dict:
     return base
 
 
-def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
+def test_parses_sample_policy_file_into_20_rules_with_expected_stages() -> None:
     data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
     document = parse_policy_document(data, source_hash="abc123")
 
-    assert len(document.rules) == 17
+    assert len(document.rules) == 20
     stages_by_id = {rule.id: rule.stage for rule in document.rules}
     assert stages_by_id == {
         "direct_push_to_main": StageName.policy,
@@ -49,12 +49,15 @@ def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
         "pii_masking": StageName.dlp,
         "external_send_after_untrusted_read": StageName.dlp,
         "prompt_injection_signatures": StageName.policy,
+        "prompt_injection_tree": StageName.policy,
         "prompt_injection_ml": StageName.policy,
         "llm_judge": StageName.policy,
         "historical_exploits": StageName.policy,
         "secrets_detection": StageName.dlp,
         "data_residency": StageName.authorization,
         "role_provisioning": StageName.authorization,
+        "resource_scope": StageName.authorization,
+        "resource_projection": StageName.authorization,
         "rate_limit": StageName.behavior,
         "loop_guard": StageName.behavior,
         "circuit_breaker": StageName.authorization,
@@ -67,9 +70,7 @@ def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
 
 
 def test_sample_policy_rules_have_the_intended_on_points_not_all_four() -> None:
-    # Regression guard: an unquoted `on:` key is parsed by PyYAML as the boolean key
-    # `True` (YAML 1.1 on/off/yes/no resolution), which would silently make every rule
-    # fall back to "on: all four points". The sample file quotes the key for this reason.
+    # PyYAML (YAML 1.1) reads an unquoted `on:` key as boolean True, so the sample file quotes it.
     data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
     document = parse_policy_document(data, source_hash="abc123")
     on_by_id = {rule.id: rule.on for rule in document.rules}
@@ -118,10 +119,13 @@ def test_infer_rule_type_falls_back_to_id() -> None:
         ("rbac", {}, StageName.authorization),
         ("residency", {}, StageName.authorization),
         ("model_allowlist", {}, StageName.authorization),
+        ("resource_scope", {}, StageName.authorization),
+        ("resource_projection", {}, StageName.authorization),
         ("tool_match", {"action": "require_approval"}, StageName.authorization),
         ("tool_match", {"action": "block"}, StageName.policy),
         ("signatures", {}, StageName.policy),
         ("ml_classifier", {}, StageName.policy),
+        ("decision_tree", {}, StageName.policy),
         ("llm_judge", {}, StageName.policy),
         ("restricted_topics", {}, StageName.policy),
         ("unsafe_output", {}, StageName.policy),

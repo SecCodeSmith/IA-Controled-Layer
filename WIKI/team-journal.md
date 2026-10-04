@@ -1,0 +1,103 @@
+# Team Journal — AI Control Layer Development Log
+
+**Project:** HackYeah 2026 — AI Control Layer  
+**Deadline:** 2026-10-04 23:00  
+**Last updated:** 2026-10-04 09:15
+
+## Decision Log
+
+### Phase 0 — Architecture & Contracts (2026-10-04 02:15)
+
+| Date | Decision | Why | Owner |
+|------|----------|-----|-------|
+| **2026-10-04 02:15** | **Decision trees run alongside logreg** (tree first), not replacing it | Gives both rule coverage during transition; tree's high false-positive rate (operational verbs) mitigated by sampled judge verification + benign supplement + golden test. Decision cache remains unchanged (same pipeline, no branching). | User (Fable) |
+| **2026-10-04 02:15** | **Judge verdict is final** for sampled tree positives | Prevents tree false positives from turning FLAGGED. Judge block/flag still recorded as violation under `llm_judge`. Judge allow + tree positive → ALLOWED + label-0 sample for future learning. Delivered content never changes. | User (Fable) |
+| **2026-10-04 02:15** | **Row/column projection reported as `Authorization · resource_projection, status MASKED`** | Never silent (user expects masking visibility). Distinct from `pii_masking` (DLP stage). Changes `masked_text` in audit record; no change to delivered content semantics (already applies masks or blocks). | User (Fable) |
+| **2026-10-04 02:15** | **Workbench traces run the real pipeline, audited like normal calls** | Visible in live feed + audit log, counted in stats + risk scoring. Authenticates session with `workbench:<actor>` token; calls are real (not previews), so side effects occur (rate/loop counters move, anomaly markers set). Allows judges to see full context before curation. | User (Fable) |
+
+### Verified Facts (Exploration + Senior Review + Live Probes)
+
+| Fact | Impact | Mitigation |
+|------|--------|-----------|
+| `*.joblib` under `ml/artifacts/` is **gitignored**; built by `bootstrap.ps1`, `train_ml.ps1`, `Dockerfile` | Tests cannot depend on pre-built tree; must train in-session or skip | `tests/conftest.py::make_settings` points artifact paths into temp dirs; worktrees must run pytest with `PYTHONPATH=src` |
+| `prompt_injection_ml` rule defaults to `action: flag` (no `action:` field) | Tree inherits `flag`, so "block band" means FLAGGED (delivered content identical) | Keep delivered content never-silent; reason logged + visible in audit |
+| Tree F1 0.885 on current dataset (depth 12, min-leaf 2) but leaf probs are {0, 0.56, 1}; escalate band almost never fires | Escalate-band verification path nearly dead; must use sampling | Hash sampler with salt (deterministic per `rule\|point\|text`, replicable in tests) for positive sampling at 0.2 rate |
+| Tree false-positives on benign operational verbs (e.g., "Delete the stale branch…" → 1.0) | Would turn positive scenarios FLAGGED | Benign supplement dataset (`ml/dataset/benign_operational.csv`) + golden test ensuring tree scores benign probes < 0.5 |
+| `tests/unit/domain/policy/test_parser.py:36-61` asserts 17 rules and exact id→stage map; `CallKind` set asserted separately | New rules (tree, resource_scope, resource_projection) must be added to assertions | Phase 0 updates: assert 19 rules, 3 new EXPECTED_TYPES (decision_tree, resource_scope, resource_projection), add `CallKind.workbench` |
+| `ProcessingPipeline._build_cache_key` runs before DLP/Policy, uses `anonymous` role + raw text; masked DLP/Policy bundle carries full `masked_text` | User B can read user A's projected rows from cache if both call same tool on overlapping data | **Critical fix:** key computed lazily before first cacheable stage from `post-authorization current_text + resolved_role` (existing tests must stay green) |
+| `glob.translate("src/**")` matches `src/../secrets/x` and `src/.env`; path checks lack normalization | Directory traversal / absolute path bypass possible | `pathlib.PurePosixPath.resolve()` + normalization, reject `..`/absolute/drive, case-folding, deny-wins semantics |
+| `handle_tool_call.py` returns unmasked `structured_content` to structured clients | PII leak for clients parsing JSON directly | When `ctx2.masked_text` is set, re-derive `structured_content = json.loads(masked_text)` if dict, else None |
+| Resource projection runs after role provisioning but before DLP; if DLP then projects again, duplicate filters | Row/column logic tangled with DLP; ordering unclear | Place resource rules **after** role_provisioning; `resource_scope` (tool_call, block) before DLP; `resource_projection` (tool_result, mask) runs between DLP-filtered result and Behavior stage |
+
+### Risk Mitigations
+
+| Risk | Mitigation | Testable By |
+|------|-----------|-----------|
+| Tree false positives turn attack scenarios FLAGGED | Benign supplement dataset + golden test (tree F1 ≥0.85, benign < 0.5) | `tests/unit/ml/test_tree_golden.py` |
+| Judge unavailable → sampling positive loses escalation path | Existing flag fail-safe (tree action: flag); judge timeout → flag | Manager single-flight circuit; judge mock provider always returns; mock curator accepts-all |
+| Retrain overwrites gitignored artifact; bootstrap rebuilds | Not a risk; artifacts are ephemeral | Test conftest seeds a session-trained tree (base + supplement, seed 42) per run |
+| PII reaches `judge_samples.jsonl` | Text truncated to 2000 chars; file gitignored; documented | Text field in `TrainingSample` model enforces 2000-char limit; WIKI warning in Feature docs |
+| Path `glob.translate` false negatives / traversal bypasses | Normalize → `posixpath.normpath`, reject `..`/absolute/drive, case-fold, deny-wins | `tests/unit/application/resources/test_path_scope.py` covers all cases |
+| Cache-key leak: user B sees user A's projected rows | Lazy key computation from post-auth text + resolved role | `tests/unit/application/test_pipeline_cache_key.py` asserts different keys for different roles + projected text, same key for repeated calls |
+
+---
+
+## Hand-off Notes (From Streams)
+
+| Stream | Branch | Commit | Tests | Notes | Deviations |
+|--------|--------|--------|-------|-------|-----------|
+| **Phase 0** | `feat--mentor-advice` | d85e0302 | 992 passed, ruff clean | Shared contracts: domain models, protocols, parser, schemas, evaluator stubs. Decision-tree type, 20 rules (17+3 new), `CallKind.workbench`. | — |
+| **W1a** (tree evaluator) | `worktree-af98127` → merged | b0b543c | 1053 passed, 8 skipped, 6 pre-existing failures | Decision-tree evaluator, sampled verification (20% HashSampler), feedback recording, switchable classifier. | 4 attack-suite failures from W2 base (resource scope gaps). |
+| **W1b** (classifier API) | `worktree-a817602` → merged | 39eb3aa | 1165 passed (incl. 4 failures from W2 base), 9 skipped | Judge-curated training set, LLM curator, retrain job with F1 ≥0.85 gate, hot-swap, `/api/classifier` with SSE. | Frontend/backend SampleListResponse mismatch (items vs samples). |
+| **W2a** (resource scope) | `worktree-a52fc8714` → merged | — | 10 integration passed; 30/30 attack suite pass after data fix | Resource scope/projection, cache-key lazy computation, structured_content fix. | Data fix needed: demo/mcp/data.py `src/app.py` decorators cause false email match. |
+| **W2b** (workbench API) | `worktree-aaecfc2b` → merged | — | integration skipped (pending W2a) | `/api/workbench/trace` (prompt, tool_call), resource matrix, actor identity via token. | `model_provider` not passed to workbench builder (recommended one-line fix). |
+| **W3** (frontend) | `worktree-a45a3af3` → merged | 9fa6ab8 | 57 passed, npm build/lint clean | Workbench page, Decision/Judge cards, Training/Retrain panels, Resource Matrix & Simulator, SSE hooks. | `SampleListResponse.items` ←→ `.samples` type mismatch with Phase 0 contract. |
+| **J1** (ML + scripts) | `feat--mentor-advice` | — | 51 unit (ML), tree F1 0.919 | Tree classifier (depth 12, balanced), benign supplement (175 rows), train_with_feedback (holdout-only F1), CLI `--extra`, meta.json, HashSampler, JsonlRepository, scripts with PYTHONPATH=src. | `datetime.utcnow()` DeprecationWarning (use UTC). |
+| **J2** (demo + scenarios) | `feat--mentor-advice` | — | 7 catalogue passed, 2 read_file tool tests | GitHub `read_file` tool, GITHUB_FILES (web-app: README.md, src/app.py, .env, secrets/deploy.pem), HR region/salary fields. 27 scenarios (6 pos, 21 neg). | Data fix: src/app.py decorators block `dev_reads_allowed_repo_file` (pii_masking false match). |
+
+### Lead integration notes
+
+**Comment-sweep workflow:** Reviewer caught that FastMCP tool docstrings in `demo/mcp/*` are tool descriptions (exposed by FastMCP), not implementation comments—these must stay.
+
+**JSON-escaped false email match:** Demo fixture `demo/mcp/data.py::GITHUB_FILES[web-app][src/app.py]` contained `@app.get(...)` decorators; when tool result is JSON-escaped, the text contains `\n@app.get`, and DLP email detector reads `n@app.get` as an email. Fix: replace decorators with `app.add_api_route(...)` calls (patch applied by W2a, all 30 attack-suite tests pass).
+
+**Broken-commit lesson:** the shell layer used by the lead's Bash tool rewrites backslash escapes inside quoted heredocs, so an inline Python edit turned `\n` into real newlines and a syntactically broken `demo/mcp/data.py` was committed (53b3f64, fixed in 2359d4b). Edits that contain escape sequences go through a script file in the scratchpad or the Edit tool, verified with `py_compile` before committing.
+
+**Tool-call traces:** Pipeline returns two passes per tool call: `tool_call` (first pass, decision before execution) and `tool_result` (second pass, decision on the result). Both are included in `stages` array, each tagged with `point` field. Trace query returns the combined decision (`tool_result` if it short-circuited, else merged action).
+
+**Force-verify overrides the latency guard:** the Policy stage skips judge escalation when another rule in the stage already blocked (no 20 s Ollama call behind a signature hit). The Workbench "force judge" flag (`FORCE_VERIFY_KEY`) now overrides that skip so the judge verdict and the recorded sample can be demonstrated on a classic injection (commit b9c8ae9).
+
+**Published meta timestamp:** the tree trainer wrote `trained_at` as `...+00:00Z` after the timezone fix; `ClassifierInfo` could not parse it and `describe()` fell back to version 0, which the retrain integration test caught. The sidecar now uses the same `%Y-%m-%dT%H:%M:%S.%fZ` format as the CLI (commit ee7252d).
+
+---
+
+## Key Files & Ownership (Phase 0 → Phase 4)
+
+| File | Owner | Frozen After | Notes |
+|------|-------|----------|--------|
+| `Backend/config/policy.yaml` | Fable (all phases) | Phase 0 | Shared contract: all rules, resource scopes, hot-reload validation |
+| `Backend/src/control_layer/domain/models/{classifier,training_sample,resource}.py` | Fable + Opus (review) | Phase 0 | Domain contracts, no changes post-Phase 0 |
+| `Backend/src/control_layer/application/evaluators/__init__.py` | Fable + Opus (phase 0) | Phase 0 | build_evaluators factory, all evaluators wired |
+| `Backend/src/control_layer/presentation/wiring/composition_root.py` | Fable + Opus (phase 0) | Phase 0 | Dependency injection, module wiring |
+| `tests/conftest.py` | Fable (phase 0) | Phase 0 | Settings, fixtures, artifact paths |
+| W1 files (F1 classifier, retrain, API) | Opus | Phase 2 | Classifier module, decision_tree evaluator, curation service, retrain job manager |
+| W2 files (F2 resource, pipeline, Workbench API) | Sonnet | Phase 3 | Resource models, evaluators, cache-key fix, projection, API routes |
+| W3 files (F3 frontend) | Sonnet | Phase 4 | Workbench page, cards, hooks, handlers |
+| J1 files (ML, adapters, scripts) | Haiku | Phase 2 | Train.py updates, sampler, trainer, JSONL repo, bootstrap/train_ml scripts |
+| J2 files (demo data, scenarios) | Haiku | Phase 2 | MCP fixtures, scenario bodies, test catalogue |
+
+---
+
+## Checkpoints & Sign-Offs
+
+- **~04:15** Phase 0 contracts complete (Fable lead reviews)
+- **~07:15** J1 + J2 complete, merged to main; full suite green
+- **~10:00** W2 complete + tested (Fable verifies)
+- **~11:00** W1 complete + retrain verified (Fable verifies, attack suite green)
+- **~11:30** W3 complete + frontend tests pass (Fable verifies)
+- **~14:00** All streams merged; full suite + attack suite 27/27 green; docs complete
+- **~23:00** Deadline submission
+
+---
+
+**See also:** [CLAUDE.md](../CLAUDE.md) (dev guide) · [Architecture](architecture.md) · [Policy Reference](policy-reference.md)

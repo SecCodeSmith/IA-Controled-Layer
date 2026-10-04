@@ -17,7 +17,7 @@ Set-Location $root
 Write-Host "=== AI Control Layer ML Training ===" -ForegroundColor Cyan
 
 Push-Location Backend
-Write-Host "Training prompt injection classifier..." -ForegroundColor Yellow
+Write-Host "Training logistic regression classifier..." -ForegroundColor Yellow
 
 $cmd = @(
     "python", "-m", "control_layer.ml.train",
@@ -34,10 +34,34 @@ if ($Args.Count -gt 0) {
 
 & $cmd[0] $cmd[1..($cmd.Length-1)]
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "✗ Training failed" -ForegroundColor Red
+    Write-Host "✗ Logistic regression training failed" -ForegroundColor Red
     Pop-Location
     exit $LASTEXITCODE
 }
 
-Write-Host "✓ Training complete" -ForegroundColor Green
+Write-Host "✓ Logistic regression training complete" -ForegroundColor Green
+
+Write-Host "Training decision tree classifier with benign supplement..." -ForegroundColor Yellow
+
+$cmd = @(
+    "python", "-m", "control_layer.ml.train",
+    "--dataset", "src/control_layer/ml/dataset/prompt_injection_dataset.csv",
+    "--extra", "src/control_layer/ml/dataset/benign_operational.csv",
+    "--out", "src/control_layer/ml/artifacts/prompt_injection_tree.joblib",
+    "--model", "tree"
+)
+
+# Add any additional arguments
+if ($Args.Count -gt 0) {
+    $cmd += $Args
+}
+
+& $cmd[0] $cmd[1..($cmd.Length-1)]
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "✗ Decision tree training failed" -ForegroundColor Red
+    Pop-Location
+    exit $LASTEXITCODE
+}
+
+Write-Host "✓ Decision tree training complete" -ForegroundColor Green
 Pop-Location

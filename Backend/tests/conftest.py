@@ -109,6 +109,8 @@ def make_settings(
         users_file=str(CONFIG_DIR / "users.yaml"),
         alerts_xlsx=str(workdir / "alerts.xlsx"),
         audit_jsonl=str(workdir / "calls.jsonl"),
+        ml_tree_path=str(workdir / "prompt_injection_tree.joblib"),
+        training_samples_path=str(workdir / "judge_samples.jsonl"),
     )
     return settings, policy_path
 
