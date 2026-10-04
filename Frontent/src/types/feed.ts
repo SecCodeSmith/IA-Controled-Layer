@@ -6,7 +6,7 @@ export interface FeedUser {
   role: string
 }
 
-export type CallKind = 'tool_call' | 'chat'
+export type CallKind = 'tool_call' | 'chat' | 'workbench'
 
 export interface FeedRow {
   call_id: string

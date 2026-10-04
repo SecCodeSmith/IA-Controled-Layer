@@ -12,6 +12,7 @@ from control_layer.presentation.api.routers import (
     admin_alerts,
     admin_attack_suite,
     admin_audit,
+    admin_classifier,
     admin_demo,
     admin_feed,
     admin_logs,
@@ -21,6 +22,7 @@ from control_layer.presentation.api.routers import (
     admin_protection,
     admin_reports,
     admin_stats,
+    admin_workbench,
     approvals,
     auth,
     chat,
@@ -53,6 +55,8 @@ _ROUTERS = (
     admin_reports,
     admin_attack_suite,
     admin_demo,
+    admin_classifier,
+    admin_workbench,
 )
 
 

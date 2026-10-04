@@ -10,9 +10,11 @@ import { AuditLog } from './pages/AuditLog'
 import { CallDetail } from './pages/CallDetail'
 import { Policy } from './pages/Policy'
 import { Reports } from './pages/Reports'
+import { Workbench } from './pages/Workbench'
+import { shouldRetryQuery } from './lib/retryPolicy'
 import './index.css'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetryQuery } } })
 
 const router = createBrowserRouter([
   { path: '/', element: <SignIn /> },
@@ -22,6 +24,7 @@ const router = createBrowserRouter([
   { path: '/admin/audit/:callId', element: <CallDetail /> },
   { path: '/admin/policy', element: <Policy /> },
   { path: '/admin/reports', element: <Reports /> },
+  { path: '/admin/workbench', element: <Workbench /> },
 ])
 
 async function enableMocking(): Promise<void> {

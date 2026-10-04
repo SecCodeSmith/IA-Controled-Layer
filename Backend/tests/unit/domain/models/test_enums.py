@@ -92,4 +92,4 @@ def test_severity_members() -> None:
 
 
 def test_call_kind_members() -> None:
-    assert {member.value for member in CallKind} == {"chat", "tool_call"}
+    assert {member.value for member in CallKind} == {"chat", "tool_call", "workbench"}

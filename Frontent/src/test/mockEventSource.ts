@@ -6,6 +6,7 @@ export class MockEventSource {
   url: string
   onopen: (() => void) | null = null
   onerror: (() => void) | null = null
+  closed = false
   private listeners: Record<string, Listener[]> = {}
 
   constructor(url: string) {
@@ -22,7 +23,7 @@ export class MockEventSource {
   }
 
   close(): void {
-    // no-op: nothing to release in the mock
+    this.closed = true
   }
 
   emit(type: string, data: unknown): void {

@@ -73,4 +73,26 @@ describe('LiveFeed', () => {
     renderWithProviders(<LiveFeed />, { route: '/admin' })
     expect(await screen.findByTestId('added-delay-kpi')).toHaveTextContent('Added delay p50 4.1 ms · p95 9.8 ms')
   })
+
+  it('renders a row with kind workbench', async () => {
+    renderWithProviders(<LiveFeed />, { route: '/admin' })
+    await screen.findByText('ci.get_run')
+
+    act(() => {
+      MockEventSource.latest()?.emit('feed', {
+        call_id: 'c_000998',
+        time: '2026-10-03T10:51:00Z',
+        user: { sub: 'anna.kowalska', name: 'Anna Kowalska', role: 'developer' },
+        kind: 'workbench',
+        target: 'workbench:prompt',
+        status: 'FLAGGED',
+        stage: 'policy',
+        rule_id: 'llm_judge',
+        reason: 'Judge confirmed prompt injection',
+      })
+    })
+
+    const row = (await screen.findByText('workbench:prompt')).closest('tr') as HTMLElement
+    expect(within(row).getByText('FLAGGED')).toBeInTheDocument()
+  })
 })

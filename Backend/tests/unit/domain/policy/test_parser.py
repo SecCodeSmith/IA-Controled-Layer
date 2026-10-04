@@ -7,6 +7,7 @@ import yaml
 
 from control_layer.domain.exceptions import PolicyValidationError
 from control_layer.domain.models.enums import InterceptionPoint, RuleAction, StageName
+from control_layer.domain.models.resource import ResourceConfig
 from control_layer.domain.policy.parser import infer_rule_type, infer_stage, parse_policy_document
 
 _CONFIG_PATH = Path(__file__).resolve().parents[4] / "config" / "policy.yaml"
@@ -33,11 +34,11 @@ def _minimal_document(**overrides: object) -> dict:
     return base
 
 
-def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
+def test_parses_sample_policy_file_into_20_rules_with_expected_stages() -> None:
     data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
     document = parse_policy_document(data, source_hash="abc123")
 
-    assert len(document.rules) == 17
+    assert len(document.rules) == 20
     stages_by_id = {rule.id: rule.stage for rule in document.rules}
     assert stages_by_id == {
         "direct_push_to_main": StageName.policy,
@@ -45,12 +46,15 @@ def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
         "pii_masking": StageName.dlp,
         "external_send_after_untrusted_read": StageName.dlp,
         "prompt_injection_signatures": StageName.policy,
+        "prompt_injection_tree": StageName.policy,
         "prompt_injection_ml": StageName.policy,
         "llm_judge": StageName.policy,
         "historical_exploits": StageName.policy,
         "secrets_detection": StageName.dlp,
         "data_residency": StageName.authorization,
         "role_provisioning": StageName.authorization,
+        "resource_scope": StageName.authorization,
+        "resource_projection": StageName.authorization,
         "rate_limit": StageName.behavior,
         "loop_guard": StageName.behavior,
         "circuit_breaker": StageName.authorization,
@@ -63,9 +67,7 @@ def test_parses_sample_policy_file_into_17_rules_with_expected_stages() -> None:
 
 
 def test_sample_policy_rules_have_the_intended_on_points_not_all_four() -> None:
-    # Regression guard: an unquoted `on:` key is parsed by PyYAML as the boolean key
-    # `True` (YAML 1.1 on/off/yes/no resolution), which would silently make every rule
-    # fall back to "on: all four points". The sample file quotes the key for this reason.
+    # PyYAML (YAML 1.1) reads an unquoted `on:` key as boolean True, so the sample file quotes it.
     data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
     document = parse_policy_document(data, source_hash="abc123")
     on_by_id = {rule.id: rule.on for rule in document.rules}
@@ -106,10 +108,13 @@ def test_infer_rule_type_falls_back_to_id() -> None:
         ("rbac", {}, StageName.authorization),
         ("residency", {}, StageName.authorization),
         ("model_allowlist", {}, StageName.authorization),
+        ("resource_scope", {}, StageName.authorization),
+        ("resource_projection", {}, StageName.authorization),
         ("tool_match", {"action": "require_approval"}, StageName.authorization),
         ("tool_match", {"action": "block"}, StageName.policy),
         ("signatures", {}, StageName.policy),
         ("ml_classifier", {}, StageName.policy),
+        ("decision_tree", {}, StageName.policy),
         ("llm_judge", {}, StageName.policy),
         ("restricted_topics", {}, StageName.policy),
         ("unsafe_output", {}, StageName.policy),
@@ -225,3 +230,101 @@ def test_bare_and_quoted_on_key_in_yaml_text_are_honoured(key: str) -> None:
     )
     document = parse_policy_document(yaml.safe_load(text), source_hash="h")
     assert document.rules[0].on == [InterceptionPoint.response]
+
+
+def test_sample_policy_tree_rule_precedes_logreg_rule_and_resource_rules_follow_rbac() -> None:
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    ids = [rule.id for rule in parse_policy_document(data, source_hash="h").rules]
+
+    assert ids.index("prompt_injection_tree") + 1 == ids.index("prompt_injection_ml")
+    assert ids.index("role_provisioning") + 1 == ids.index("resource_scope")
+    assert ids.index("resource_scope") + 1 == ids.index("resource_projection")
+
+
+def test_sample_policy_tree_rule_params_and_resource_rule_actions() -> None:
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    rules = {rule.id: rule for rule in parse_policy_document(data, source_hash="h").rules}
+
+    tree = rules["prompt_injection_tree"]
+    assert tree.type == "decision_tree"
+    assert tree.action == RuleAction.flag
+    assert tree.params == {
+        "block_at": 0.85,
+        "escalate_at": 0.5,
+        "verify_sample_rate": 0.2,
+        "escalate_to": "llm_judge",
+    }
+    assert rules["resource_scope"].action == RuleAction.block
+    assert rules["resource_scope"].on == [InterceptionPoint.tool_call]
+    assert rules["resource_projection"].action == RuleAction.mask
+    assert rules["resource_projection"].on == [InterceptionPoint.tool_result]
+
+
+def test_sample_policy_resources_are_parsed() -> None:
+    data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
+    resources = {r.id: r for r in parse_policy_document(data, source_hash="h").resources}
+
+    assert set(resources) == {"github_repo_files", "hr_directory_rows", "hr_employee_record"}
+    files = resources["github_repo_files"]
+    assert (files.server, files.tools, files.path_argument) == ("github", ["read_file"], "path")
+    assert files.roles["developer"].paths.deny == ["**/.env", "secrets/**", "**/*.pem"]
+    rows = resources["hr_directory_rows"]
+    assert (rows.server, rows.tools, rows.records) == ("hr-db", ["query"], "rows")
+    assert rows.roles["hr"].columns.deny == ["salary"]
+    assert rows.roles["hr"].rows == {"region": "$identity.region"}
+    assert resources["hr_employee_record"].records is None
+
+
+def test_resources_default_to_empty_list() -> None:
+    document = parse_policy_document(_minimal_document(), source_hash="h")
+
+    assert document.resources == []
+
+
+def test_empty_resources_section_is_treated_as_empty_list() -> None:
+    document = parse_policy_document(_minimal_document(resources=None), source_hash="h")
+
+    assert document.resources == []
+
+
+def test_resources_parsed_into_resource_config() -> None:
+    data = _minimal_document(
+        resources=[
+            {
+                "id": "files",
+                "server": "github",
+                "tools": ["read_file"],
+                "path_argument": "path",
+                "roles": {"*": {"paths": {"allow": ["README.md"]}}},
+            }
+        ]
+    )
+
+    document = parse_policy_document(data, source_hash="h")
+
+    assert isinstance(document.resources[0], ResourceConfig)
+    assert document.resources[0].roles["*"].paths.allow == ["README.md"]
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        {"server": "github"},
+        {"id": "r", "server": "github", "roles": {"ceo": {}}},
+        {"id": "r", "server": "github", "roles": {"hr": {"paths": "src/**"}}},
+        {"id": "r", "server": "github", "unknown_key": True},
+    ],
+    ids=["missing-id", "unknown-role", "malformed-grant", "unknown-key"],
+)
+def test_invalid_resources_raise_policy_validation_error(resource: dict) -> None:
+    with pytest.raises(PolicyValidationError):
+        parse_policy_document(_minimal_document(resources=[resource]), source_hash="h")
+
+
+def test_duplicate_resource_ids_raise_policy_validation_error() -> None:
+    data = _minimal_document(
+        resources=[{"id": "dup", "server": "github"}, {"id": "dup", "server": "hr-db"}]
+    )
+
+    with pytest.raises(PolicyValidationError, match="dup"):
+        parse_policy_document(data, source_hash="h")
