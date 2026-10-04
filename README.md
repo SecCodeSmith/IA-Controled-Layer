@@ -2,6 +2,8 @@
 
 **A policy-enforcing proxy gateway for AI agents**—governance at every interception point, hybrid threat detection (rules + ML + LLM judge), real-time audit, and hot-reloadable policy.
 
+> **Judges: start here** — [Judges Basics](WIKI/judges-basics.md) (5-minute plain-language explanation) · [Judges Quickstart](WIKI/judges-quickstart.md) (10-minute hands-on guide) · [Demo Script](WIKI/demo-script.md) (6-minute walkthrough) · [Screenshots](#screenshots)
+
 ## The Problem
 
 AI agents are powerful but dangerous. They make unsupervised tool calls, leak sensitive data, fall victim to prompt injection, and exceed budgets. Traditional API gateways don't understand LLM semantics. **You need a smart proxy that speaks the language of agents.**
@@ -31,6 +33,34 @@ Every call flows through all stages in order. Stages can short-circuit (return e
 | **Behavior** | Rate limit (60/min), loop guard (5 identical), circuit breaker (5 blocks → quarantine), risk scoring → 429/403 or quarantine |
 | **Resource** | Per-user token budgets (10k/day), cost limits ($1/day), max tokens/request (2k), upstream timeout (30s) → 403 if exceeded |
 | **Audit** | Call logging (JSONL), alerting (Excel + SSE), per-stage timing, raw vs delivered response → always |
+
+## Screenshots
+
+**Employee chat** — Anna (Developer, Kraków) asks about failed login tests. `ci.get_run` is **ALLOWED**, `hr-db.find_approver` is **BLOCKED** by `role_provisioning`, and the agent explains why. A later destructive `github.delete_branch` is **FLAGGED** on first use.
+
+![Employee chat with allowed, blocked and flagged tool calls](presentation/screenshots/03-chat-conversation.png)
+
+**Approval gate** — destructive actions pause the agent until the employee approves or rejects (`destructive_requires_approval`).
+
+![Approval required dialog for github.delete_branch](presentation/screenshots/02-chat-approval.png)
+
+**Admin live feed + attack suite** — real-time SSE feed with per-call verdicts, protection mode switch (Enforce / Monitor / Off), model selector, and the self-testing attack suite running against the live pipeline.
+
+![Admin live feed with attack suite results](presentation/screenshots/04-admin-feed-attack-suite.png)
+
+**Audit log** — every call with user, role, target, status, matched rule and proxy latency; exportable as CSV, JSONL or XLSX.
+
+![Audit log with blocked, masked and escalated calls](presentation/screenshots/05-audit-log.png)
+
+**Call detail** — per-stage timing across all seven stages, the matched policy rule, and the raw response (admin only) next to what the agent actually received.
+
+![Call detail with per-stage timing and before/after masking](presentation/screenshots/06-call-detail.png)
+
+**Active policy** — the hot-reloaded `policy.yaml` as the control layer sees it, with version, protection mode and load status.
+
+![Active policy page](presentation/screenshots/07-policy.png)
+
+More screenshots (protection modes, model allowlist warning, rule overrides, log clearing) are in [presentation/screenshots/](presentation/screenshots/).
 
 ## Quickstart
 
