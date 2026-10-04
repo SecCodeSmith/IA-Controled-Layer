@@ -201,29 +201,14 @@ GITHUB_FILES: dict[str, dict[str, str]] = {
     "web-app": {
         "README.md": GITHUB_README_WEB_APP,
         "src/app.py": (
-            "from fastapi import FastAPI
-
-"
-            "app = FastAPI()
-
-
-"
-            "def read_root():
-"
-            "    return {'message': 'Hello World'}
-
-
-"
-            "def health_check():
-"
-            "    return {'status': 'ok'}
-
-
-"
-            "app.add_api_route('/', read_root)
-"
-            "app.add_api_route('/health', health_check)
-"
+            "from fastapi import FastAPI\n\n"
+            "app = FastAPI()\n\n\n"
+            "def read_root():\n"
+            "    return {'message': 'Hello World'}\n\n\n"
+            "def health_check():\n"
+            "    return {'status': 'ok'}\n\n\n"
+            "app.add_api_route('/', read_root)\n"
+            "app.add_api_route('/health', health_check)\n"
         ),
         "docs/runbook.md": (
             "# web-app Operations Runbook\n\n"
