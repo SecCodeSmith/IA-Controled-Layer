@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { AuditLog } from './AuditLog'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -29,5 +30,21 @@ describe('AuditLog', () => {
     expect(within(screen.getByText(third.target).closest('tr') as HTMLElement).getByText('+20 ms')).toBeInTheDocument()
     const empty = within(screen.getByText(second.target).closest('tr') as HTMLElement).getByText('–')
     expect(empty).not.toHaveAttribute('title')
+  })
+
+  it('offers workbench as a kind filter and sends it to the API', async () => {
+    const user = userEvent.setup()
+    const kinds: Array<string | null> = []
+    server.use(
+      http.get(`${CONTROL_LAYER_URL}/api/audit`, ({ request }) => {
+        kinds.push(new URL(request.url).searchParams.get('kind'))
+        return HttpResponse.json({ items: [] })
+      }),
+    )
+    renderWithProviders(<AuditLog />, { route: '/admin/audit' })
+
+    await user.selectOptions(await screen.findByLabelText('Kind'), 'workbench')
+
+    await waitFor(() => expect(kinds).toContain('workbench'))
   })
 })

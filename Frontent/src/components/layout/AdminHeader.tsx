@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/admin', label: 'Live feed', end: true },
   { to: '/admin/audit', label: 'Audit log', end: false },
   { to: '/admin/policy', label: 'Policy', end: false },
+  { to: '/admin/workbench', label: 'Workbench', end: false },
   { to: '/admin/reports', label: 'Reports', end: false },
 ]
 

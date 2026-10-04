@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { CONTROL_LAYER_URL, AGENT_URL, ADMIN_TOKEN } from '../api/client'
 import { decodeMockToken, encodeMockToken } from './mockAuth'
+import { workbenchHandlers } from './workbenchHandlers'
 import {
   DEMO_USERS,
   toolsForServers,
@@ -176,6 +177,7 @@ function buildAgentChatResponse(sessionId: string, message: string): AgentChatRe
 }
 
 export const handlers = [
+  ...workbenchHandlers,
   http.get(`${CONTROL_LAYER_URL}/auth/users`, () => HttpResponse.json({ users: DEMO_USERS })),
 
   http.post(`${CONTROL_LAYER_URL}/auth/token`, async ({ request }) => {
