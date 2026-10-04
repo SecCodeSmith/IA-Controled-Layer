@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from control_layer.application.use_cases.admin.workbench_views import TraceInput
 from control_layer.presentation.api.dependencies import AdminDeps, ContainerDep
 from control_layer.presentation.api.schemas.workbench import (
     ResourceMatrixResponse,
@@ -21,9 +22,11 @@ async def workbench_info() -> dict[str, str | list[str]]:
 
 @router.post("/trace", response_model=TraceResponse)
 async def trace(request: TraceRequest, container: ContainerDep) -> TraceResponse:
-    return await container.workbench.trace.execute(request)
+    view = await container.workbench.trace.execute(TraceInput.model_validate(request.model_dump()))
+    return TraceResponse.model_validate(view.model_dump())
 
 
 @router.get("/resources", response_model=ResourceMatrixResponse)
 async def resources(container: ContainerDep) -> ResourceMatrixResponse:
-    return await container.workbench.matrix.execute()
+    view = await container.workbench.matrix.execute()
+    return ResourceMatrixResponse.model_validate(view.model_dump())

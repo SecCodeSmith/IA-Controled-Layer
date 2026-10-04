@@ -11,6 +11,13 @@ from control_layer.application.services.audit_service import AuditService
 from control_layer.application.services.call_id_generator import CallIdGenerator
 from control_layer.application.services.risk_service import RiskService
 from control_layer.application.services.session_service import SessionService
+from control_layer.application.use_cases.admin.workbench_views import (
+    JudgeView,
+    StageView,
+    TraceInput,
+    TraceView,
+    ViolationView,
+)
 from control_layer.application.use_cases.issue_token import IssueTokenUseCase
 from control_layer.application.use_cases.outcomes import ToolCallOutcome
 from control_layer.domain.exceptions import ControlLayerError
@@ -31,13 +38,6 @@ from control_layer.domain.models.enums import (
 from control_layer.domain.models.provider import ProviderInfo
 from control_layer.domain.models.tool import ToolCallRequest
 from control_layer.domain.ports.audit_repository import AuditRepository
-from control_layer.presentation.api.schemas.workbench import (
-    JudgeView,
-    StageView,
-    TraceRequest,
-    TraceResponse,
-    ViolationView,
-)
 
 SESSION_PREFIX = "workbench:"
 PROMPT_TARGET = "workbench:prompt"
@@ -176,16 +176,14 @@ class WorkbenchTraceUseCase:
         self._model_provider = model_provider
         self._record_builder = CallRecordBuilder()
 
-    async def execute(self, request: TraceRequest) -> TraceResponse:
+    async def execute(self, request: TraceInput) -> TraceView:
         token = (await self._issue_token.execute(request.actor)).access_token
         session_id = f"{SESSION_PREFIX}{request.actor}"
         if request.kind == "prompt":
             return await self._trace_prompt(request, token, session_id)
         return await self._trace_tool_call(request, token, session_id)
 
-    async def _trace_prompt(
-        self, request: TraceRequest, token: str, session_id: str
-    ) -> TraceResponse:
+    async def _trace_prompt(self, request: TraceInput, token: str, session_id: str) -> TraceView:
         start = time.perf_counter()
         text = request.text or ""
         call_id = await self._call_ids.next()
@@ -242,9 +240,7 @@ class WorkbenchTraceUseCase:
         await self._risk_service.record(identity, decision)
         await self._audit_service.record(record, decision)
 
-    async def _trace_tool_call(
-        self, request: TraceRequest, token: str, session_id: str
-    ) -> TraceResponse:
+    async def _trace_tool_call(self, request: TraceInput, token: str, session_id: str) -> TraceView:
         spec = request.tool_call
         assert spec is not None
         call = ToolCallRequest(
@@ -258,7 +254,7 @@ class WorkbenchTraceUseCase:
             return await self._tool_response(error.call_id, _verdict_from_error(error))
         return await self._tool_response(outcome.call_id, _verdict_from_outcome(outcome))
 
-    async def _tool_response(self, call_id: str, verdict: _Verdict) -> TraceResponse:
+    async def _tool_response(self, call_id: str, verdict: _Verdict) -> TraceView:
         record = await self._audit_repository.get(call_id)
         raw, delivered = (
             (record.response.raw, record.response.delivered) if record is not None else (None, None)
@@ -276,8 +272,8 @@ class WorkbenchTraceUseCase:
         return JudgeView.model_validate(payload) if payload else None
 
     @staticmethod
-    def _response(call_id: str, kind: str, verdict: _Verdict, **extra: Any) -> TraceResponse:
-        return TraceResponse(
+    def _response(call_id: str, kind: str, verdict: _Verdict, **extra: Any) -> TraceView:
+        return TraceView(
             call_id=call_id,
             kind=kind,
             status=verdict.status,

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from control_layer.application.services.tool_catalog import ToolCatalog
+from control_layer.application.use_cases.admin.workbench_views import (
+    ResourceMatrixView,
+    ResourceView,
+)
 from control_layer.domain.models.enums import Role
 from control_layer.domain.models.identity import Identity
 from control_layer.domain.models.resource import WILDCARD_ROLE, ResourceConfig
 from control_layer.domain.ports.policy_repository import PolicyRepository
-from control_layer.presentation.api.schemas.workbench import (
-    ResourceMatrixResponse,
-    ResourceView,
-)
 
 _INVENTORY_IDENTITY = Identity(
     sub="workbench-inventory",
@@ -25,10 +25,10 @@ class ResourceMatrixUseCase:
         self._policy_repository = policy_repository
         self._tool_catalog = tool_catalog
 
-    async def execute(self) -> ResourceMatrixResponse:
+    async def execute(self) -> ResourceMatrixView:
         policy = await self._policy_repository.current()
         tools_by_server = await self._tool_names_by_server()
-        return ResourceMatrixResponse(
+        return ResourceMatrixView(
             roles=[role.value for role in Role] + [WILDCARD_ROLE],
             resources=[self._view(resource, tools_by_server) for resource in policy.resources],
         )
