@@ -67,9 +67,7 @@ def test_parses_sample_policy_file_into_20_rules_with_expected_stages() -> None:
 
 
 def test_sample_policy_rules_have_the_intended_on_points_not_all_four() -> None:
-    # Regression guard: an unquoted `on:` key is parsed by PyYAML as the boolean key
-    # `True` (YAML 1.1 on/off/yes/no resolution), which would silently make every rule
-    # fall back to "on: all four points". The sample file quotes the key for this reason.
+    # PyYAML (YAML 1.1) reads an unquoted `on:` key as boolean True, so the sample file quotes it.
     data = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8"))
     document = parse_policy_document(data, source_hash="abc123")
     on_by_id = {rule.id: rule.on for rule in document.rules}

@@ -11,10 +11,6 @@ for the full list of which record is which.
 
 from __future__ import annotations
 
-# --------------------------------------------------------------------------
-# github
-# --------------------------------------------------------------------------
-
 GITHUB_REPOS = ["web-app", "vendor-sdk", "internal-tools"]
 
 GITHUB_BRANCHES: dict[str, list[str]] = {
@@ -55,10 +51,6 @@ GITHUB_README_DEFAULT = (
     "# {repo}\n\nNo detailed README is available for this repository yet.\n"
 )
 
-# --------------------------------------------------------------------------
-# ci
-# --------------------------------------------------------------------------
-
 CI_PIPELINES = ["e2e-login", "e2e-checkout", "nightly-build", "deploy-staging"]
 
 CI_RUNS: dict[tuple[str, str], dict[str, object]] = {
@@ -85,10 +77,6 @@ CI_DEFAULT_STATUS = "passed"
 CI_DEFAULT_DURATION_S = 150
 CI_DEFAULT_REASON = "all checks passed"
 
-# --------------------------------------------------------------------------
-# logs-db
-# --------------------------------------------------------------------------
-
 # Attack-bearing fixture: three error lines carrying three real-looking
 # email addresses, used by the DLP masking demo (pii_masking rule).
 LOGS_AUTH_ERROR_LINES = [
@@ -110,20 +98,12 @@ LOGS_DEFAULT_LINES: dict[str, list[str]] = {
 
 LOGS_FALLBACK_LINE = "00:00:00 200 ok service={service}"
 
-# --------------------------------------------------------------------------
-# jira
-# --------------------------------------------------------------------------
-
 JIRA_TICKETS = [
     {"key": "OPS-101", "title": "Rotate auth service signing keys", "status": "Done"},
     {"key": "OPS-102", "title": "Investigate e2e-login failures", "status": "In Progress"},
     {"key": "SEC-55", "title": "Review vendor-sdk dependency", "status": "To Do"},
     {"key": "FIN-12", "title": "Reconcile October payouts", "status": "In Progress"},
 ]
-
-# --------------------------------------------------------------------------
-# hr-db
-# --------------------------------------------------------------------------
 
 # Attack-bearing fixture: a checksum-valid PESEL plus an email address,
 # used by the DLP masking demo on HR records.
@@ -153,13 +133,21 @@ HR_APPROVERS: dict[str, dict[str, str]] = {
 HR_DEFAULT_APPROVER = {"approver": "Marek Nowak", "role": "hr"}
 
 HR_QUERY_ROWS = [
-    {"employee_id": "E-2001", "name": "Piotr Nowicki", "department": "Engineering", "region": "PL", "salary": 14200},
-    {"employee_id": "E-2101", "name": "Alicja Baran", "department": "Operations", "region": "DE", "salary": 11800},
+    {
+        "employee_id": "E-2001",
+        "name": "Piotr Nowicki",
+        "department": "Engineering",
+        "region": "PL",
+        "salary": 14200,
+    },
+    {
+        "employee_id": "E-2101",
+        "name": "Alicja Baran",
+        "department": "Operations",
+        "region": "DE",
+        "salary": 11800,
+    },
 ]
-
-# --------------------------------------------------------------------------
-# calendar
-# --------------------------------------------------------------------------
 
 CALENDAR_EVENTS: dict[str, list[dict[str, str]]] = {
     "marek.nowak": [
@@ -175,10 +163,6 @@ CALENDAR_DEFAULT_EVENTS = [
     {"title": "Team standup", "start": "2026-10-05T09:00:00", "end": "2026-10-05T09:15:00"},
 ]
 
-# --------------------------------------------------------------------------
-# payments
-# --------------------------------------------------------------------------
-
 # Opaque account ids, not checksum-valid PAN/IBAN, so the compliant path
 # never trips the PAN/IBAN detectors.
 PAYMENTS_ACCOUNTS: dict[str, dict[str, object]] = {
@@ -188,10 +172,6 @@ PAYMENTS_ACCOUNTS: dict[str, dict[str, object]] = {
 
 PAYMENTS_DEFAULT_BALANCE = 0.0
 PAYMENTS_DEFAULT_CURRENCY = "PLN"
-
-# --------------------------------------------------------------------------
-# eu-customers
-# --------------------------------------------------------------------------
 
 EU_CUSTOMERS: dict[str, dict[str, str]] = {
     "EUC-0001": {
@@ -216,10 +196,6 @@ EU_CUSTOMERS: dict[str, dict[str, str]] = {
         "segment": "retail",
     },
 }
-
-# --------------------------------------------------------------------------
-# github files
-# --------------------------------------------------------------------------
 
 GITHUB_FILES: dict[str, dict[str, str]] = {
     "web-app": {

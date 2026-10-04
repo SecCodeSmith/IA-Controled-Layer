@@ -1,5 +1,3 @@
-"""Tests for the scenarios catalogue structure and required scenarios."""
-
 from __future__ import annotations
 
 from control_layer.domain.models.enums import CallStatus, StageName
