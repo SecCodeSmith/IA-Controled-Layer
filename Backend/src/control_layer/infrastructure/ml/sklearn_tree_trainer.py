@@ -71,7 +71,7 @@ class SklearnTreeTrainer:
         meta_path = self._artifact_path.with_suffix(".joblib.meta.json")
         meta = {
             "model_type": model.model_type,
-            "trained_at": model.trained_at.isoformat() + "Z",
+            "trained_at": model.trained_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "f1": model.f1,
             "n_base": model.n_base,
             "n_feedback": model.n_feedback,
