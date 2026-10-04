@@ -8,6 +8,7 @@ servers:
     tools:
       list_branches: { tags: [] }
       get_readme: { tags: [read_external] }
+      read_file: { tags: [] }
       delete_branch: { tags: [destructive] }
       push_main: { tags: [destructive] }
 

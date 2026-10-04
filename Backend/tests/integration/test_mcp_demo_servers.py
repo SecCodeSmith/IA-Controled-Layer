@@ -91,10 +91,30 @@ def _check_eu_customers_read(result: dict[str, Any]) -> None:
     assert result["country"] in {"PL", "DE", "FR"}
 
 
+def _check_github_read_file_found(result: dict[str, Any]) -> None:
+    assert result["repo"] == "web-app"
+    assert result["path"] == "src/app.py"
+    assert "content" in result
+    assert isinstance(result["content"], str)
+    assert len(result["content"]) > 0
+
+
+def _check_github_read_file_not_found(result: dict[str, Any]) -> None:
+    assert result["repo"] == "web-app"
+    assert result["path"] == "missing.txt"
+    assert result.get("found") is False
+
+
 SERVER_CASES = [
     ServerCase(
         module="github",
-        expected_tools=frozenset({"list_branches", "get_readme", "delete_branch", "push_main"}),
+        expected_tools=frozenset({
+            "list_branches",
+            "get_readme",
+            "read_file",
+            "delete_branch",
+            "push_main",
+        }),
         tool_name="get_readme",
         arguments={"repo": "vendor-sdk"},
         check=_check_github_readme,
@@ -219,3 +239,29 @@ async def test_demo_data_tolerates_model_guesses(
         assert result.structuredContent[field] == EXPECTED_AUTH_LOG_LINES
     else:
         assert result.structuredContent[field] == "failed"
+
+
+GITHUB_READ_FILE_CASES = [
+    ("web-app", "src/app.py", _check_github_read_file_found),
+    ("web-app", "missing.txt", _check_github_read_file_not_found),
+]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(("repo", "path", "check"), GITHUB_READ_FILE_CASES)
+async def test_github_read_file(repo: str, path: str, check) -> None:  # type: ignore[no-untyped-def]
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "demo.mcp.github"],
+        cwd=str(REPO_ROOT),
+        env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+    )
+    async with (
+        stdio_client(params) as (read, write),
+        ClientSession(read, write) as session,
+    ):
+        await session.initialize()
+        result = await session.call_tool("read_file", {"repo": repo, "path": path})
+        assert result.isError is False
+        assert result.structuredContent is not None
+        check(result.structuredContent)
