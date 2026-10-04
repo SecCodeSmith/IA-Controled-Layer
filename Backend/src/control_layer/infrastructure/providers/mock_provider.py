@@ -23,6 +23,21 @@ _DELETE_BRANCH_RE = re.compile(r"delete the stale branch", re.IGNORECASE)
 _REPEAT_PROMPT_RE = re.compile(r"repeat (your )?system prompt", re.IGNORECASE)
 _CARD_NUMBER_RE = re.compile(r"card number", re.IGNORECASE)
 _SECURITY_JUDGE_RE = re.compile(r"security judge", re.IGNORECASE)
+_CURATOR_RE = re.compile(r"training-set curator", re.IGNORECASE)
+
+
+def _accept_all(batch_json: str) -> list[dict[str, str]]:
+    try:
+        batch = json.loads(batch_json)
+    except ValueError:
+        return []
+    if not isinstance(batch, list):
+        return []
+    return [
+        {"id": str(item["id"]), "action": "accept", "reason": "mock curator"}
+        for item in batch
+        if isinstance(item, dict) and "id" in item
+    ]
 
 
 def _tool_call(call_id: str, name: str, arguments: dict[str, object]) -> ToolCallSpec:
@@ -71,7 +86,9 @@ class MockModelProvider:
         content: str | None = None
         tool_calls: list[ToolCallSpec] | None = None
 
-        if _SECURITY_JUDGE_RE.search(system_text):
+        if _CURATOR_RE.search(system_text):
+            content = json.dumps({"decisions": _accept_all(user_text)})
+        elif _SECURITY_JUDGE_RE.search(system_text):
             content = json.dumps(
                 {
                     "verdict": "allow",
