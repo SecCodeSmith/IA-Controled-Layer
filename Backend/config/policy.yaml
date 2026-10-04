@@ -42,6 +42,7 @@ rules:
   - { id: pii_masking, on: [response, tool_result], detect: [email, phone, pesel, iban, pan], action: mask, owasp: [LLM02] }
   - { id: external_send_after_untrusted_read, on: tool_call, match: { sequence: [read_external, send_external] }, action: block, owasp: [ASI01, LLM02] }
   - { id: prompt_injection_signatures, on: [prompt, tool_result], type: signatures, feed: attack_signatures, categories: [prompt_injection, jailbreak, system_prompt_exfiltration, exfiltration], action: block, owasp: [LLM01, ASI01] }
+  - { id: prompt_injection_tree, on: [prompt, tool_result], type: decision_tree, block_at: 0.85, escalate_at: 0.5, verify_sample_rate: 0.2, escalate_to: llm_judge, owasp: [LLM01, ASI01] }
   - { id: prompt_injection_ml, on: [prompt, tool_result], type: ml_classifier, block_at: 0.85, escalate_at: 0.5, escalate_to: llm_judge, owasp: [LLM01, ASI01] }
   - { id: llm_judge, on: [], type: llm_judge, model: "qwen2.5:7b", timeout_s: 20, on_timeout: flag, owasp: [ASI01] }
   - { id: historical_exploits, on: [prompt, tool_call, tool_result, response], type: signatures, feed: attack_signatures, categories: [code_exec, deserialization, supply_chain, destructive], action: block, owasp: [ASI05, LLM03, ASI04] }
@@ -50,10 +51,31 @@ rules:
   - { id: model_allowlist, on: prompt, type: model_allowlist, action: block, owasp: [LLM03, ASI04], severity: medium }
   - { id: data_residency, on: tool_call, type: residency, action: block, owasp: [ASI03, LLM02] }
   - { id: role_provisioning, on: tool_call, type: rbac, action: block, owasp: [ASI03, LLM06] }
+  - { id: resource_scope, on: tool_call, type: resource_scope, action: block, owasp: [ASI03, LLM06], severity: high }
+  - { id: resource_projection, on: tool_result, type: resource_projection, action: mask, owasp: [LLM02, ASI03] }
   - { id: rate_limit, on: [prompt, tool_call], per_minute: 60, action: block, owasp: [LLM10, ASI08] }
   - { id: loop_guard, on: tool_call, identical_calls: 5, window_s: 60, action: block, owasp: [LLM10, ASI08] }
   - { id: circuit_breaker, stage: authorization, blocks: 5, window_s: 300, action: quarantine, owasp: [ASI10, ASI08] }
   - { id: anomaly_first_destructive_use, type: anomaly, on: tool_call, action: flag, owasp: [ASI10] }
+
+resources:
+  - id: github_repo_files
+    server: github
+    tools: [read_file]
+    path_argument: path
+    roles:
+      developer: { paths: { allow: ["src/**", "docs/**", "README.md"], deny: ["**/.env", "secrets/**", "**/*.pem"] } }
+  - id: hr_directory_rows
+    server: hr-db
+    tools: [query]
+    records: rows
+    roles:
+      hr: { columns: { deny: [salary] }, rows: { region: "$identity.region" } }
+  - id: hr_employee_record
+    server: hr-db
+    tools: [get_employee]
+    roles:
+      hr: { columns: { deny: [salary] }, rows: { region: "$identity.region" } }
 
 budgets:
   per_user_tokens: 10000

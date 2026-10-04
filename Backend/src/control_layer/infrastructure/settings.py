@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     audit_jsonl: str = "audit/calls.jsonl"
 
     ml_model_path: str = "src/control_layer/ml/artifacts/prompt_injection_classifier.joblib"
+    ml_tree_path: str = "src/control_layer/ml/artifacts/prompt_injection_tree.joblib"
+    ml_dataset_path: str = "src/control_layer/ml/dataset/prompt_injection_dataset.csv"
+    ml_tree_supplement_path: str = "src/control_layer/ml/dataset/benign_operational.csv"
+    training_samples_path: str = "data/judge_samples.jsonl"
+    verify_sample_salt: str = "dev-salt"
+    retrain_min_f1: float = 0.85
 
     jwt_secret: str = "dev-secret-change-me"
     admin_token: str = "admin-dev-token"
@@ -79,3 +85,19 @@ class Settings(BaseSettings):
     @cached_property
     def ml_model_path_resolved(self) -> Path:
         return self._resolve(self.ml_model_path)
+
+    @cached_property
+    def ml_tree_path_resolved(self) -> Path:
+        return self._resolve(self.ml_tree_path)
+
+    @cached_property
+    def ml_dataset_path_resolved(self) -> Path:
+        return self._resolve(self.ml_dataset_path)
+
+    @cached_property
+    def ml_tree_supplement_path_resolved(self) -> Path:
+        return self._resolve(self.ml_tree_supplement_path)
+
+    @cached_property
+    def training_samples_path_resolved(self) -> Path:
+        return self._resolve(self.training_samples_path)

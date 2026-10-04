@@ -3,6 +3,8 @@ from pathlib import Path
 import joblib
 import numpy as np
 
+from control_layer.domain.models.classifier import ClassifierExplanation, ClassifierInfo
+
 
 class SklearnPromptClassifier:
     def __init__(self, pipeline: object, path: str) -> None:
@@ -30,6 +32,12 @@ class SklearnPromptClassifier:
 class NullPromptClassifier:
     def predict_proba(self, text: str) -> float:
         return 0.0
+
+    def explain(self, text: str) -> ClassifierExplanation:
+        return ClassifierExplanation(probability=0.0, model_type="null")
+
+    def describe(self) -> ClassifierInfo:
+        return ClassifierInfo(loaded=False)
 
     def info(self) -> dict[str, object]:
         return {"loaded": False, "path": None}

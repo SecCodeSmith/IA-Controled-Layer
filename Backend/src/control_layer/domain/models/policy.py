@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from control_layer.domain.models.budgets import Budgets
+from control_layer.domain.models.resource import ResourceConfig
 from control_layer.domain.models.rule import Rule
 
 
@@ -49,3 +50,13 @@ class PolicyDocument(BaseModel):
     budgets: Budgets
     loaded_at: datetime
     source_hash: str
+    resources: list[ResourceConfig] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unique_resource_ids(self) -> PolicyDocument:
+        seen: set[str] = set()
+        for resource in self.resources:
+            if resource.id in seen:
+                raise ValueError(f"duplicate resource id: {resource.id}")
+            seen.add(resource.id)
+        return self

@@ -77,6 +77,7 @@ class Severity(StrEnum):
 class CallKind(StrEnum):
     chat = "chat"
     tool_call = "tool_call"
+    workbench = "workbench"
 
 
 class ProtectionMode(StrEnum):
