@@ -134,6 +134,7 @@ HR_EMPLOYEES: dict[str, dict[str, object]] = {
         "department": "Operations",
         "pesel": "44051401359",
         "email": "k.wrona@example.com",
+        "region": "PL",
     },
     "E-2001": {
         "employee_id": "E-2001",
@@ -141,6 +142,7 @@ HR_EMPLOYEES: dict[str, dict[str, object]] = {
         "department": "Engineering",
         "pesel": None,
         "email": None,
+        "region": "PL",
     },
 }
 
@@ -151,8 +153,8 @@ HR_APPROVERS: dict[str, dict[str, str]] = {
 HR_DEFAULT_APPROVER = {"approver": "Marek Nowak", "role": "hr"}
 
 HR_QUERY_ROWS = [
-    {"employee_id": "E-2001", "name": "Piotr Nowicki", "department": "Engineering"},
-    {"employee_id": "E-2101", "name": "Alicja Baran", "department": "Operations"},
+    {"employee_id": "E-2001", "name": "Piotr Nowicki", "department": "Engineering", "region": "PL", "salary": 14200},
+    {"employee_id": "E-2101", "name": "Alicja Baran", "department": "Operations", "region": "DE", "salary": 11800},
 ]
 
 # --------------------------------------------------------------------------
@@ -213,4 +215,43 @@ EU_CUSTOMERS: dict[str, dict[str, str]] = {
         "country": "FR",
         "segment": "retail",
     },
+}
+
+# --------------------------------------------------------------------------
+# github files
+# --------------------------------------------------------------------------
+
+GITHUB_FILES: dict[str, dict[str, str]] = {
+    "web-app": {
+        "README.md": GITHUB_README_WEB_APP,
+        "src/app.py": (
+            "from fastapi import FastAPI\n\n"
+            "app = FastAPI()\n\n"
+            "@app.get('/')\n"
+            "def read_root():\n"
+            "    return {'message': 'Hello World'}\n\n"
+            "@app.get('/health')\n"
+            "def health_check():\n"
+            "    return {'status': 'ok'}\n"
+        ),
+        "docs/runbook.md": (
+            "# web-app Operations Runbook\n\n"
+            "## Starting the service\n\n"
+            "1. Ensure Docker is running\n"
+            "2. Run `docker-compose up -d`\n"
+            "3. Service will be available at http://localhost:8080\n\n"
+            "## Health checks\n\n"
+            "- GET /health returns status\n"
+            "- Check logs with `docker-compose logs web-app`\n"
+        ),
+        ".env": (
+            "DATABASE_URL=postgres://app:app@db:5432/app\n"
+            "API_KEY=sk-demo-0000-not-a-real-key\n"
+        ),
+        "secrets/deploy.pem": (
+            "-----BEGIN DEMO KEY-----\n"
+            "FAKE\n"
+            "-----END DEMO KEY-----\n"
+        ),
+    }
 }

@@ -47,5 +47,16 @@ def push_main(repo: str, message: str) -> dict[str, Any]:
     return {"ok": True, "repo": repo, "message": message, "branch": "main"}
 
 
+@mcp.tool()
+@ascii_safe
+def read_file(repo: str, path: str) -> dict[str, Any]:
+    """Read the content of a file from a repository."""
+    repo_files = data.GITHUB_FILES.get(repo, {})
+    if path in repo_files:
+        return {"repo": repo, "path": path, "content": repo_files[path]}
+    else:
+        return {"repo": repo, "path": path, "found": False}
+
+
 if __name__ == "__main__":
     mcp.run()
