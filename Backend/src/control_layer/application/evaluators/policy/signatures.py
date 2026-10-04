@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from control_layer.application.evaluators.policy._turn_text import injection_text
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import RuleOutcome
 from control_layer.domain.models.policy import PolicyDocument
@@ -17,7 +18,7 @@ class SignaturesEvaluator:
         self, rule: Rule, ctx: ProcessingContext, policy: PolicyDocument
     ) -> RuleOutcome:
         categories = rule.params.get("categories")
-        text = ctx.current_text
+        text = injection_text(ctx)
 
         for signature in await self._signature_feed.signatures():
             if categories and not set(signature.categories) & set(categories):

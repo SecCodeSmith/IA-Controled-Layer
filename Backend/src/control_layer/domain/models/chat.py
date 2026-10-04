@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
+PROMPT_TURN_SEPARATOR = "\n␞\n"
+
 
 class FunctionCall(BaseModel):
     model_config = ConfigDict(frozen=True)
