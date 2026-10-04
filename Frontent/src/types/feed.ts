@@ -6,11 +6,7 @@ export interface FeedUser {
   role: string
 }
 
-<<<<<<< Updated upstream
-export type CallKind = 'tool_call' | 'chat'
-=======
 export type CallKind = 'tool_call' | 'chat' | 'workbench' | 'admin'
->>>>>>> Stashed changes
 
 export interface FeedRow {
   call_id: string

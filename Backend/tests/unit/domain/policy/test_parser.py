@@ -7,6 +7,7 @@ import yaml
 
 from control_layer.domain.exceptions import PolicyValidationError
 from control_layer.domain.models.enums import InterceptionPoint, RuleAction, StageName
+from control_layer.domain.models.resource import ResourceConfig
 from control_layer.domain.policy.parser import (
     infer_rule_type,
     infer_stage,

@@ -673,5 +673,5 @@ export const SECURITY_REPORT_FIXTURE: SecurityReport = {
     'Review the rate of PII masking events on logs-db.query; consider redacting at the source.',
     'Rotate the HR database credentials used in the blocked role_provisioning attempts.',
   ],
-  markdown: `# Security report\n\nPeriod: 24h\nGenerated: 2026-10-03T11:00:00Z\n\n## Summary\n- Total calls: ${STATS_FIXTURE.total_calls}\n- Blocked: ${STATS_FIXTURE.blocked}\n- Masked: ${STATS_FIXTURE.masked}\n- Escalated: ${STATS_FIXTURE.escalated}\n\n## Top rules\n- pii_masking: 11\n- role_provisioning: 6\n\n## OWASP coverage\n- LLM01 Prompt Injection: covered\n- LLM02 Sensitive Information Disclosure: covered\n- ASI03 Identity & Privilege Abuse: covered\n`,
+  markdown: `# Security report\n\nPeriod: 24h\nGenerated: 2026-10-03T11:00:00Z\n\n## Summary\n- Total calls: ${STATS_FIXTURE.total_calls}\n- Blocked: ${STATS_FIXTURE.blocked}\n- Masked: ${STATS_FIXTURE.masked}\n- Escalated: ${STATS_FIXTURE.escalated}\n\n## Top rules\n| Rule | Hits |\n| --- | --- |\n| pii_masking | 11 |\n| role_provisioning | 6 |\n\n## OWASP coverage\n- LLM01 Prompt Injection: covered\n- LLM02 Sensitive Information Disclosure: covered\n- ASI03 Identity & Privilege Abuse: covered\n`,
 }

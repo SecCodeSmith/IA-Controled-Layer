@@ -1,11 +1,16 @@
+import { useState } from 'react'
 import { useSecurityReport } from '../api/reports'
 import { auditExportUrl } from '../api/audit'
 import { alertsExportUrl } from '../api/alerts'
 import { AdminHeader } from '../components/layout/AdminHeader'
 import { PreBlock } from '../components/common/PreBlock'
+import { MarkdownView } from '../components/common/MarkdownView'
 import { Spinner } from '../components/common/Spinner'
 import { ErrorBanner } from '../components/common/ErrorBanner'
 import { errorMessage } from '../lib/errorMessage'
+
+const BUTTON_CLASS =
+  'cursor-pointer rounded-md border border-border bg-white px-3 py-1.5 text-xs font-medium hover:bg-[#F4F5F2]'
 
 function formatSummaryLabel(key: string): string {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -13,6 +18,29 @@ function formatSummaryLabel(key: string): string {
 
 export function Reports() {
   const report = useSecurityReport()
+  const [showRaw, setShowRaw] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const copyMarkdown = async (markdown: string) => {
+    try {
+      await navigator.clipboard.writeText(markdown)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  const downloadMarkdown = (markdown: string, period: string) => {
+    const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `security-report-${period}.md`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -57,7 +85,31 @@ export function Reports() {
             </div>
 
             <section className="overflow-hidden rounded-[10px] border border-border bg-white">
-              <PreBlock>{report.data.markdown}</PreBlock>
+              <div className="flex flex-wrap items-center justify-end gap-2 border-b border-border px-5 py-3">
+                <button type="button" className={BUTTON_CLASS} onClick={() => void copyMarkdown(report.data.markdown)}>
+                  {copied ? 'Copied' : 'Copy Markdown'}
+                </button>
+                <button
+                  type="button"
+                  className={BUTTON_CLASS}
+                  onClick={() => downloadMarkdown(report.data.markdown, report.data.period)}
+                >
+                  Download .md
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={showRaw}
+                  className={BUTTON_CLASS}
+                  onClick={() => setShowRaw((value) => !value)}
+                >
+                  {showRaw ? 'Show rendered' : 'Show raw'}
+                </button>
+              </div>
+              {showRaw ? (
+                <PreBlock>{report.data.markdown}</PreBlock>
+              ) : (
+                <MarkdownView markdown={report.data.markdown} />
+              )}
             </section>
           </>
         ) : null}
