@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
+from control_layer.application.evaluators.policy._turn_text import injection_text
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import RuleOutcome
 from control_layer.domain.models.policy import PolicyDocument
@@ -28,7 +29,7 @@ class MlClassifierEvaluator:
         block_at = rule.params.get("block_at", default_block)
         escalate_at = rule.params.get("escalate_at", default_escalate)
 
-        probability = await asyncio.to_thread(self._classifier.predict_proba, ctx.current_text)
+        probability = await asyncio.to_thread(self._classifier.predict_proba, injection_text(ctx))
         reason = f"Prompt-injection classifier score {probability:.2f}"
 
         if probability >= block_at:

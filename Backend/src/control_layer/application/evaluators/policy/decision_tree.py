@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
+from control_layer.application.evaluators.policy._turn_text import injection_text
 from control_layer.domain.models.classifier import (
     CLASSIFIER_TRACE_KEY,
     FORCE_VERIFY_KEY,
@@ -37,7 +38,7 @@ class DecisionTreeEvaluator:
     async def evaluate(
         self, rule: Rule, ctx: ProcessingContext, policy: PolicyDocument
     ) -> RuleOutcome:
-        text = ctx.current_text
+        text = injection_text(ctx)
         explanation = await asyncio.to_thread(self._explain, text)
         probability = explanation.probability
         band = self._band(rule, policy, probability)

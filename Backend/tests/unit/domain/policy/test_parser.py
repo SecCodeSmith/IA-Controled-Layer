@@ -306,6 +306,11 @@ def test_sample_policy_tree_rule_params_and_resource_rule_actions() -> None:
     tree = rules["prompt_injection_tree"]
     assert tree.type == "decision_tree"
     assert tree.action == RuleAction.block
+    assert tree.on == [InterceptionPoint.prompt]
+    assert rules["prompt_injection_ml"].on == [
+        InterceptionPoint.prompt,
+        InterceptionPoint.tool_result,
+    ]
     assert tree.params == {
         "block_at": 0.85,
         "escalate_at": 0.5,

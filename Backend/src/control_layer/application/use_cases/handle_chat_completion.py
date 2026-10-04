@@ -23,7 +23,12 @@ from control_layer.domain.exceptions import (
     UpstreamProviderError,
 )
 from control_layer.domain.models.audit import TokensInfo
-from control_layer.domain.models.chat import ChatCompletionRequest, ChatMessage, Usage
+from control_layer.domain.models.chat import (
+    PROMPT_TURN_SEPARATOR,
+    ChatCompletionRequest,
+    ChatMessage,
+    Usage,
+)
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import Decision, merge_action, status_for
 from control_layer.domain.models.enums import CallKind, InterceptionPoint, RuleAction, StageName
@@ -107,12 +112,12 @@ class HandleChatCompletionUseCase:
             identity = identity.model_copy(update={"session_id": resolved_session_id})
 
         session_state = await self._session_service.load(resolved_session_id)
-        prompt_text = "\n".join(m.content or "" for m in request.messages if m.role != "system")
+        turns = _prompt_turns(request)
 
         ctx1 = ProcessingContext(
             identity=identity,
             point=InterceptionPoint.prompt,
-            text=prompt_text,
+            text=PROMPT_TURN_SEPARATOR.join(turns),
             chat=request,
             session_id=resolved_session_id,
             call_id=call_id,
@@ -121,6 +126,8 @@ class HandleChatCompletionUseCase:
                 "model": request.model,
                 "max_tokens": request.max_tokens,
                 "session_state": session_state,
+                "latest_user_text": _latest_user_text(request),
+                "prompt_turns": len(turns),
             },
         )
         decision1 = await self._pipeline.run(ctx1)
@@ -337,16 +344,31 @@ class HandleChatCompletionUseCase:
         return error
 
 
+def _prompt_turns(request: ChatCompletionRequest) -> list[str]:
+    return [m.content or "" for m in request.messages if m.role != "system"]
+
+
+def _latest_user_text(request: ChatCompletionRequest) -> str:
+    for message in reversed(request.messages):
+        if message.role == "user":
+            return message.content or ""
+    return ""
+
+
 def _apply_masked_prompt(
     request: ChatCompletionRequest, masked_text: str | None
 ) -> ChatCompletionRequest:
     if masked_text is None:
         return request
     messages = list(request.messages)
-    for index in range(len(messages) - 1, -1, -1):
-        if messages[index].role != "system":
-            messages[index] = messages[index].model_copy(update={"content": masked_text})
-            break
+    turn_indexes = [i for i, m in enumerate(messages) if m.role != "system"]
+    segments = masked_text.split(PROMPT_TURN_SEPARATOR)
+    if len(segments) != len(turn_indexes):
+        turn_indexes = turn_indexes[-1:]
+        segments = [masked_text]
+    for index, segment in zip(turn_indexes, segments, strict=False):
+        if messages[index].content != segment:
+            messages[index] = messages[index].model_copy(update={"content": segment})
     return request.model_copy(update={"messages": messages})
 
 

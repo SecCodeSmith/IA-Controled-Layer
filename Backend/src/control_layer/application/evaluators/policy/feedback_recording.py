@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from control_layer.application.evaluators.policy._turn_text import injection_text
 from control_layer.domain.models.classifier import CLASSIFIER_TRACE_KEY, TRAINING_SAMPLE_KEY
 from control_layer.domain.models.context import ProcessingContext
 from control_layer.domain.models.decision import RuleOutcome
@@ -58,7 +59,7 @@ class FeedbackRecordingEvaluator:
         trace = ctx.metadata.get(CLASSIFIER_TRACE_KEY)
         return TrainingSample(
             id=uuid4().hex,
-            text=ctx.current_text,
+            text=injection_text(ctx),
             label=1 if outcome.matched else 0,
             source=_source(ctx.session_id),
             status=SampleStatus.pending,

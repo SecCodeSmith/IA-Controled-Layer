@@ -10,6 +10,7 @@ from control_layer.domain.exceptions import PolicyViolationError, UpstreamProvid
 from control_layer.domain.models.audit import CallRecord
 from control_layer.domain.models.budget_usage import BudgetUsage
 from control_layer.domain.models.chat import (
+    PROMPT_TURN_SEPARATOR,
     ChatCompletionChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -399,3 +400,81 @@ async def test_outcome_fields_on_successful_allowed_call() -> None:
     assert outcome.proxy_latency_ms >= 0
     assert outcome.upstream_latency_ms >= 0
     assert outcome.response.choices[0].message.content == "hi there"
+
+
+def _history_request() -> ChatCompletionRequest:
+    return ChatCompletionRequest(
+        model="mock-model",
+        messages=[
+            ChatMessage(role="system", content="be helpful"),
+            ChatMessage(role="user", content="deploy with key sk_live_abc123"),
+            ChatMessage(role="assistant", content="Deployed."),
+            ChatMessage(role="user", content="Now check the logs"),
+        ],
+    )
+
+
+def _allowing_pipeline(masked_prompt: str | None = None) -> _ScriptedPipeline:
+    return _ScriptedPipeline(
+        [
+            (Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), masked_prompt),
+            (Decision(status=CallStatus.ALLOWED, action=RuleAction.allow), None),
+        ]
+    )
+
+
+async def test_prompt_text_joins_turns_with_record_separator() -> None:
+    pipeline = _allowing_pipeline()
+    use_case = _build_use_case(pipeline)
+
+    await use_case.execute("token", "s1", _history_request())
+
+    ctx = pipeline.contexts[0]
+    assert ctx.text == PROMPT_TURN_SEPARATOR.join(
+        ["deploy with key sk_live_abc123", "Deployed.", "Now check the logs"]
+    )
+    assert ctx.metadata["latest_user_text"] == "Now check the logs"
+    assert ctx.metadata["prompt_turns"] == 3
+
+
+async def test_masked_history_is_written_back_per_message() -> None:
+    masked = PROMPT_TURN_SEPARATOR.join(
+        ["deploy with key [API_KEY_1]", "Deployed.", "Now check the logs"]
+    )
+    provider = _FakeModelProvider(response=_response())
+    use_case = _build_use_case(_allowing_pipeline(masked), model_provider=provider)
+
+    await use_case.execute("token", "s1", _history_request())
+
+    contents = [m.content for m in provider.requests[0].messages]
+    assert contents == [
+        "be helpful",
+        "deploy with key [API_KEY_1]",
+        "Deployed.",
+        "Now check the logs",
+    ]
+
+
+async def test_masked_text_with_mismatched_segments_falls_back_to_last_message() -> None:
+    provider = _FakeModelProvider(response=_response())
+    use_case = _build_use_case(
+        _allowing_pipeline("[API_KEY_1] collapsed"), model_provider=provider
+    )
+
+    await use_case.execute("token", "s1", _history_request())
+
+    contents = [m.content for m in provider.requests[0].messages]
+    assert contents[1:3] == ["deploy with key sk_live_abc123", "Deployed."]
+    assert contents[-1] == "[API_KEY_1] collapsed"
+
+
+async def test_single_message_request_is_unchanged() -> None:
+    pipeline = _allowing_pipeline()
+    use_case = _build_use_case(pipeline)
+
+    await use_case.execute("token", "s1", _request("hello there"))
+
+    ctx = pipeline.contexts[0]
+    assert ctx.text == "hello there"
+    assert ctx.metadata["latest_user_text"] == "hello there"
+    assert ctx.metadata["prompt_turns"] == 1
