@@ -112,7 +112,7 @@ A rule matches conditions and produces an action. Type is inferred from context 
 
 - **`id`** (required): Unique rule identifier (e.g., `pii_masking`)
 - **`on`** (required): Interception points as a list: `[prompt, response, tool_call, tool_result]`
-- **`type`** (optional): `signatures`, `ml_classifier`, `llm_judge`, `detectors`, `sequence`, `residency`, `rbac`, `model_allowlist`, `tool_match`, `rate_limit`, `loop_guard`, `circuit_breaker`, `restricted_topics`, `unsafe_output`, `canary_token`
+- **`type`** (optional): `signatures`, `ml_classifier`, `decision_tree`, `llm_judge`, `detectors`, `sequence`, `residency`, `rbac`, `resource_scope`, `resource_projection`, `model_allowlist`, `tool_match`, `rate_limit`, `loop_guard`, `circuit_breaker`, `restricted_topics`, `unsafe_output`, `canary_token`
   - Inferred from other fields if absent (e.g., `detect` → `detectors`, `match.sequence` → `sequence`)
 - **`action`** (required): `allow`, `flag`, `mask`, `block`, `require_approval`, `quarantine`
 - **`stage`** (optional): Explicitly set pipeline stage if inference is wrong
@@ -165,6 +165,28 @@ Runs text through the Scikit-learn prompt injection classifier. Inconclusive sco
 - **`block_at`**: Confidence threshold for block (default per profile: strict 0.7, balanced 0.85, permissive 0.95)
 - **`escalate_at`**: Threshold to escalate to judge (default per profile: strict 0.4, balanced 0.5, permissive 0.7)
 - **`escalate_to`** (optional): Target rule id for escalation (default: `llm_judge`)
+
+#### 2a. `decision_tree` (Decision Tree First-Pass with Sampled Judge Verification)
+
+Runs text through a Scikit-learn decision tree classifier (depth 12, balanced classes). Positive verdicts are randomly sampled and re-evaluated by the LLM judge. Judge verdict is final, preventing benign false positives from turning FLAGGED.
+
+```yaml
+- id: prompt_injection_tree
+  on: [prompt, tool_result]
+  type: decision_tree
+  block_at: 0.85
+  escalate_at: 0.5
+  verify_sample_rate: 0.2
+  escalate_to: llm_judge
+  owasp: [LLM01, ASI01]
+```
+
+- **`block_at`**: Confidence threshold for block (default per profile: strict 0.7, balanced 0.85, permissive 0.95)
+- **`escalate_at`**: Threshold to escalate to judge (default per profile: strict 0.4, balanced 0.5, permissive 0.7)
+- **`verify_sample_rate`**: Fraction of positives (0.0–1.0) randomly sampled for judge verification (deterministic per rule+point+text with salt from `CTRL_VERIFY_SAMPLE_SALT`, default 0.2)
+- **`escalate_to`**: Target rule for escalation (default: `llm_judge`)
+- Tree artifact: `src/control_layer/ml/artifacts/prompt_injection_tree.joblib` (gitignored, rebuilt by scripts)
+- See [Feature: decision-tree feedback loop](../feature-decision-tree-feedback-loop.md) for training set curation and retrain endpoints
 
 #### 3. `llm_judge` (LLM-Driven Safety Assessment)
 
@@ -249,6 +271,42 @@ Enforced at Authorization stage; tool access checked against role provisioning.
 ```
 
 (Automatically triggered via roles → mcp_servers mapping)
+
+#### 7a. `resource_scope` (File Path and Tool Argument Scope)
+
+Enforced at Authorization stage; checks that tool arguments (file paths) are within the role's granted scope. Matched against the `path_argument` field in `resources:` configuration.
+
+```yaml
+- id: resource_scope
+  on: tool_call
+  type: resource_scope
+  action: block
+  owasp: [ASI03, LLM06]
+  severity: high
+```
+
+- Blocks with 403 `Authorization · resource_scope` if argument path matches deny patterns or does not match allow patterns
+- Reason includes the pattern and path: "path denied by pattern: secrets/**"
+- Configured per resource in `resources:` section (see below)
+- See [Feature: resource scope](../feature-resource-scope.md) for full path glob semantics
+
+#### 7b. `resource_projection` (Row and Column Filtering)
+
+Enforced at Resource stage on tool results; filters rows and redacts columns based on the role's grant. Masking is reported as `Authorization · resource_projection, status MASKED`.
+
+```yaml
+- id: resource_projection
+  on: tool_result
+  type: resource_projection
+  action: mask
+  owasp: [LLM02, ASI03]
+```
+
+- Filters rows matching row-scope predicates (e.g., `region: "$identity.region"`)
+- Redacts columns in the deny list
+- Reason: "N row(s) filtered, M column(s) redacted: col1, col2"
+- Configured per resource in `resources:` section (see below)
+- See [Feature: resource scope](../feature-resource-scope.md) for full filtering semantics
 
 #### 8. `tool_match` (Custom Tool Rules and Approval)
 
@@ -400,6 +458,78 @@ budgets:
 
 - **`warn_at_percent`**: If `on_exceeded: warn`, alerts emit at this threshold but calls proceed
 - **`on_exceeded`**: `block` rejects calls with 403 when limit hit; `warn` allows but flags
+
+## Resources Configuration
+
+Fine-grained resource authorization beyond role-to-server mapping: per-role file-path scopes on tool arguments and row/column visibility on tool results.
+
+```yaml
+resources:
+  - id: github_repo_files
+    server: github
+    tools: [read_file]
+    path_argument: path
+    roles:
+      developer: { paths: { allow: ["src/**", "docs/**", "README.md"], deny: ["**/.env", "secrets/**", "**/*.pem"] } }
+  
+  - id: hr_directory_rows
+    server: hr-db
+    tools: [query]
+    records: rows
+    roles:
+      hr: { columns: { deny: [salary] }, rows: { region: "$identity.region" } }
+  
+  - id: hr_employee_record
+    server: hr-db
+    tools: [get_employee]
+    roles:
+      hr: { columns: { deny: [salary] }, rows: { region: "$identity.region" } }
+```
+
+**Fields:**
+
+- **`id`**: Unique resource identifier
+- **`server`**: MCP server name (github, hr-db, ci, payments, etc.)
+- **`tools`** (optional): List of tool names covered; empty means all tools on this server
+- **`path_argument`** (optional): Name of the argument holding the file path (e.g., `path` in `read_file(repo, path)`)
+- **`records`** (optional): Key holding the list of records in the result (e.g., `rows` in `{"rows: [...]}`); omit if the whole result is one record
+- **`roles`**: Dict of role → grant mappings
+
+**Grant structure** (per role):
+
+```yaml
+developer: 
+  paths:
+    allow: [glob patterns]  # If non-empty, path must match one of these; case-insensitive
+    deny: [glob patterns]   # If path matches, it is denied (deny wins)
+  columns:
+    allow: [column names] | null  # null = all columns (default); [] = no columns
+    deny: [column names]          # Columns to redact (default: [])
+  rows:
+    attribute: value | [values]   # Row predicate: field must match value(s) to pass
+                                   # Supports $identity.region, $identity.role, $identity.sub, $identity.location
+```
+
+**Path scope semantics:**
+
+- Allow/deny use glob patterns (`src/**`, `**/.env`, `secrets/**`)
+- Paths normalized (backslash → forward slash, `..` rejected, absolute paths rejected)
+- Deny-wins: if path matches both allow and deny, it is denied
+- Allow-required: if allow list is non-empty, path must match it
+
+**Row scope semantics:**
+
+- Predicates are matched against fields in each record (as AND, all must match)
+- `$identity.*` values are substituted per caller (region, role, sub, location from user config)
+- Records lacking a predicate field do not match (filtered out)
+
+**Column scope semantics:**
+
+- Deny list redacts those columns (value → null in JSON)
+- Allow list (if set) means only those columns are preserved
+- Applied to all records in a result
+
+For full reference, see [Feature: resource scope](../feature-resource-scope.md).
 
 ## Worked Examples
 
