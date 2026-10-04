@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from control_layer.domain.models.enums import CallStatus, RuleAction, StageName
+from control_layer.domain.models.enums import (
+    CallStatus,
+    InterceptionPoint,
+    RuleAction,
+    StageName,
+)
 from control_layer.domain.models.resource import ResourceGrant
 from control_layer.presentation.api.schemas.workbench import (
     JudgeView,
@@ -87,6 +92,7 @@ def test_trace_response_minimal_shape() -> None:
 def test_trace_response_nested_views() -> None:
     stage = StageView(
         stage=StageName.authorization,
+        point=InterceptionPoint.tool_result,
         action=RuleAction.mask,
         timing_ms=1.5,
         violations=[

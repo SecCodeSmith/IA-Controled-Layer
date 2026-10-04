@@ -312,6 +312,7 @@ async def test_prompt_trace_returns_stages_in_pipeline_order_with_violations() -
         StageName.policy,
         StageName.audit,
     ]
+    assert {s.point for s in response.stages} == {InterceptionPoint.prompt}
     policy_stage = response.stages[3]
     assert policy_stage.action is RuleAction.block
     assert policy_stage.timing_ms == 1.5
@@ -444,9 +445,28 @@ async def test_tool_trace_delegates_with_workbench_session_and_maps_outcome_deci
     assert response.call_id == "c_000007"
     assert response.status is CallStatus.ALLOWED
     assert response.action is RuleAction.allow
-    assert len(response.stages) == 7
+    assert [s.point for s in response.stages] == [InterceptionPoint.tool_call] * 7
     assert response.raw_result == {"content": "raw"}
     assert response.delivered_result == "delivered text"
+
+
+@pytest.mark.asyncio
+async def test_tool_trace_tags_second_pass_stages_as_tool_result() -> None:
+    first_pass = [_stage(name) for name in StageName.ordered()]
+    second_pass = [_stage(name) for name in StageName.ordered()]
+    outcome = ToolCallOutcome(
+        call_id="c_000007",
+        status=CallStatus.ALLOWED,
+        decision=_decision(stages=first_pass + second_pass),
+    )
+    harness = Harness(tool_call=FakeToolCall(outcome))
+
+    response = await harness.use_case.execute(_tool_request())
+
+    assert [s.stage for s in response.stages] == StageName.ordered() * 2
+    assert [s.point for s in response.stages] == (
+        [InterceptionPoint.tool_call] * 7 + [InterceptionPoint.tool_result] * 7
+    )
 
 
 @pytest.mark.asyncio
@@ -505,6 +525,7 @@ async def test_tool_trace_reads_decision_from_policy_violation_error() -> None:
     assert response.stage is StageName.policy
     assert response.rule_id == "prompt_injection_signatures"
     assert response.stages[-1].stage is StageName.audit
+    assert {s.point for s in response.stages} == {InterceptionPoint.tool_call}
     assert response.raw_result == "secret raw"
     assert response.delivered_result is None
 

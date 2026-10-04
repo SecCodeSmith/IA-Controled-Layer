@@ -74,6 +74,7 @@ async def test_clean_prompt_traces_allowed_through_seven_stages(isolated_app) ->
             "resource",
             "audit",
         ]
+        assert {s["point"] for s in body["stages"]} == {"prompt"}
 
 
 async def test_unknown_actor_is_rejected_with_401(isolated_app) -> None:
@@ -128,7 +129,8 @@ async def test_tool_call_trace_returns_delivered_result(isolated_app) -> None:
         assert body["kind"] == "tool_call"
         assert body["status"] == "ALLOWED"
         assert body["delivered_result"] is not None
-        assert len(body["stages"]) == 7
+        assert [s["point"] for s in body["stages"]] == ["tool_call"] * 7 + ["tool_result"] * 7
+        assert len(body["stages"]) == 14
 
 
 async def test_blocked_tool_call_trace_reports_status_instead_of_raising(isolated_app) -> None:

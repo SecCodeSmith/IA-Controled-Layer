@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from control_layer.domain.models.classifier import ClassifierTrace
-from control_layer.domain.models.enums import CallStatus, RuleAction, StageName
+from control_layer.domain.models.enums import CallStatus, InterceptionPoint, RuleAction, StageName
 from control_layer.domain.models.resource import ResourceGrant
 
 TraceKind = Literal["prompt", "tool_call"]
@@ -48,6 +48,7 @@ class ViolationView(_View):
 
 class StageView(_View):
     stage: StageName
+    point: InterceptionPoint
     action: RuleAction
     timing_ms: float
     cache_hit: bool = False
