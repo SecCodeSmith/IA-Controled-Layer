@@ -16,11 +16,17 @@ WORKDIR /app/Backend
 # Install dependencies
 RUN pip install --no-cache-dir -e .
 
-# Train the ML classifier at build time
+# Train the ML classifiers at build time
 RUN python -m control_layer.ml.train \
     --dataset "src/control_layer/ml/dataset/prompt_injection_dataset.csv" \
     --out "src/control_layer/ml/artifacts/prompt_injection_classifier.joblib" \
     --model logreg
+
+RUN python -m control_layer.ml.train \
+    --dataset "src/control_layer/ml/dataset/prompt_injection_dataset.csv" \
+    --extra "src/control_layer/ml/dataset/benign_operational.csv" \
+    --out "src/control_layer/ml/artifacts/prompt_injection_tree.joblib" \
+    --model tree
 
 # Default to running control layer
 CMD ["python", "-m", "uvicorn", "control_layer.presentation.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]

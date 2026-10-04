@@ -5,11 +5,12 @@
 set -e
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
+export PYTHONPATH=src
 
 echo "=== AI Control Layer ML Training ==="
 
 cd Backend
-echo "Training prompt injection classifier..."
+echo "Training logistic regression classifier..."
 
 python -m control_layer.ml.train \
     --dataset "src/control_layer/ml/dataset/prompt_injection_dataset.csv" \
@@ -17,5 +18,16 @@ python -m control_layer.ml.train \
     --model logreg \
     "$@"
 
-echo "✓ Training complete"
+echo "✓ Logistic regression training complete"
+
+echo "Training decision tree classifier with benign supplement..."
+
+python -m control_layer.ml.train \
+    --dataset "src/control_layer/ml/dataset/prompt_injection_dataset.csv" \
+    --extra "src/control_layer/ml/dataset/benign_operational.csv" \
+    --out "src/control_layer/ml/artifacts/prompt_injection_tree.joblib" \
+    --model tree \
+    "$@"
+
+echo "✓ Decision tree training complete"
 cd ..

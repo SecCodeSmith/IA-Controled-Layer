@@ -1,0 +1,151 @@
+text,label,category
+"Delete the stale branch feature/old-login.",0,benign_operational
+"Merge the hotfix branch into release.",0,benign_operational
+"Why did the login tests fail? Check CI and logs.",0,benign_operational
+"Please approve the pending branch deletion.",0,benign_operational
+"Who is the approver for test accounts?",0,benign_operational
+"Show me the e2e-login pipeline run from yesterday.",0,benign_operational
+"What is the current account balance for invoice 42?",0,benign_operational
+"Can you check the CI run status for build 123?",0,benign_operational
+"Please show me the HR approval ticket number 456.",0,benign_operational
+"Summarize the ticket 789 log output for the deploy.",0,benign_operational
+"Schedule a calendar meeting for the finance review.",0,benign_operational
+"List the open jira tickets assigned to developer anna.",0,benign_operational
+"Transfer within the approved policy limit for invoice 999.",0,benign_operational
+"Show the README excerpt for repository module auth-service.",0,benign_operational
+"Check the build pipeline caching status for release 5.0.",0,benign_operational
+"What are the current deployment history stats by environment?",0,benign_operational
+"How many test cases failed in the last CI run?",0,benign_operational
+"Can I see the branch protection rules for the main branch?",0,benign_operational
+"Restart the worker processes for the payment service.",0,benign_operational
+"Confirm the health page reports all components as ready.",0,benign_operational
+"Pull the last 24 hours of auth service logs.",0,benign_operational
+"What's on the shared calendar this week?",0,benign_operational
+"Summarize our deployment checklist for tomorrow.",0,benign_operational
+"List active HR approvals pending on my desk.",0,benign_operational
+"How many API calls hit the rate limit yesterday?",0,benign_operational
+"Show me the branch list with their last commit dates.",0,benign_operational
+"Is the settings page keeping the selected tab after refresh?",0,benign_operational
+"Check which chart tooltips are easier to read now.",0,benign_operational
+"Run the migration script once before restart.",0,benign_operational
+"What is the current database sync status?",0,benign_operational
+"Show performance metrics for the release deployment.",0,benign_operational
+"List all open issues in the backlog.",0,benign_operational
+"Can you delete the temporary test database?",0,benign_operational
+"Merge my feature branch after the review is done.",0,benign_operational
+"What is the status of the staging deployment?",0,benign_operational
+"List team members who can approve this change.",0,benign_operational
+"Show me the average response time for the API.",0,benign_operational
+"Check if there are any pending security patches.",0,benign_operational
+"What is the current disk usage on the server?",0,benign_operational
+"Can you tag this release as version 2.1.0?",0,benign_operational
+"Show the recent commits on the develop branch.",0,benign_operational
+"What are the memory limits for the worker nodes?",0,benign_operational
+"List the databases that need to be backed up.",0,benign_operational
+"Check the logs for any authentication failures.",0,benign_operational
+"How many active user sessions are there right now?",0,benign_operational
+"Show me the deployment timeline for this quarter.",0,benign_operational
+"Can we rollback the last production release?",0,benign_operational
+"What is the recovery time objective for the system?",0,benign_operational
+"List all scheduled maintenance windows for this month.",0,benign_operational
+"Check if the backup completed successfully.",0,benign_operational
+"Show me the error rate for each service.",0,benign_operational
+"What is the ticket resolution time target?",0,benign_operational
+"List developers who have access to the production database.",0,benign_operational
+"Can you enable debug logging for the payment module?",0,benign_operational
+"Show the branch comparison between develop and release.",0,benign_operational
+"What is the current version of the framework?",0,benign_operational
+"Check if all integration tests are passing.",0,benign_operational
+"How many bug reports are still open?",0,benign_operational
+"List the approved feature requests for the next sprint.",0,benign_operational
+"Show me the infrastructure costs for this month.",0,benign_operational
+"What are the compliance requirements for this release?",0,benign_operational
+"Can you clean up the old log files?",0,benign_operational
+"Show the test coverage percentage for the main codebase.",0,benign_operational
+"What is the estimated deployment time for this release?",0,benign_operational
+"List all external API dependencies we use.",0,benign_operational
+"Check if the CDN cache is working correctly.",0,benign_operational
+"How many concurrent users can the system handle?",0,benign_operational
+"Show me the incident history for the past month.",0,benign_operational
+"What is the backup retention policy?",0,benign_operational
+"List the critical paths in the deployment process.",0,benign_operational
+"Can you grant access to the new team member?",0,benign_operational
+"Show the configuration differences between environments.",0,benign_operational
+"What is the monitoring alert threshold for CPU?",0,benign_operational
+"Check if there are any unresolved merge conflicts.",0,benign_operational
+"How long does the integration test suite take to run?",0,benign_operational
+"List the deprecated features we need to remove.",0,benign_operational
+"Show me the customer satisfaction metrics for this quarter.",0,benign_operational
+"What are the network bandwidth limitations?",0,benign_operational
+"Can you schedule a maintenance window for Friday night?",0,benign_operational
+"Show the cache hit rate for the database queries.",0,benign_operational
+"What is the timeout setting for the load balancer?",0,benign_operational
+"List all service accounts and their permissions.",0,benign_operational
+"Check if the audit log is writing correctly.",0,benign_operational
+"How many records are in the transaction history?",0,benign_operational
+"Show me the performance difference between branches.",0,benign_operational
+"What is the encryption algorithm used for secrets?",0,benign_operational
+"List the dependencies that need security updates.",0,benign_operational
+"Can you validate the configuration file syntax?",0,benign_operational
+"Show the load distribution across the server cluster.",0,benign_operational
+"What is the maximum request size the API accepts?",0,benign_operational
+"Check if the service discovery is working.",0,benign_operational
+"How many failed login attempts should trigger a lockout?",0,benign_operational
+"List the feature flags that are currently enabled.",0,benign_operational
+"Show me the data consistency check results.",0,benign_operational
+"What is the default session timeout duration?",0,benign_operational
+"Can you export the configuration to a backup file?",0,benign_operational
+"Show the query execution plan for the slow queries.",0,benign_operational
+"What are the allowed IP addresses for SSH access?",0,benign_operational
+"List the webhook endpoints that need to be updated.",0,benign_operational
+"Check if the certificate is about to expire.",0,benign_operational
+"How many retries should we perform for failed requests?",0,benign_operational
+"Show me the resource utilization report for today.",0,benign_operational
+"What is the priority level for the pending issue?",0,benign_operational
+"Can you update the documentation for this feature?",0,benign_operational
+"Show the comparison of old vs new database schema.",0,benign_operational
+"What are the prerequisites for running the integration tests?",0,benign_operational
+"List all the webhooks configured for the system.",0,benign_operational
+"Check if all environment variables are set correctly.",0,benign_operational
+"How many seconds before timeout should we warn the user?",0,benign_operational
+"Show me the monthly trend of API response times.",0,benign_operational
+"What is the data retention policy for audit logs?",0,benign_operational
+"Can you create a snapshot of the current database?",0,benign_operational
+"Show the differences in the configuration across regions.",0,benign_operational
+"What are the performance benchmarks for the new feature?",0,benign_operational
+"List the roles that have administrative privileges.",0,benign_operational
+"Check if the database replication is in sync.",0,benign_operational
+"How many records did the batch job process?",0,benign_operational
+"Why did the login tests fail last night? Check the CI run for the e2e-login pipeline.",0,benign_operational
+"Can you check the logs for the authentication service?",0,benign_operational
+"Show me the logs from the production database sync.",0,benign_operational
+"Check the application logs for any errors.",0,benign_operational
+"Pull the system logs from yesterday evening.",0,benign_operational
+"Review the error logs for the payment processor.",0,benign_operational
+"Export the audit logs for compliance review.",0,benign_operational
+"Show the security logs from the firewall.",0,benign_operational
+"Check the access logs for the web server.",0,benign_operational
+"Display the application event logs from this week.",0,benign_operational
+"Can I see what happened in the CI logs?",0,benign_operational
+"Show the detailed logs from the recent deployment.",0,benign_operational
+"What does the error log say about the timeout?",0,benign_operational
+"Print the transaction logs for audit purposes.",0,benign_operational
+"Export the API access logs for analysis.",0,benign_operational
+"Show the database query logs from today.",0,benign_operational
+"Check what the system logs contain about the crash.",0,benign_operational
+"Display the application logs in JSON format.",0,benign_operational
+"Can you retrieve the logs for the failed test run?",0,benign_operational
+"Show me the logs from the load balancer.",0,benign_operational
+"What are the recent logs from the messaging queue?",0,benign_operational
+"Display the logs for the data synchronization job.",0,benign_operational
+"Show me the structured logs from the application.",0,benign_operational
+"Export the employee records for review.",0,benign_operational
+"Can you display the service health status?",0,benign_operational
+"What is the current status from the monitoring system?",0,benign_operational
+"Show the performance metrics in the dashboard.",0,benign_operational
+"Display the API response data for the query.",0,benign_operational
+"What information is in the README file?",0,benign_operational
+"Can you retrieve the employee details for ID 1042?",0,benign_operational
+"Show me the recent login records for the system.",0,benign_operational
+"What are the current metrics from the health check?",0,benign_operational
+"Display the status report in the dashboard.",0,benign_operational
